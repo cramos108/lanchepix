@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CircleHelp,
-  Cookie,
   CreditCard,
+  Handshake,
   QrCode,
   Settings,
   Store,
@@ -25,7 +25,7 @@ import { subscribeToast, type Toast } from "@/lib/toast";
 const NAV = [
   { href: "/", label: "Vender", icon: Store },
   { href: "/produtos", label: "Cardápio", icon: UtensilsCrossed },
-  { href: "/pendentes", label: "Fiado", icon: Cookie },
+  { href: "/pendentes", label: "Confiança", icon: Handshake },
   { href: "/fidelidade", label: "Cartão", icon: CreditCard },
   { href: "/pix", label: "Pix", icon: QrCode },
 ] as const;
@@ -33,7 +33,7 @@ const NAV = [
 const TITLES: Record<string, string> = {
   "/": "Vender agora",
   "/produtos": "Produtos",
-  "/pendentes": "Vendas no fiado",
+  "/pendentes": "Pix Confiança",
   "/fidelidade": "Cartão fidelidade",
   "/pix": "QR Code Pix",
   "/configuracoes": "Configurações",

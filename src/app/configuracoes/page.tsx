@@ -73,8 +73,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
         ) : (
           <>
             <p className="mt-1 text-sm font-bold text-muted">
-              Até 20 cartões fidelidade e 15 fiados por mês. Cardápio e QR Pix
-              continuam grátis.
+              Até 20 cartões fidelidade e 15 Pix Confiança por mês. Cardápio e QR
+              Pix continuam grátis.
             </p>
             <Button className="mt-3 w-full" onClick={openUpgradeModal}>
               <Sparkles className="h-5 w-5" />
@@ -186,7 +186,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         variant="alert"
         onClick={async () => {
           const ok = window.confirm(
-            "Apagar TODOS os dados deste celular? Produtos, fiado e cartões somem daqui.",
+            "Apagar TODOS os dados deste celular? Produtos, Pix Confiança e cartões somem daqui.",
           );
           if (!ok) return;
           await db.products.clear();

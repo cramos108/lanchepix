@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { ProductSticker } from "@/components/ProductSticker";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
 import { centsToInput, formatBRL, parseBRLToCents } from "@/lib/money";
+import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { scheduleSync } from "@/lib/sync";
@@ -31,10 +34,35 @@ export default function ProdutosPage() {
         ),
     [],
   );
+  const settings = useLiveQuery(() => db.settings.get("app"), []);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [sticker, setSticker] = useState<Product | null>(null);
+
+  function stickerPayload(product: Product): string {
+    if (!settings?.pixKey) return "";
+    try {
+      return buildPixPayload({
+        pixKey: settings.pixKey,
+        merchantName: settings.merchantName || settings.storeName,
+        merchantCity: settings.merchantCity,
+        amountCents: product.priceCents,
+        description: product.name,
+      });
+    } catch {
+      return "";
+    }
+  }
+
+  function openSticker(product: Product) {
+    if (!settings?.pixKey) {
+      toast("Cadastre a chave Pix em Configurações.", "err");
+      return;
+    }
+    setSticker(product);
+  }
 
   function startCreate() {
     setEditing(null);
@@ -117,14 +145,22 @@ export default function ProdutosPage() {
             >
               Estoque: {p.stock} un.
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 variant="line"
-                className="flex-1 min-h-12"
+                className="min-h-12 flex-1"
                 onClick={() => startEdit(p)}
               >
                 <Pencil className="h-4 w-4" />
                 Editar
+              </Button>
+              <Button
+                variant="sun"
+                className="min-h-12 flex-1 px-3 text-sm leading-tight"
+                onClick={() => openSticker(p)}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir QR Code
               </Button>
               <Button
                 variant="alert"
@@ -191,6 +227,43 @@ export default function ProdutosPage() {
           </Field>
           <Button type="submit">Salvar</Button>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(sticker)}
+        title="Adesivo QR Code"
+        onClose={() => setSticker(null)}
+      >
+        {sticker ? (
+          <div className="flex flex-col gap-4">
+            {stickerPayload(sticker) ? (
+              <ProductSticker
+                name={sticker.name}
+                priceCents={sticker.priceCents}
+                payload={stickerPayload(sticker)}
+                storeName={settings?.storeName}
+              />
+            ) : (
+              <p className="text-alert">
+                Não foi possível gerar o QR.{" "}
+                <Link href="/configuracoes" className="underline">
+                  Revise a chave Pix
+                </Link>
+                .
+              </p>
+            )}
+            <Button
+              onClick={() => window.print()}
+              disabled={!stickerPayload(sticker)}
+            >
+              <Printer className="h-5 w-5" />
+              Imprimir / Salvar PDF
+            </Button>
+            <p className="text-center text-xs font-bold text-muted">
+              Na impressão, escolha Salvar como PDF se quiser o arquivo.
+            </p>
+          </div>
+        ) : null}
       </Modal>
 
       <Modal

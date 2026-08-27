@@ -21,7 +21,7 @@ export default function ProSucessoPage() {
         {ready ? `${APP_NAME} Pro ativo` : "Ativando Pro…"}
       </h2>
       <p className="text-base font-bold text-muted">
-        Cartões e fiado ilimitados neste aparelho. Obrigado por assinar.
+        Cartões e Pix Confiança ilimitados neste aparelho. Obrigado por assinar.
       </p>
       <Link href="/" className="w-full">
         <Button className="w-full">Voltar para vender</Button>

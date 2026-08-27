@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle, QrCode } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { LgpdConsent } from "@/components/LgpdConsent";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
@@ -106,7 +106,7 @@ export default function VenderPage() {
         setPaidSale(sale);
         toast("Venda paga. Estoque baixado.");
       } else {
-        toast("Fiado registrado. Estoque baixa quando marcar Pago.");
+        toast("Pix Confiança registrado. Estoque baixa quando marcar Pago.");
         if (withWhatsApp && digits && settings) {
           const url = waLink(
             digits,
@@ -154,7 +154,7 @@ export default function VenderPage() {
       <section className="grid grid-cols-2 gap-3">
         <div className="rounded-3xl border-2 border-sun bg-sun px-4 py-3 text-sunink">
           <p className="text-[11px] font-extrabold uppercase tracking-widest">
-            Hoje no Pix
+            Hoje no Pix Agora
           </p>
           <p className="text-2xl font-black tabular-nums">{formatBRL(todayPaid)}</p>
         </div>
@@ -163,7 +163,7 @@ export default function VenderPage() {
           className="rounded-3xl border-2 border-amber bg-surface px-4 py-3"
         >
           <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-            No fiado
+            Pix Confiança
           </p>
           <p className="text-2xl font-black tabular-nums">
             {pendingCount} {pendingCount === 1 ? "pedido" : "pedidos"}
@@ -243,13 +243,17 @@ export default function VenderPage() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button
                   variant="amber"
+                  className="px-2 text-sm leading-tight"
                   onClick={() => void openDraft(product, "pending")}
                 >
-                  Fiado
+                  Pix Confiança
                 </Button>
-                <Button onClick={() => void openDraft(product, "paid")} disabled={out}>
-                  <QrCode className="h-5 w-5" />
-                  Pix
+                <Button
+                  className="px-2 text-sm leading-tight"
+                  onClick={() => void openDraft(product, "paid")}
+                  disabled={out}
+                >
+                  Pix agora
                 </Button>
               </div>
             </article>
@@ -259,7 +263,7 @@ export default function VenderPage() {
 
       <Modal
         open={Boolean(draft)}
-        title={draft?.mode === "paid" ? "Confirmar Pix" : "Venda no fiado"}
+        title={draft?.mode === "paid" ? "PIX AGORA" : "PIX CONFIANÇA"}
         onClose={() => setDraft(null)}
       >
         {draft ? (
@@ -303,7 +307,7 @@ export default function VenderPage() {
             {draft.mode === "pending" ? (
               <div className="grid gap-2">
                 <Button variant="amber" onClick={() => void confirmDraft(false)}>
-                  Registrar fiado
+                  Registrar Pix Confiança
                 </Button>
                 <Button
                   variant="mint"

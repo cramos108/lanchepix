@@ -8,7 +8,7 @@ const WA = process.env.NEXT_PUBLIC_ADS_WHATSAPP ?? "";
 
 function waHref() {
   const text = encodeURIComponent(
-    "Oi! Vi o anúncio do Pix da Confiança. Quero anotar fiado e cobrar no Zap.",
+    "Oi! Vi o anúncio do Pix da Confiança. Quero anotar Pix Confiança e cobrar no Zap.",
   );
   if (!WA) return `https://wa.me/?text=${text}`;
   const digits = WA.replace(/\D/g, "");
@@ -43,7 +43,7 @@ export default function CampanhaPage() {
           Pra quem vende lanche no Brasil
         </p>
         <h1 className="mt-2 text-5xl font-black leading-[0.92] tracking-tight">
-          O fiado
+          O Pix Confiança
           <span className="block text-sun">não some mais.</span>
         </h1>
         <p className="mt-4 text-lg font-bold text-muted">
@@ -56,7 +56,7 @@ export default function CampanhaPage() {
             n="1"
             icon={<Zap className="h-5 w-5" />}
             title="Anota em 1 toque"
-            text="Fiado ou Pix. Sem caderninho, sem esquecer."
+            text="Pix Agora ou Pix Confiança. Sem caderninho, sem esquecer."
           />
           <Step
             n="2"

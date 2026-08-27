@@ -69,6 +69,20 @@ input[type="search"]::-webkit-search-cancel-button {
   main {
     padding: 0 !important;
   }
+  body:has(.label-sticker) * {
+    visibility: hidden;
+  }
+  body:has(.label-sticker) .label-sticker,
+  body:has(.label-sticker) .label-sticker * {
+    visibility: visible;
+  }
+  body:has(.label-sticker) .label-sticker {
+    position: absolute;
+    left: 50%;
+    top: 12mm;
+    transform: translateX(-50%);
+    width: 80mm;
+  }
 }
 
 @page {

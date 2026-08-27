@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useSyncExternalStore, type TouchEvent } from "react";
-import { CreditCard, KeyRound, MessageCircle, Zap } from "lucide-react";
+import { KeyRound, MessageCircle, Printer, Zap } from "lucide-react";
 import { Button } from "@/components/ui";
 
 const STORAGE_KEY = "has_seen_tutorial";
@@ -10,22 +10,22 @@ const SLIDES = [
   {
     icon: KeyRound,
     title: "1. Cadastre sua Chave Pix",
-    body: "Vá em Configurações e coloque sua chave Pix para receber os pagamentos direto na sua conta.",
+    body: "Coloque sua chave Pix nas configurações para receber os pagamentos direto na sua conta bancária.",
+  },
+  {
+    icon: Printer,
+    title: "2. Imprima Adesivos QR Code",
+    body: "Gere adesivos com QR Code para colar nos seus produtos. O cliente leva a comida e paga pelo Pix Confiança!",
   },
   {
     icon: Zap,
-    title: "⚡ 2. Venda no Pix ou no Fiado",
-    body: "Selecione o produto no menu e escolha se o cliente vai pagar no Pix na hora ou no Fiado.",
+    title: "⚡ 3. Baixa Rápida de Estoque",
+    body: "Toque no produto e selecione 'PIX AGORA' para receber na hora ou 'PIX CONFIANÇA' para dar baixa no estoque em 3 segundos.",
   },
   {
     icon: MessageCircle,
-    title: "3. Manda Fiado no WhatsApp",
-    body: "Envie lembretes gentis de cobrança pelo WhatsApp já com sua chave Pix e o valor exato.",
-  },
-  {
-    icon: CreditCard,
-    title: "4. Fidelidade Digital",
-    body: "Fidelize seus clientes com carimbos digitais direto pelo celular, sem gastar com papel.",
+    title: "4. Cobrança no WhatsApp",
+    body: "Se você tiver o contato do cliente, envie um lembrete gentil pelo WhatsApp com sua chave Pix em 1 toque.",
   },
 ] as const;
 

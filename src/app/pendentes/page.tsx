@@ -78,12 +78,12 @@ export default function PendentesPage() {
     <div className="flex flex-col gap-4">
       <p className="text-sm font-bold text-muted">
         Toque em <span className="text-sun">Pago</span> quando o Pix cair. Só aí o
-        estoque é descontado.
+        estoque é descontado. Esta lista é o Pix Confiança.
       </p>
 
       {sales && sales.length === 0 ? (
         <EmptyState
-          title="Nada no fiado"
+          title="Nada no Pix Confiança"
           text="Quando alguém levar e pagar depois, a venda aparece aqui."
         />
       ) : null}
