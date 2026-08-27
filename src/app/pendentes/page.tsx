@@ -74,11 +74,22 @@ export default function PendentesPage() {
     }
   }
 
+  const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="rounded-3xl border-2 border-amber bg-surface px-4 py-3">
+        <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
+          A receber · Pix Confiança
+        </p>
+        <p className="text-3xl font-black tabular-nums text-sun">{formatBRL(pendingCents)}</p>
+        <p className="text-sm font-bold text-muted">
+          {(sales ?? []).length} {(sales ?? []).length === 1 ? "pedido aberto" : "pedidos abertos"}
+        </p>
+      </div>
       <p className="text-sm font-bold text-muted">
-        Toque em <span className="text-sun">Pago</span> quando o Pix cair. Só aí o
-        estoque é descontado. Esta lista é o Pix Confiança.
+        Toque em <span className="text-sun">Pago</span> quando o Pix cair. O valor
+        entra no lucro de hoje, do mês e do ano.
       </p>
 
       {sales && sales.length === 0 ? (

@@ -73,8 +73,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
         ) : (
           <>
             <p className="mt-1 text-sm font-bold text-muted">
-              Até 20 cartões fidelidade e 15 Pix Confiança por mês. Cardápio e QR
-              Pix continuam grátis.
+              Até 25 cartões fidelidade e 50 Pix Confiança. Cardápio e QR Pix
+              continuam grátis.
             </p>
             <Button className="mt-3 w-full" onClick={openUpgradeModal}>
               <Sparkles className="h-5 w-5" />

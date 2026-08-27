@@ -22,6 +22,15 @@ export function isSameLocalDay(iso: string, ref = new Date()): boolean {
   );
 }
 
+export function isSameLocalMonth(iso: string, ref = new Date()): boolean {
+  const d = new Date(iso);
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
+}
+
+export function isSameLocalYear(iso: string, ref = new Date()): boolean {
+  return new Date(iso).getFullYear() === ref.getFullYear();
+}
+
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",

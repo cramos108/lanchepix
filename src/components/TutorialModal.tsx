@@ -10,22 +10,22 @@ const SLIDES = [
   {
     icon: KeyRound,
     title: "1. Cadastre sua Chave Pix",
-    body: "Coloque sua chave Pix nas configurações para receber os pagamentos direto na sua conta bancária.",
+    body: "Coloque sua chave Pix nas configurações para receber os pagamentos direto na sua conta.",
   },
   {
     icon: Printer,
     title: "2. Imprima Adesivos QR Code",
-    body: "Gere adesivos com QR Code para colar nos seus produtos. O cliente leva a comida e paga pelo Pix Confiança!",
+    body: "Gere adesivos com QR Code. O cliente leva a comida na hora e paga pelo Pix Confiança!",
   },
   {
     icon: Zap,
-    title: "⚡ 3. Baixa Rápida de Estoque",
-    body: "Toque no produto e selecione 'PIX AGORA' para receber na hora ou 'PIX CONFIANÇA' para dar baixa no estoque em 3 segundos.",
+    title: "⚡ 3. Venda Rápida e Controle Total",
+    body: "Use 'PIX AGORA' ou 'PIX CONFIANÇA'. O app controla seu estoque e soma seu lucro do dia, mês e ano automaticamente!",
   },
   {
     icon: MessageCircle,
-    title: "4. Cobrança no WhatsApp",
-    body: "Se você tiver o contato do cliente, envie um lembrete gentil pelo WhatsApp com sua chave Pix em 1 toque.",
+    title: "4. Dinheiro na Rua e no Zap",
+    body: "Acompanhe no painel exatamente quanto dinheiro você tem a receber e envie cobranças pelo WhatsApp em 1 toque.",
   },
 ] as const;
 

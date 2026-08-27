@@ -11,13 +11,20 @@ import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { formatBRL } from "@/lib/money";
-import { isSameLocalDay } from "@/lib/id";
+import { isSameLocalDay, isSameLocalMonth, isSameLocalYear } from "@/lib/id";
 import { maskPhoneInput, nationalDigits } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
-import { canAddFiadoThisMonth, openUpgradeModal } from "@/lib/plan";
+import {
+  FREE_CONFIANCA_LIMIT,
+  FREE_LOYALTY_LIMIT,
+  canAddFiadoThisMonth,
+  countConfiancaSales,
+  isPro,
+  openUpgradeModal,
+} from "@/lib/plan";
 import { CATEGORIES, type Product, type Sale } from "@/lib/types";
 
 type Draft = {
@@ -36,6 +43,7 @@ export default function VenderPage() {
     [],
   );
   const sales = useLiveQuery(() => db.sales.toArray(), []);
+  const customerCount = useLiveQuery(() => db.customers.count(), []) ?? 0;
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const [category, setCategory] = useState<string>("Todos");
   const [qtyById, setQtyById] = useState<Record<string, number>>({});
@@ -52,7 +60,24 @@ export default function VenderPage() {
         .reduce((sum, s) => sum + s.totalCents, 0),
     [sales],
   );
-  const pendingCount = (sales ?? []).filter((s) => s.status === "pending").length;
+  const monthPaid = useMemo(
+    () =>
+      (sales ?? [])
+        .filter((s) => s.status === "paid" && isSameLocalMonth(s.paidAt ?? s.createdAt))
+        .reduce((sum, s) => sum + s.totalCents, 0),
+    [sales],
+  );
+  const yearPaid = useMemo(
+    () =>
+      (sales ?? [])
+        .filter((s) => s.status === "paid" && isSameLocalYear(s.paidAt ?? s.createdAt))
+        .reduce((sum, s) => sum + s.totalCents, 0),
+    [sales],
+  );
+  const pendingSales = (sales ?? []).filter((s) => s.status === "pending");
+  const pendingCount = pendingSales.length;
+  const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
+  const confiancaUsed = countConfiancaSales(sales ?? []);
 
   const visible = (products ?? []).filter(
     (p) => category === "Todos" || p.category === category,
@@ -151,25 +176,50 @@ export default function VenderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-3xl border-2 border-sun bg-sun px-4 py-3 text-sunink">
-          <p className="text-[11px] font-extrabold uppercase tracking-widest">
-            Hoje no Pix Agora
+      <section className="grid grid-cols-3 gap-2">
+        <div className="rounded-3xl border-2 border-sun bg-sun px-3 py-3 text-sunink">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest">Hoje</p>
+          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
+            {formatBRL(todayPaid)}
           </p>
-          <p className="text-2xl font-black tabular-nums">{formatBRL(todayPaid)}</p>
         </div>
-        <Link
-          href="/pendentes"
-          className="rounded-3xl border-2 border-amber bg-surface px-4 py-3"
-        >
-          <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-            Pix Confiança
+        <div className="rounded-3xl border-2 border-sun/70 bg-surface px-3 py-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
+            Este mês
           </p>
-          <p className="text-2xl font-black tabular-nums">
-            {pendingCount} {pendingCount === 1 ? "pedido" : "pedidos"}
+          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
+            {formatBRL(monthPaid)}
           </p>
-        </Link>
+        </div>
+        <div className="rounded-3xl border-2 border-sun/70 bg-surface px-3 py-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
+            Este ano
+          </p>
+          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
+            {formatBRL(yearPaid)}
+          </p>
+        </div>
       </section>
+
+      <Link
+        href="/pendentes"
+        className="rounded-3xl border-2 border-amber bg-surface px-4 py-3"
+      >
+        <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
+          Pix Confiança · a receber
+        </p>
+        <p className="text-2xl font-black tabular-nums text-sun">{formatBRL(pendingCents)}</p>
+        <p className="text-sm font-bold text-muted">
+          {pendingCount} {pendingCount === 1 ? "pedido aberto" : "pedidos abertos"} na rua
+        </p>
+      </Link>
+
+      {!isPro(settings) ? (
+        <p className="text-xs font-extrabold uppercase tracking-wide text-amber">
+          Uso grátis: {confiancaUsed}/{FREE_CONFIANCA_LIMIT} Pix Confiança ·{" "}
+          {customerCount}/{FREE_LOYALTY_LIMIT} cartões
+        </p>
+      ) : null}
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
         {["Todos", ...CATEGORIES].map((c) => (
