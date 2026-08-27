@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1080px; height: 1350px; overflow: hidden; background: #070707; }
+    .stage { position: relative; width: 1080px; height: 1350px; }
+    .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+    .shade {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(7,7,7,.05) 0%, rgba(7,7,7,.2) 40%, rgba(7,7,7,.92) 78%);
+    }
+    .copy { position: absolute; left: 56px; right: 56px; bottom: 72px; color: #fff; }
+    h1 {
+      font-family: Anton, Impact, sans-serif;
+      font-size: 122px;
+      line-height: .86;
+      text-transform: uppercase;
+    }
+    h1 em { color: #ffe500; font-style: normal; }
+    p.sub {
+      margin-top: 26px;
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 800;
+      font-size: 34px;
+      line-height: 1.25;
+    }
+    .pills { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+    .pill {
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 900;
+      font-size: 24px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      background: #ffe500;
+      color: #111;
+      padding: 12px 18px;
+      border-radius: 999px;
+    }
+    .brand {
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 900;
+      font-size: 32px;
+      text-transform: uppercase;
+    }
+    .brand img { width: 72px; height: 72px; border-radius: 18px; border: 3px solid #ffe500; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <img class="bg" src="assets/toque.jpg" alt="" />
+    <div class="shade"></div>
+    <div class="copy">
+      <h1>1 TOQUE<br><em>PRA COBRAR</em></h1>
+      <p class="sub">WhatsApp já vem escrito.<br>Você só manda. O cliente paga.</p>
+      <div class="pills">
+        <span class="pill">Fiado</span>
+        <span class="pill">Pix</span>
+        <span class="pill">Zap</span>
+      </div>
+      <div class="brand">
+        <img src="assets/icon.png" alt="" />
+        <span>Pix da Confiança</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

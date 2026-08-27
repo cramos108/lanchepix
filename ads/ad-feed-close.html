@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1080px; height: 1350px; overflow: hidden; background: #070707; }
+    .stage { position: relative; width: 1080px; height: 1350px; }
+    .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 40%; }
+    .shade {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(7,7,7,.2) 0%, rgba(7,7,7,.45) 40%, rgba(7,7,7,.94) 100%);
+    }
+    .copy {
+      position: absolute; left: 56px; right: 56px; top: 50%;
+      transform: translateY(-42%);
+      color: #fff;
+      text-align: left;
+    }
+    .kicker {
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 900;
+      font-size: 28px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: #ffe500;
+      margin-bottom: 18px;
+    }
+    h1 {
+      font-family: Anton, Impact, sans-serif;
+      font-size: 118px;
+      line-height: .88;
+      text-transform: uppercase;
+    }
+    h1 em { color: #ffe500; font-style: normal; }
+    .cta {
+      margin-top: 40px;
+      display: inline-block;
+      background: #ffe500;
+      color: #111;
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 900;
+      font-size: 34px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 22px 34px;
+      border-radius: 18px;
+    }
+    .brand {
+      position: absolute; left: 56px; bottom: 64px;
+      display: flex; align-items: center; gap: 16px;
+      color: #fff;
+      font-family: Inter, Arial, sans-serif;
+      font-weight: 900;
+      font-size: 30px;
+      text-transform: uppercase;
+    }
+    .brand img { width: 68px; height: 68px; border-radius: 16px; border: 3px solid #ffe500; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <img class="bg" src="assets/street.jpg" alt="" />
+    <div class="shade"></div>
+    <div class="copy">
+      <div class="kicker">Pix da Confiança</div>
+      <h1>O FIADO<br><em>NÃO SOME</em><br>MAIS.</h1>
+      <div class="cta">Manda FIADO no Zap</div>
+    </div>
+    <div class="brand">
+      <img src="assets/icon.png" alt="" />
+      <span>grátis · sem baixar loja</span>
+    </div>
+  </div>
+</body>
+</html>

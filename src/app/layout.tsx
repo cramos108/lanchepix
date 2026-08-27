@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,17 +16,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "LanchePix",
-    template: "%s · LanchePix",
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
   },
-  description:
-    "PWA para lancheiros: cardápio, Pix, vendas no fiado e cartão fidelidade — funciona offline.",
-  applicationName: "LanchePix",
+  description: APP_TAGLINE,
+  applicationName: APP_NAME,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "LanchePix",
+    title: APP_NAME,
   },
   formatDetection: { telephone: false },
   icons: {

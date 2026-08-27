@@ -1,4 +1,4 @@
--- LanchePix — schema Supabase (PostgreSQL)
+-- Pix da Confiança — schema Supabase (PostgreSQL)
 -- Cole e execute no SQL Editor: https://supabase.com/dashboard/project/kvkjidfwkugjhxddpiam/sql
 -- Este app é offline-first: o celular grava no IndexedDB e sincroniza aqui quando houver internet.
 

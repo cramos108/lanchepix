@@ -1,4 +1,4 @@
-# LanchePix
+# Pix da Confiança
 
 PWA em **Next.js (App Router)** + **Tailwind CSS** para microempreendedores no Brasil que vendem lanches e recebem no **Pix**.
 

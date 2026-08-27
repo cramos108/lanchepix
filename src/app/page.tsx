@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle, QrCode } from "lucide-react";
+import { LgpdConsent } from "@/components/LgpdConsent";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
@@ -40,6 +41,7 @@ export default function VenderPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [lgpdOk, setLgpdOk] = useState(false);
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
 
   const todayPaid = useMemo(
@@ -73,11 +75,16 @@ export default function VenderPage() {
     setDraft({ product, quantity: qty(product.id), mode });
     setPhone("");
     setCustomerName("");
+    setLgpdOk(false);
   }
 
   async function confirmDraft(withWhatsApp: boolean) {
     if (!draft) return;
     const digits = nationalDigits(phone);
+    if (digits && !lgpdOk) {
+      toast("Marque o consentimento LGPD para salvar o telefone.", "err");
+      return;
+    }
     let customer;
     if (digits) {
       customer = await upsertCustomer({ phone: digits, name: customerName });
@@ -278,6 +285,7 @@ export default function VenderPage() {
                 onChange={(e) => setCustomerName(e.target.value)}
               />
             </label>
+            <LgpdConsent checked={lgpdOk} onChange={setLgpdOk} />
             {draft.mode === "pending" ? (
               <div className="grid gap-2">
                 <Button variant="amber" onClick={() => void confirmDraft(false)}>
@@ -285,7 +293,7 @@ export default function VenderPage() {
                 </Button>
                 <Button
                   variant="mint"
-                  disabled={!nationalDigits(phone)}
+                  disabled={!nationalDigits(phone) || !lgpdOk}
                   onClick={() => void confirmDraft(true)}
                 >
                   <MessageCircle className="h-5 w-5" />

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle, Plus, Search, Trophy } from "lucide-react";
+import { LgpdConsent } from "@/components/LgpdConsent";
 import { StampCard } from "@/components/StampCard";
 import { Button, EmptyState, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -25,6 +26,7 @@ export default function FidelidadePage() {
   );
   const [query, setQuery] = useState("");
   const [name, setName] = useState("");
+  const [lgpdOk, setLgpdOk] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const required = settings?.stampsRequired ?? 10;
@@ -47,6 +49,10 @@ export default function FidelidadePage() {
   async function openOrCreate() {
     if (digits.length < 10) {
       toast("Digite um celular com DDD.", "err");
+      return;
+    }
+    if (!lgpdOk) {
+      toast("Marque o consentimento LGPD para usar o telefone.", "err");
       return;
     }
     const customer = await upsertCustomer({ phone: digits, name });
@@ -130,7 +136,8 @@ export default function FidelidadePage() {
           onChange={(e) => setName(e.target.value)}
         />
       </Field>
-      <Button onClick={() => void openOrCreate()}>
+      <LgpdConsent checked={lgpdOk} onChange={setLgpdOk} />
+      <Button disabled={!lgpdOk} onClick={() => void openOrCreate()}>
         <Plus className="h-5 w-5" />
         Abrir cartão
       </Button>

@@ -13,6 +13,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
 import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
@@ -32,6 +33,7 @@ const TITLES: Record<string, string> = {
   "/fidelidade": "Cartão fidelidade",
   "/pix": "QR Code Pix",
   "/configuracoes": "Configurações",
+  "/termos": "Termos de uso",
 };
 
 type InstallEvent = Event & {
@@ -102,16 +104,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sync = getSyncState();
   void syncTick;
 
+  if (pathname === "/campanha") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col bg-ink">
       <header className="print-hidden sticky top-0 z-30 border-b-2 border-line bg-ink/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sun">
-              LanchePix
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-sun">
+              {APP_NAME}
             </p>
             <h1 className="truncate text-2xl font-black leading-tight">
-              {TITLES[pathname] ?? settings?.storeName ?? "LanchePix"}
+              {TITLES[pathname] ?? settings?.storeName ?? APP_NAME}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -166,7 +172,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
+      <main className="flex-1 px-4 pb-28 pt-4">
+        {children}
+        <p className="print-hidden mt-8 pb-2 text-center text-xs font-bold text-muted">
+          <Link href="/termos" className="underline decoration-sun/60 underline-offset-2">
+            Termos de uso
+          </Link>
+          {" · "}
+          {APP_NAME} não é um serviço financeiro.
+        </p>
+      </main>
 
       <nav className="print-hidden fixed bottom-0 left-1/2 z-30 w-full max-w-lg -translate-x-1/2 border-t-2 border-line bg-ink/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
         <ul className="grid grid-cols-5 px-1">
