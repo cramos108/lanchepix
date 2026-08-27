@@ -3,14 +3,14 @@ import Dexie, { type Table } from "dexie";
 import type { Customer, Product, Sale, Settings } from "./types";
 import { newId, nowIso } from "./id";
 
-export class LanchePixDB extends Dexie {
+export class AppDB extends Dexie {
   products!: Table<Product, string>;
   sales!: Table<Sale, string>;
   customers!: Table<Customer, string>;
   settings!: Table<Settings, string>;
 
   constructor() {
-    super("lanchepix");
+    super("lanchepix"); // IndexedDB key — do not rename (wipes local data)
     this.version(1).stores({
       products: "id, category, updatedAt, dirty, deleted, active",
       sales: "id, status, createdAt, customerPhone, dirty, productId",
@@ -20,7 +20,7 @@ export class LanchePixDB extends Dexie {
   }
 }
 
-export const db = new LanchePixDB();
+export const db = new AppDB();
 
 export async function ensureSettings(): Promise<Settings> {
   const existing = await db.settings.get("app");

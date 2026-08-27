@@ -41,8 +41,8 @@ NEXT_PUBLIC_ADS_WHATSAPP=11999999999
 | `feed-tap.png` | Feed 4:5 | Mecânica. 1 toque pra cobrar. |
 | `feed-close.png` | Feed 4:5 | Promessa + CTA de comentário/Zap |
 | `reels-hook.png` | Stories / Reels 9:16 | Cliente andando embora. Pix ficou com você. |
-| `feed-cut.mp4` | Feed vídeo 4:5, 12s | Corte seco: dor → toque → CTA. Sem áudio (roda mudo). |
-| `reels-hook.mp4` | Reels 9:16, 6s | Mesma arte vertical, hold. Pode subir como vídeo. |
+
+Use só as imagens PNG (marca **Pix da Confiança**). Não suba vídeo antigo.
 
 Suba **pain + tap + reels** juntos. Meta escolhe. Você corta o perdedor no dia 3.
 

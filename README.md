@@ -21,7 +21,7 @@ O app é **offline-first**: tudo é gravado no celular com **Dexie.js (IndexedDB
 ## Subir na máquina
 
 ```bash
-cd lanchepix
+cd pix-da-confianca   # pasta do repositório
 npm install
 ```
 
@@ -84,7 +84,7 @@ npm run build
 npm start
 ```
 
-PWA (HTTPS): na Vercel, aponte o projeto para a pasta `lanchepix`. O service worker só registra em produção.
+PWA (HTTPS): na Vercel, aponte o projeto para a pasta do repositório. O service worker só registra em produção.
 
 ## Estrutura
 
