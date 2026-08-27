@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { AppShell } from "@/components/AppShell";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full bg-ink text-white">
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
