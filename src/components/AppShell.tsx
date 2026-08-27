@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  CircleHelp,
   Cookie,
   CreditCard,
   QrCode,
@@ -13,6 +14,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
@@ -52,6 +54,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [syncTick, setSyncTick] = useState(0);
+  const {
+    open: tutorialOpen,
+    openTutorial,
+    closeTutorial,
+    step: tutorialStep,
+    setStep: setTutorialStep,
+  } = useTutorial();
 
   const pendingCount =
     useLiveQuery(
@@ -151,6 +160,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Online
               </span>
             ) : null}
+            <button
+              type="button"
+              aria-label="Abrir tutorial"
+              onClick={openTutorial}
+              className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
+            >
+              <CircleHelp className="h-6 w-6" />
+            </button>
             <Link
               href="/configuracoes"
               aria-label="Configurações"
@@ -233,6 +250,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </ul>
       </nav>
 
+      <TutorialModal
+        open={tutorialOpen}
+        onClose={closeTutorial}
+        step={tutorialStep}
+        setStep={setTutorialStep}
+      />
       <UpgradeModal />
 
       <div className="print-hidden pointer-events-none fixed inset-x-0 bottom-24 z-40 mx-auto flex w-full max-w-lg flex-col items-center gap-2 px-4">
