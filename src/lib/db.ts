@@ -24,7 +24,12 @@ export const db = new LanchePixDB();
 
 export async function ensureSettings(): Promise<Settings> {
   const existing = await db.settings.get("app");
-  if (existing) return existing;
+  if (existing) {
+    if (existing.plan) return existing;
+    const patched = { ...existing, plan: "free" as const };
+    await db.settings.put(patched);
+    return patched;
+  }
   const created: Settings = {
     id: "app",
     vendorId: newId(),
@@ -35,6 +40,7 @@ export async function ensureSettings(): Promise<Settings> {
     whatsapp: "",
     rewardLabel: "1 lanche grátis",
     stampsRequired: 10,
+    plan: "free",
     updatedAt: nowIso(),
     dirty: true,
   };

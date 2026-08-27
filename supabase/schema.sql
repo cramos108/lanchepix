@@ -60,8 +60,11 @@ create table if not exists public.settings (
   whatsapp text not null default '',
   reward_label text not null default '1 lanche grátis',
   stamps_required integer not null default 10,
+  plan text not null default 'free' check (plan in ('free', 'pro')),
   updated_at timestamptz not null default now()
 );
+
+alter table public.settings add column if not exists plan text not null default 'free';
 
 -- ---------------------------------------------------------------------------
 -- Índices

@@ -8,6 +8,12 @@ import { StampCard } from "@/components/StampCard";
 import { Button, EmptyState, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatBrPhone, maskPhoneInput, nationalDigits } from "@/lib/phone";
+import {
+  FREE_LOYALTY_LIMIT,
+  canAddLoyaltyCard,
+  isPro,
+  openUpgradeModal,
+} from "@/lib/plan";
 import { addStamp, redeemReward, upsertCustomer } from "@/lib/repo";
 import { toast } from "@/lib/toast";
 import { loyaltyRewardMessage, loyaltyStampMessage, waLink } from "@/lib/whatsapp";
@@ -55,9 +61,26 @@ export default function FidelidadePage() {
       toast("Marque o consentimento LGPD para usar o telefone.", "err");
       return;
     }
-    const customer = await upsertCustomer({ phone: digits, name });
-    setSelectedId(customer.id);
-    toast(customer.totalStamps === 0 && customer.stamps === 0 ? "Cliente cadastrado" : "Cliente encontrado");
+    if (!(await canAddLoyaltyCard(digits))) {
+      openUpgradeModal();
+      return;
+    }
+    try {
+      const customer = await upsertCustomer({ phone: digits, name });
+      setSelectedId(customer.id);
+      toast(
+        customer.totalStamps === 0 && customer.stamps === 0
+          ? "Cliente cadastrado"
+          : "Cliente encontrado",
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("PLAN_LIMIT_")) {
+        openUpgradeModal();
+        return;
+      }
+      toast("Não deu para abrir o cartão.", "err");
+    }
   }
 
   async function stamp(notify: boolean) {
@@ -112,6 +135,11 @@ export default function FidelidadePage() {
         Busque pelo celular. A cada {required} carimbos, o cliente ganha{" "}
         <span className="text-sun">{settings?.rewardLabel ?? "1 lanche grátis"}</span>.
       </p>
+      {!isPro(settings) ? (
+        <p className="text-xs font-extrabold uppercase tracking-widest text-amber">
+          Plano gratuito · {customers?.length ?? 0}/{FREE_LOYALTY_LIMIT} cartões
+        </p>
+      ) : null}
 
       <Field label="Buscar ou cadastrar">
         <div className="relative">

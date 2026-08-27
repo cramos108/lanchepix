@@ -1,4 +1,4 @@
-const CACHE = "pix-da-confianca-v1";
+const CACHE = "pix-da-confianca-v2";
 const PRECACHE = [
   "/",
   "/produtos",
@@ -7,6 +7,7 @@ const PRECACHE = [
   "/fidelidade",
   "/configuracoes",
   "/termos",
+  "/pro/sucesso",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

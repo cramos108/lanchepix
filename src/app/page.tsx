@@ -17,6 +17,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
+import { canAddFiadoThisMonth, openUpgradeModal } from "@/lib/plan";
 import { CATEGORIES, type Product, type Sale } from "@/lib/types";
 
 type Draft = {
@@ -67,9 +68,13 @@ export default function VenderPage() {
     toast(`${n} lanches de exemplo no cardápio`);
   }
 
-  function openDraft(product: Product, mode: "pending" | "paid") {
+  async function openDraft(product: Product, mode: "pending" | "paid") {
     if (!settings?.pixKey && mode === "paid") {
       toast("Cadastre a chave Pix em Configurações.", "err");
+      return;
+    }
+    if (mode === "pending" && !(await canAddFiadoThisMonth())) {
+      openUpgradeModal();
       return;
     }
     setDraft({ product, quantity: qty(product.id), mode });
@@ -86,37 +91,46 @@ export default function VenderPage() {
       return;
     }
     let customer;
-    if (digits) {
-      customer = await upsertCustomer({ phone: digits, name: customerName });
-    }
-    const sale = await createSale({
-      product: draft.product,
-      quantity: draft.quantity,
-      status: draft.mode,
-      customerPhone: digits || undefined,
-      customerName: customer?.name || customerName || undefined,
-    });
-    if (draft.mode === "paid") {
-      setPaidSale(sale);
-      toast("Venda paga. Estoque baixado.");
-    } else {
-      toast("Fiado registrado. Estoque baixa quando marcar Pago.");
-      if (withWhatsApp && digits && settings) {
-        const url = waLink(
-          digits,
-          paymentReminderMessage({
-            storeName: settings.storeName,
-            customerName: customer?.name || customerName,
-            productName: draft.product.name,
-            quantity: draft.quantity,
-            totalCents: sale.totalCents,
-            pixKey: settings.pixKey,
-          }),
-        );
-        window.open(url, "_blank");
+    try {
+      if (digits) {
+        customer = await upsertCustomer({ phone: digits, name: customerName });
       }
+      const sale = await createSale({
+        product: draft.product,
+        quantity: draft.quantity,
+        status: draft.mode,
+        customerPhone: digits || undefined,
+        customerName: customer?.name || customerName || undefined,
+      });
+      if (draft.mode === "paid") {
+        setPaidSale(sale);
+        toast("Venda paga. Estoque baixado.");
+      } else {
+        toast("Fiado registrado. Estoque baixa quando marcar Pago.");
+        if (withWhatsApp && digits && settings) {
+          const url = waLink(
+            digits,
+            paymentReminderMessage({
+              storeName: settings.storeName,
+              customerName: customer?.name || customerName,
+              productName: draft.product.name,
+              quantity: draft.quantity,
+              totalCents: sale.totalCents,
+              pixKey: settings.pixKey,
+            }),
+          );
+          window.open(url, "_blank");
+        }
+      }
+      setDraft(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("PLAN_LIMIT_")) {
+        openUpgradeModal();
+        return;
+      }
+      toast("Não deu para registrar a venda.", "err");
     }
-    setDraft(null);
   }
 
   let pixPayload = "";
@@ -229,11 +243,11 @@ export default function VenderPage() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button
                   variant="amber"
-                  onClick={() => openDraft(product, "pending")}
+                  onClick={() => void openDraft(product, "pending")}
                 >
                   Fiado
                 </Button>
-                <Button onClick={() => openDraft(product, "paid")} disabled={out}>
+                <Button onClick={() => void openDraft(product, "paid")} disabled={out}>
                   <QrCode className="h-5 w-5" />
                   Pix
                 </Button>

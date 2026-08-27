@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Cloud, Trash2 } from "lucide-react";
+import { Cloud, Sparkles, Trash2 } from "lucide-react";
 import { Button, Field, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
+import { PRO_PRICE_LABEL, isPro, openUpgradeModal } from "@/lib/plan";
 import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
 import { saveSettings } from "@/lib/repo";
@@ -58,6 +59,31 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <section className="rounded-3xl border-2 border-sun bg-surface p-4">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
+          Plano atual
+        </p>
+        <p className="mt-1 text-2xl font-black">
+          {isPro(settings) ? "Pro" : "Gratuito"}
+        </p>
+        {isPro(settings) ? (
+          <p className="mt-1 text-sm font-bold text-muted">
+            Clientes ilimitados e relatórios MEI liberados.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm font-bold text-muted">
+              Até 20 cartões fidelidade e 15 fiados por mês. Cardápio e QR Pix
+              continuam grátis.
+            </p>
+            <Button className="mt-3 w-full" onClick={openUpgradeModal}>
+              <Sparkles className="h-5 w-5" />
+              Atualizar para Pro — {PRO_PRICE_LABEL}
+            </Button>
+          </>
+        )}
+      </section>
+
       <Field label="Nome da lanchonete">
         <input
           className={inputClass}

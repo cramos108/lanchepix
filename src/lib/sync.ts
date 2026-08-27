@@ -88,6 +88,7 @@ type RemoteSettings = {
   whatsapp: string;
   reward_label: string;
   stamps_required: number;
+  plan: Settings["plan"] | null;
   updated_at: string;
 };
 
@@ -197,6 +198,7 @@ function toRemoteSettings(s: Settings): RemoteSettings {
     whatsapp: s.whatsapp,
     reward_label: s.rewardLabel,
     stamps_required: s.stampsRequired,
+    plan: s.plan ?? "free",
     updated_at: s.updatedAt,
   };
 }
@@ -329,6 +331,7 @@ export async function pushAndPull(): Promise<void> {
           whatsapp: remote.whatsapp,
           rewardLabel: remote.reward_label,
           stampsRequired: remote.stamps_required,
+          plan: remote.plan === "pro" ? "pro" : "free",
           updatedAt: remote.updated_at,
           dirty: false,
         };

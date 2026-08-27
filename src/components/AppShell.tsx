@@ -13,8 +13,10 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { UpgradeModal } from "@/components/UpgradeModal";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
+import { isPro, openUpgradeModal } from "@/lib/plan";
 import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
@@ -34,6 +36,7 @@ const TITLES: Record<string, string> = {
   "/pix": "QR Code Pix",
   "/configuracoes": "Configurações",
   "/termos": "Termos de uso",
+  "/pro/sucesso": "Pix da Confiança Pro",
 };
 
 type InstallEvent = Event & {
@@ -121,6 +124,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            {isPro(settings) ? (
+              <span className="rounded-full border-2 border-sun bg-sun px-2 py-1 text-[11px] font-black uppercase text-sunink">
+                Pro
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={openUpgradeModal}
+                className="rounded-full border-2 border-sun bg-sun px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-sunink"
+              >
+                Seja Pro
+              </button>
+            )}
             {!online ? (
               <span className="inline-flex items-center gap-1 rounded-full border-2 border-amber bg-amber px-2 py-1 text-[11px] font-black uppercase text-sunink">
                 <WifiOff className="h-3.5 w-3.5" />
@@ -130,11 +146,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="rounded-full border-2 border-sky px-2 py-1 text-[11px] font-black uppercase text-sky">
                 Sync
               </span>
-            ) : (
+            ) : isPro(settings) ? (
               <span className="rounded-full border-2 border-mint px-2 py-1 text-[11px] font-black uppercase text-mint">
                 Online
               </span>
-            )}
+            ) : null}
             <Link
               href="/configuracoes"
               aria-label="Configurações"
@@ -216,6 +232,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </ul>
       </nav>
+
+      <UpgradeModal />
 
       <div className="print-hidden pointer-events-none fixed inset-x-0 bottom-24 z-40 mx-auto flex w-full max-w-lg flex-col items-center gap-2 px-4">
         {toasts.map((t) => (

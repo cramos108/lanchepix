@@ -51,6 +51,12 @@ export async function createSale(input: {
   customerName?: string;
   notes?: string;
 }): Promise<Sale> {
+  if (input.status === "pending") {
+    const { canAddFiadoThisMonth } = await import("./plan");
+    if (!(await canAddFiadoThisMonth())) {
+      throw new Error("PLAN_LIMIT_FIADO");
+    }
+  }
   const now = nowIso();
   const qty = Math.max(1, Math.floor(input.quantity));
   const sale: Sale = {
@@ -167,6 +173,10 @@ export async function upsertCustomer(input: {
     scheduleSync();
     return next;
   }
+  const { canAddLoyaltyCard } = await import("./plan");
+  if (!(await canAddLoyaltyCard(phone))) {
+    throw new Error("PLAN_LIMIT_LOYALTY");
+  }
   const created: Customer = {
     id: newId(),
     phone,
@@ -181,6 +191,10 @@ export async function upsertCustomer(input: {
   await db.customers.put(created);
   scheduleSync();
   return created;
+}
+
+export async function activatePro(): Promise<Settings> {
+  return saveSettings({ plan: "pro" });
 }
 
 export async function addStamp(customerId: string): Promise<Customer | undefined> {

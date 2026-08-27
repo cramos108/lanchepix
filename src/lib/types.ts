@@ -52,6 +52,8 @@ export type Customer = {
   dirty?: boolean;
 };
 
+export type Plan = "free" | "pro";
+
 export type Settings = {
   id: "app";
   vendorId: string;
@@ -62,6 +64,7 @@ export type Settings = {
   whatsapp: string;
   rewardLabel: string;
   stampsRequired: number;
+  plan: Plan;
   updatedAt: string;
   dirty?: boolean;
 };
