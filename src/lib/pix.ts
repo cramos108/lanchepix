@@ -75,7 +75,7 @@ export function buildPixPayload(input: PixPayloadInput): string {
   const pixKey = normalizePixKey(input.pixKey);
   if (!pixKey) throw new Error("Informe a chave Pix nas configurações.");
 
-  const name = pixText(input.merchantName || "MEU LANCHE", 25) || "MEU LANCHE";
+  const name = pixText(input.merchantName || "MEU NEGOCIO", 25) || "MEU NEGOCIO";
   const city = pixText(input.merchantCity || "SAO PAULO", 15) || "SAO PAULO";
   const txid = (input.txid ?? "***").replace(/[^A-Za-z0-9*]/g, "").slice(0, 25) || "***";
 

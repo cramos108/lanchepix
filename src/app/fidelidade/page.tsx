@@ -133,7 +133,7 @@ export default function FidelidadePage() {
     <div className="flex flex-col gap-4">
       <p className="text-sm font-bold text-muted">
         Busque pelo celular. A cada {required} carimbos, o cliente ganha{" "}
-        <span className="text-sun">{settings?.rewardLabel ?? "1 lanche grátis"}</span>.
+        <span className="text-sun">{settings?.rewardLabel ?? "1 brinde grátis"}</span>.
       </p>
       {!isPro(settings) ? (
         <p className="text-xs font-extrabold uppercase tracking-widest text-amber">

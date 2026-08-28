@@ -36,7 +36,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
   const [syncLabel, setSyncLabel] = useState("Sincronizar agora");
-  const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "all">(null);
+  const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "year" | "all">(
+    null,
+  );
 
   useEffect(() => subscribeSync(() => {
     const s = getSyncState();
@@ -47,12 +49,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
   async function save() {
     await saveSettings({
-      storeName: storeName.trim() || "Meu Lanche",
+      storeName: storeName.trim() || "Meu negócio",
       pixKey: pixKey.trim(),
       merchantName: merchantName.trim().slice(0, 25),
       merchantCity: merchantCity.trim().slice(0, 15),
       whatsapp: whatsapp.trim(),
-      rewardLabel: rewardLabel.trim() || "1 lanche grátis",
+      rewardLabel: rewardLabel.trim() || "1 brinde grátis",
     });
     toast("Configurações salvas");
   }
@@ -86,12 +88,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
         )}
       </section>
 
-      <Field label="Nome da lanchonete">
+      <Field label="Nome do negócio / banca">
         <input
           className={inputClass}
           value={storeName}
           onChange={(e) => setStoreName(e.target.value)}
-          placeholder="Barraca da Maria"
+          placeholder="Banca da Maria"
         />
       </Field>
       <Field
@@ -115,7 +117,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
           maxLength={25}
           value={merchantName}
           onChange={(e) => setMerchantName(e.target.value)}
-          placeholder="MARIA LANCHES"
+          placeholder="MARIA BANCA"
         />
       </Field>
       <Field label="Cidade no QR (máx. 15)">
@@ -127,7 +129,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="SAO PAULO"
         />
       </Field>
-      <Field label="WhatsApp da lanchonete" hint="Usado se quiser receber cópia das cobranças.">
+      <Field
+        label="WhatsApp de contato / negócio"
+        hint="Para cobranças e recados. Vale para lanches, capinhas, roupa, utilidades…"
+      >
         <input
           className={inputClass}
           inputMode="tel"
@@ -141,7 +146,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
           className={inputClass}
           value={rewardLabel}
           onChange={(e) => setRewardLabel(e.target.value)}
-          placeholder="1 lanche grátis"
+          placeholder="1 brinde grátis"
         />
       </Field>
 
@@ -197,7 +202,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
         Zerar saldo da semana
       </Button>
       <Button variant="line" onClick={() => setWipe("month")}>
-        Zerar vendas do mês / ano
+        Zerar saldo do mês
+      </Button>
+      <Button variant="line" onClick={() => setWipe("year")}>
+        Zerar saldo do ano
       </Button>
       <Button variant="alert" onClick={() => setWipe("all")}>
         Limpar dados de teste (zerar tudo)
@@ -227,12 +235,14 @@ function SettingsForm({ settings }: { settings: Settings }) {
       >
         <p className="mb-4 font-bold text-muted">
           {wipe === "day"
-            ? "O lucro de HOJE some do painel. As vendas pagas continuam no histórico."
+            ? "Tem certeza que deseja zerar apenas as vendas de HOJE? Semana, mês e ano serão mantidos."
             : wipe === "week"
-              ? "O lucro desta SEMANA some do painel. As vendas pagas continuam no histórico."
+              ? "Tem certeza que deseja zerar apenas as vendas da SEMANA? Hoje, mês e ano serão mantidos."
               : wipe === "month"
-                ? "O lucro do MÊS e do ANO some do painel. As vendas pagas continuam no histórico."
-                : "Apaga TODAS as vendas (pagas e Pix Confiança) e zera o painel. Produtos e cartões ficam."}
+                ? "Tem certeza que deseja zerar apenas as vendas do MÊS? As vendas do ano serão mantidas."
+                : wipe === "year"
+                  ? "Tem certeza que deseja zerar apenas as vendas do ANO? Hoje, semana e mês serão mantidos."
+                  : "Apaga TODAS as vendas (pagas e Pix Confiança) e zera o painel. Produtos e cartões ficam."}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="ghost" onClick={() => setWipe(null)}>
@@ -243,15 +253,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
             onClick={async () => {
               const now = nowIso();
               if (wipe === "day") await saveSettings({ resetDayAt: now });
-              if (wipe === "week") await saveSettings({ resetWeekAt: now, resetDayAt: now });
-              if (wipe === "month") {
-                await saveSettings({
-                  resetMonthAt: now,
-                  resetYearAt: now,
-                  resetWeekAt: now,
-                  resetDayAt: now,
-                });
-              }
+              if (wipe === "week") await saveSettings({ resetWeekAt: now });
+              if (wipe === "month") await saveSettings({ resetMonthAt: now });
+              if (wipe === "year") await saveSettings({ resetYearAt: now });
               if (wipe === "all") {
                 await db.sales.clear();
                 await saveSettings({

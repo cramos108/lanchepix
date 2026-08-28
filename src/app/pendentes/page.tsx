@@ -266,6 +266,10 @@ export default function PendentesPage() {
             <Button
               variant="alert"
               onClick={async () => {
+                const ok = window.confirm(
+                  "Excluir esta venda? O estoque volta e o valor sai de Hoje, Semana, Mês e Ano.",
+                );
+                if (!ok) return;
                 await cancelSale(detail.id);
                 setDetail(null);
                 toast("Venda excluída. Estoque devolvido.");

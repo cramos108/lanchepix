@@ -227,7 +227,7 @@ export default function VenderPage() {
     <div className="flex flex-col gap-4">
       <section className="grid grid-cols-2 gap-2">
         <MetricCard label="Hoje" value={todayPaid} highlight />
-        <MetricCard label="Esta semana" value={weekPaid} />
+        <MetricCard label="Esta Semana" value={weekPaid} />
         <MetricCard label="Este mês" value={monthPaid} />
         <MetricCard label="Este ano" value={yearPaid} />
       </section>
