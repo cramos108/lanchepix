@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadStripe, type Stripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
+import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { Button } from "@/components/ui";
 import {
   PLANS,
@@ -85,15 +85,10 @@ export function StripeEmbeddedCheckout({
         if (!stripe) throw new Error("Falha ao carregar Stripe.js");
         if (cancelled) return;
 
-        const checkoutApi = stripe as Stripe & {
-          initEmbeddedCheckout?: Stripe["createEmbeddedCheckoutPage"];
-        };
-        const initEmbeddedCheckout =
-          checkoutApi.initEmbeddedCheckout ?? checkoutApi.createEmbeddedCheckoutPage;
-        if (!initEmbeddedCheckout) {
-          throw new Error("stripe.initEmbeddedCheckout indisponível");
+        if (typeof stripe.createEmbeddedCheckoutPage !== "function") {
+          throw new Error("stripe.createEmbeddedCheckoutPage indisponível");
         }
-        const checkout = await initEmbeddedCheckout.call(checkoutApi, {
+        const checkout = await stripe.createEmbeddedCheckoutPage({
           clientSecret: data.clientSecret,
           onComplete: () => {
             void (async () => {
@@ -107,7 +102,7 @@ export function StripeEmbeddedCheckout({
               onDoneRef.current();
             })();
           },
-        } as Parameters<Stripe["createEmbeddedCheckoutPage"]>[0]);
+        });
         if (cancelled) {
           checkout.destroy();
           return;
