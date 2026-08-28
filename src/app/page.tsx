@@ -13,7 +13,14 @@ import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { formatBRL } from "@/lib/money";
-import { isSameLocalDay, isSameLocalMonth, isSameLocalYear } from "@/lib/id";
+import {
+  isAfterCut,
+  isSameLocalDay,
+  isSameLocalMonth,
+  isSameLocalWeek,
+  isSameLocalYear,
+  periodCut,
+} from "@/lib/id";
 import { maskPhoneInput, nationalDigits } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
@@ -28,6 +35,36 @@ import {
   openUpgradeModal,
 } from "@/lib/plan";
 import type { Product, Sale } from "@/lib/types";
+
+function paidInPeriod(
+  sales: Sale[] | undefined,
+  inPeriod: (iso: string) => boolean,
+  cut?: string,
+): number {
+  const active = periodCut(cut, inPeriod);
+  return (sales ?? [])
+    .filter((s) => {
+      if (s.status !== "paid") return false;
+      const when = s.paidAt ?? s.createdAt;
+      return inPeriod(when) && isAfterCut(when, active);
+    })
+    .reduce((sum, s) => sum + s.totalCents, 0);
+}
+
+function tipsInPeriod(
+  sales: Sale[] | undefined,
+  inPeriod: (iso: string) => boolean,
+  cut?: string,
+): number {
+  const active = periodCut(cut, inPeriod);
+  return (sales ?? [])
+    .filter((s) => {
+      if (s.status !== "paid" || (s.extraCents ?? 0) <= 0) return false;
+      const when = s.paidAt ?? s.createdAt;
+      return inPeriod(when) && isAfterCut(when, active);
+    })
+    .reduce((sum, s) => sum + (s.extraCents ?? 0), 0);
+}
 
 type Draft = {
   product: Product;
@@ -57,53 +94,32 @@ export default function VenderPage() {
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
 
   const todayPaid = useMemo(
-    () =>
-      (sales ?? [])
-        .filter((s) => s.status === "paid" && isSameLocalDay(s.paidAt ?? s.createdAt))
-        .reduce((sum, s) => sum + s.totalCents, 0),
-    [sales],
+    () => paidInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
+    [sales, settings?.resetDayAt],
+  );
+  const weekPaid = useMemo(
+    () => paidInPeriod(sales, isSameLocalWeek, settings?.resetWeekAt),
+    [sales, settings?.resetWeekAt],
   );
   const monthPaid = useMemo(
-    () =>
-      (sales ?? [])
-        .filter((s) => s.status === "paid" && isSameLocalMonth(s.paidAt ?? s.createdAt))
-        .reduce((sum, s) => sum + s.totalCents, 0),
-    [sales],
+    () => paidInPeriod(sales, isSameLocalMonth, settings?.resetMonthAt),
+    [sales, settings?.resetMonthAt],
   );
   const yearPaid = useMemo(
-    () =>
-      (sales ?? [])
-        .filter((s) => s.status === "paid" && isSameLocalYear(s.paidAt ?? s.createdAt))
-        .reduce((sum, s) => sum + s.totalCents, 0),
-    [sales],
+    () => paidInPeriod(sales, isSameLocalYear, settings?.resetYearAt),
+    [sales, settings?.resetYearAt],
   );
   const pendingSales = (sales ?? []).filter((s) => s.status === "pending");
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
   const confiancaUsed = countConfiancaSales(sales ?? []);
   const todayTips = useMemo(
-    () =>
-      (sales ?? [])
-        .filter(
-          (s) =>
-            s.status === "paid" &&
-            (s.extraCents ?? 0) > 0 &&
-            isSameLocalDay(s.paidAt ?? s.createdAt),
-        )
-        .reduce((sum, s) => sum + (s.extraCents ?? 0), 0),
-    [sales],
+    () => tipsInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
+    [sales, settings?.resetDayAt],
   );
   const monthTips = useMemo(
-    () =>
-      (sales ?? [])
-        .filter(
-          (s) =>
-            s.status === "paid" &&
-            (s.extraCents ?? 0) > 0 &&
-            isSameLocalMonth(s.paidAt ?? s.createdAt),
-        )
-        .reduce((sum, s) => sum + (s.extraCents ?? 0), 0),
-    [sales],
+    () => tipsInPeriod(sales, isSameLocalMonth, settings?.resetMonthAt),
+    [sales, settings?.resetMonthAt],
   );
 
   const categoryChips = [
@@ -209,29 +225,11 @@ export default function VenderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="grid grid-cols-3 gap-2">
-        <div className="rounded-3xl border-2 border-sun bg-sun px-3 py-3 text-sunink">
-          <p className="text-[10px] font-extrabold uppercase tracking-widest">Hoje</p>
-          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
-            {formatBRL(todayPaid)}
-          </p>
-        </div>
-        <div className="rounded-3xl border-2 border-sun/70 bg-surface px-3 py-3">
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
-            Este mês
-          </p>
-          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
-            {formatBRL(monthPaid)}
-          </p>
-        </div>
-        <div className="rounded-3xl border-2 border-sun/70 bg-surface px-3 py-3">
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
-            Este ano
-          </p>
-          <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
-            {formatBRL(yearPaid)}
-          </p>
-        </div>
+      <section className="grid grid-cols-2 gap-2">
+        <MetricCard label="Hoje" value={todayPaid} highlight />
+        <MetricCard label="Esta semana" value={weekPaid} />
+        <MetricCard label="Este mês" value={monthPaid} />
+        <MetricCard label="Este ano" value={yearPaid} />
       </section>
 
       <Link
@@ -492,6 +490,35 @@ export default function VenderPage() {
           </div>
         ) : null}
       </Modal>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-3xl border-2 px-3 py-3 ${
+        highlight ? "border-sun bg-sun text-sunink" : "border-sun/70 bg-surface"
+      }`}
+    >
+      <p
+        className={`text-[10px] font-extrabold uppercase tracking-widest ${
+          highlight ? "" : "text-sun"
+        }`}
+      >
+        {label}
+      </p>
+      <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
+        {formatBRL(value)}
+      </p>
     </div>
   );
 }

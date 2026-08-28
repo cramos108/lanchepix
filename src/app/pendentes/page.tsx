@@ -16,6 +16,7 @@ import {
   cancelSale,
   findCustomerByPhone,
   markSalePaid,
+  unpaySale,
   upsertCustomer,
 } from "@/lib/repo";
 import { toast } from "@/lib/toast";
@@ -23,21 +24,24 @@ import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whats
 import type { Sale } from "@/lib/types";
 
 export default function PendentesPage() {
-  const sales = useLiveQuery(
+  const allSales = useLiveQuery(
     () =>
       db.sales
-        .filter((s) => s.status === "pending")
         .toArray()
         .then((rows) =>
-          rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+          rows.sort((a, b) => (b.paidAt ?? b.createdAt).localeCompare(a.paidAt ?? a.createdAt)),
         ),
     [],
   );
+  const sales = (allSales ?? []).filter((s) => s.status === "pending");
+  const history = (allSales ?? []).filter((s) => s.status === "paid");
   const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const [tab, setTab] = useState<"open" | "history">("open");
   const [paying, setPaying] = useState<Sale | null>(null);
   const [settle, setSettle] = useState<Sale | null>(null);
   const [settleExtra, setSettleExtra] = useState(0);
   const [stampAsk, setStampAsk] = useState<Sale | null>(null);
+  const [detail, setDetail] = useState<Sale | null>(null);
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -99,18 +103,74 @@ export default function PendentesPage() {
       </div>
       <p className="text-sm font-bold text-muted">
         Toque em <span className="text-sun">Pago</span> quando o Pix cair. O valor
-        entra no lucro de hoje, do mês e do ano.
+        entra no lucro de hoje, da semana, do mês e do ano.
       </p>
 
-      {sales && sales.length === 0 ? (
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("open")}
+          className={`min-h-12 rounded-2xl border-2 text-sm font-extrabold uppercase ${
+            tab === "open" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
+          }`}
+        >
+          A receber
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("history")}
+          className={`min-h-12 rounded-2xl border-2 text-sm font-extrabold uppercase ${
+            tab === "history" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
+          }`}
+        >
+          Histórico
+        </button>
+      </div>
+
+      {tab === "history" ? (
+        history.length === 0 ? (
+          <EmptyState
+            title="Sem vendas pagas"
+            text="PIX AGORA e Pix Confiança pagos aparecem aqui. Dá para desfazer."
+          />
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {history.map((sale) => (
+              <li key={sale.id}>
+                <button
+                  type="button"
+                  onClick={() => setDetail(sale)}
+                  className="w-full rounded-3xl border-2 border-line bg-surface p-4 text-left"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-black leading-tight">
+                        {sale.productName} × {sale.quantity}
+                      </p>
+                      <p className="text-sm font-bold text-muted">
+                        {formatDateTime(sale.paidAt ?? sale.createdAt)}
+                      </p>
+                      <p className="text-xs font-extrabold uppercase text-mint">
+                        {sale.paidAt === sale.createdAt ? "PIX AGORA" : "PIX CONFIANÇA"}
+                      </p>
+                    </div>
+                    <p className="text-xl font-black text-sun">{formatBRL(sale.totalCents)}</p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : sales.length === 0 ? (
         <EmptyState
           title="Nada no Pix Confiança"
           text="Quando alguém levar e pagar depois, a venda aparece aqui."
         />
       ) : null}
 
+      {tab === "open" ? (
       <ul className="flex flex-col gap-3">
-        {sales?.map((sale) => (
+        {sales.map((sale) => (
           <li key={sale.id} className="rounded-3xl border-2 border-amber bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -169,6 +229,56 @@ export default function PendentesPage() {
           </li>
         ))}
       </ul>
+      ) : null}
+
+      <Modal
+        open={Boolean(detail)}
+        title="Venda paga"
+        onClose={() => setDetail(null)}
+      >
+        {detail ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-lg font-bold">
+              {detail.productName} × {detail.quantity}
+              <span className="mt-1 block text-2xl font-black text-sun">
+                {formatBRL(detail.totalCents)}
+              </span>
+            </p>
+            <p className="text-sm font-bold text-muted">
+              {formatDateTime(detail.paidAt ?? detail.createdAt)}
+            </p>
+            {(detail.extraCents ?? 0) !== 0 ? (
+              <p className="text-sm font-extrabold text-mint">
+                Gorjeta / extra: {formatBRL(detail.extraCents ?? 0)}
+              </p>
+            ) : null}
+            <Button
+              variant="amber"
+              onClick={async () => {
+                await unpaySale(detail.id);
+                setDetail(null);
+                setTab("open");
+                toast("Voltou para Pix Confiança. Saiu do lucro.");
+              }}
+            >
+              Desfazer pagamento
+            </Button>
+            <Button
+              variant="alert"
+              onClick={async () => {
+                await cancelSale(detail.id);
+                setDetail(null);
+                toast("Venda excluída. Estoque devolvido.");
+              }}
+            >
+              Excluir venda
+            </Button>
+            <Button variant="ghost" onClick={() => setDetail(null)}>
+              Fechar
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         open={Boolean(settle)}

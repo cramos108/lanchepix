@@ -64,6 +64,10 @@ export type Settings = {
   rewardLabel: string;
   stampsRequired: number;
   plan: Plan;
+  resetDayAt?: string;
+  resetWeekAt?: string;
+  resetMonthAt?: string;
+  resetYearAt?: string;
   updatedAt: string;
   dirty?: boolean;
 };

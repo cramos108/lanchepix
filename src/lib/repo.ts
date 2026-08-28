@@ -133,6 +133,37 @@ export async function markSalePaid(
   return next;
 }
 
+export async function unpaySale(id: string): Promise<Sale | undefined> {
+  const sale = await db.sales.get(id);
+  if (!sale || sale.status !== "paid") return sale;
+  const now = nowIso();
+  const next: Sale = {
+    ...sale,
+    status: "pending",
+    paidAt: undefined,
+    updatedAt: now,
+    dirty: true,
+  };
+  await db.transaction("rw", db.sales, db.products, async () => {
+    await db.sales.put(next);
+    const product = await db.products.get(sale.productId);
+    if (product) {
+      await db.products.put({
+        ...product,
+        stock: product.stock + sale.quantity,
+        updatedAt: now,
+        dirty: true,
+      });
+    }
+  });
+  scheduleSync();
+  return next;
+}
+
+export async function deleteSale(id: string): Promise<void> {
+  await cancelSale(id);
+}
+
 export async function cancelSale(id: string): Promise<void> {
   const sale = await db.sales.get(id);
   if (!sale || sale.status === "cancelled") return;

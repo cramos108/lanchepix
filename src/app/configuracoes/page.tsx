@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Cloud, Sparkles, Trash2 } from "lucide-react";
-import { Button, Field, inputClass } from "@/components/ui";
+import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
+import { nowIso } from "@/lib/id";
 import { PRO_PRICE_LABEL, isPro, openUpgradeModal } from "@/lib/plan";
 import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
@@ -35,6 +36,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
   const [syncLabel, setSyncLabel] = useState("Sincronizar agora");
+  const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "all">(null);
 
   useEffect(() => subscribeSync(() => {
     const s = getSyncState();
@@ -182,6 +184,25 @@ function SettingsForm({ settings }: { settings: Settings }) {
         internet. Instale o app na tela inicial para usar como PWA.
       </p>
 
+      <div className="h-px bg-line" />
+      <h2 className="text-lg font-black">Gerenciar dados e saldo</h2>
+      <p className="text-sm font-bold text-muted">
+        Zerar saldo esconde o lucro do período no painel. As vendas continuam no
+        histórico até você excluir.
+      </p>
+      <Button variant="line" onClick={() => setWipe("day")}>
+        Zerar saldo de hoje
+      </Button>
+      <Button variant="line" onClick={() => setWipe("week")}>
+        Zerar saldo da semana
+      </Button>
+      <Button variant="line" onClick={() => setWipe("month")}>
+        Zerar vendas do mês / ano
+      </Button>
+      <Button variant="alert" onClick={() => setWipe("all")}>
+        Limpar dados de teste (zerar tudo)
+      </Button>
+
       <Button
         variant="alert"
         onClick={async () => {
@@ -198,6 +219,56 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <Trash2 className="h-5 w-5" />
         Apagar dados locais
       </Button>
+
+      <Modal
+        open={Boolean(wipe)}
+        title="Confirmar"
+        onClose={() => setWipe(null)}
+      >
+        <p className="mb-4 font-bold text-muted">
+          {wipe === "day"
+            ? "O lucro de HOJE some do painel. As vendas pagas continuam no histórico."
+            : wipe === "week"
+              ? "O lucro desta SEMANA some do painel. As vendas pagas continuam no histórico."
+              : wipe === "month"
+                ? "O lucro do MÊS e do ANO some do painel. As vendas pagas continuam no histórico."
+                : "Apaga TODAS as vendas (pagas e Pix Confiança) e zera o painel. Produtos e cartões ficam."}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="ghost" onClick={() => setWipe(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="alert"
+            onClick={async () => {
+              const now = nowIso();
+              if (wipe === "day") await saveSettings({ resetDayAt: now });
+              if (wipe === "week") await saveSettings({ resetWeekAt: now, resetDayAt: now });
+              if (wipe === "month") {
+                await saveSettings({
+                  resetMonthAt: now,
+                  resetYearAt: now,
+                  resetWeekAt: now,
+                  resetDayAt: now,
+                });
+              }
+              if (wipe === "all") {
+                await db.sales.clear();
+                await saveSettings({
+                  resetDayAt: now,
+                  resetWeekAt: now,
+                  resetMonthAt: now,
+                  resetYearAt: now,
+                });
+              }
+              setWipe(null);
+              toast("Saldo atualizado", "info");
+            }}
+          >
+            Confirmar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
