@@ -73,7 +73,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         ) : (
           <>
             <p className="mt-1 text-sm font-bold text-muted">
-              Até 25 cartões fidelidade e 50 Pix Confiança. Cardápio e QR Pix
+              Até 25 cartões fidelidade e 50 Pix Confiança. Catálogo e QR Pix
               continuam grátis.
             </p>
             <Button className="mt-3 w-full" onClick={openUpgradeModal}>
@@ -168,7 +168,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         onClick={async () => {
           const n = await seedDemoProducts();
           scheduleSync();
-          toast(`${n} lanches de exemplo adicionados`);
+          toast(`${n} produtos de exemplo adicionados`);
         }}
       >
         Carregar cardápio de exemplo

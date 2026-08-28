@@ -25,7 +25,7 @@ import {
   isPro,
   openUpgradeModal,
 } from "@/lib/plan";
-import { CATEGORIES, type Product, type Sale } from "@/lib/types";
+import type { Product, Sale } from "@/lib/types";
 
 type Draft = {
   product: Product;
@@ -79,6 +79,10 @@ export default function VenderPage() {
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
   const confiancaUsed = countConfiancaSales(sales ?? []);
 
+  const categoryChips = [
+    "Todos",
+    ...[...new Set((products ?? []).map((p) => p.category))],
+  ];
   const visible = (products ?? []).filter(
     (p) => category === "Todos" || p.category === category,
   );
@@ -90,7 +94,7 @@ export default function VenderPage() {
   async function seed() {
     const n = await seedDemoProducts();
     scheduleSync();
-    toast(`${n} lanches de exemplo no cardápio`);
+    toast(`${n} produtos de exemplo no catálogo`);
   }
 
   async function openDraft(product: Product, mode: "pending" | "paid") {
@@ -222,7 +226,7 @@ export default function VenderPage() {
       ) : null}
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-        {["Todos", ...CATEGORIES].map((c) => (
+        {categoryChips.map((c) => (
           <button
             key={c}
             type="button"
@@ -240,11 +244,11 @@ export default function VenderPage() {
 
       {products && products.length === 0 ? (
         <EmptyState
-          title="Nenhum lanche cadastrado"
-          text="Comece pelo cardápio ou carregue um exemplo para testar."
+          title="Nenhum produto cadastrado"
+          text="Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
           action={
             <div className="flex flex-col gap-2">
-              <Button onClick={() => void seed()}>Carregar cardápio de exemplo</Button>
+              <Button onClick={() => void seed()}>Carregar catálogo de exemplo</Button>
               <Link href="/produtos" className="text-sm font-bold text-sun underline">
                 Cadastrar na mão
               </Link>

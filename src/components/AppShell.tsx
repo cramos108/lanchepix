@@ -9,8 +9,8 @@ import {
   Handshake,
   QrCode,
   Settings,
+  Package,
   Store,
-  UtensilsCrossed,
   WifiOff,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -24,7 +24,7 @@ import { subscribeToast, type Toast } from "@/lib/toast";
 
 const NAV = [
   { href: "/", label: "Vender", icon: Store },
-  { href: "/produtos", label: "Cardápio", icon: UtensilsCrossed },
+  { href: "/produtos", label: "Catálogo", icon: Package },
   { href: "/pendentes", label: "Confiança", icon: Handshake },
   { href: "/fidelidade", label: "Cartão", icon: CreditCard },
   { href: "/pix", label: "Pix", icon: QrCode },
@@ -32,7 +32,7 @@ const NAV = [
 
 const TITLES: Record<string, string> = {
   "/": "Vender agora",
-  "/produtos": "Produtos",
+  "/produtos": "Produtos / Catálogo",
   "/pendentes": "Pix Confiança",
   "/fidelidade": "Cartão fidelidade",
   "/pix": "QR Code Pix",

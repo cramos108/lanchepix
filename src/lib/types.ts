@@ -1,12 +1,6 @@
-export const CATEGORIES = [
-  "Salgados",
-  "Doces",
-  "Bebidas",
-  "Combos",
-  "Outros",
-] as const;
+export { CATEGORIES } from "./catalog";
 
-export type Category = (typeof CATEGORIES)[number];
+export type Category = string;
 
 export type SaleStatus = "pending" | "paid" | "cancelled";
 

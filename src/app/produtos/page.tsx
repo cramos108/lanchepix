@@ -1,26 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { ProductSticker } from "@/components/ProductSticker";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
+import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
 import { centsToInput, formatBRL, parseBRLToCents } from "@/lib/money";
 import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
-import { seedDemoProducts } from "@/lib/seed";
+import { seedNiche } from "@/lib/seed";
 import { scheduleSync } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import { CATEGORIES, type Category, type Product } from "@/lib/types";
+import type { Product } from "@/lib/types";
 
 const emptyForm = {
   name: "",
   price: "",
-  category: "Salgados" as Category | string,
-  stock: "0",
+  category: defaultNiche().categories[0],
+  stock: "10",
 };
 
 export default function ProdutosPage() {
@@ -37,9 +38,20 @@ export default function ProdutosPage() {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [nicheId, setNicheId] = useState(defaultNiche().id);
   const [form, setForm] = useState(emptyForm);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sticker, setSticker] = useState<Product | null>(null);
+  const [filter, setFilter] = useState("Todos");
+
+  const niche = NICHES.find((n) => n.id === nicheId) ?? defaultNiche();
+  const chips = useMemo(() => {
+    const cats = [...new Set((products ?? []).map((p) => p.category))];
+    return ["Todos", ...cats];
+  }, [products]);
+  const visible = (products ?? []).filter(
+    (p) => filter === "Todos" || p.category === filter,
+  );
 
   function stickerPayload(product: Product): string {
     if (!settings?.pixKey) return "";
@@ -64,14 +76,26 @@ export default function ProdutosPage() {
     setSticker(product);
   }
 
+  function selectNiche(id: string) {
+    const next = NICHES.find((n) => n.id === id) ?? defaultNiche();
+    setNicheId(next.id);
+    setForm((f) => ({
+      ...f,
+      category: next.categories.includes(f.category) ? f.category : next.categories[0],
+    }));
+  }
+
   function startCreate() {
     setEditing(null);
+    setNicheId(defaultNiche().id);
     setForm(emptyForm);
     setOpen(true);
   }
 
   function startEdit(p: Product) {
     setEditing(p);
+    const found = nicheOfCategory(p.category);
+    setNicheId(found?.id ?? "outros");
     setForm({
       name: p.name,
       price: centsToInput(p.priceCents),
@@ -81,12 +105,33 @@ export default function ProdutosPage() {
     setOpen(true);
   }
 
+  function applyTemplate(t: CatalogTemplate) {
+    setForm({
+      name: t.name,
+      price: centsToInput(t.priceCents),
+      category: t.category,
+      stock: String(t.stock),
+    });
+  }
+
+  async function addTemplateNow(t: CatalogTemplate) {
+    await saveProduct({
+      id: newId(),
+      name: t.name,
+      priceCents: t.priceCents,
+      category: t.category,
+      stock: t.stock,
+      active: true,
+    });
+    toast(`${t.name} no catálogo`);
+  }
+
   async function submit() {
     const name = form.name.trim();
     const priceCents = parseBRLToCents(form.price);
     const stock = Number.parseInt(form.stock, 10);
     if (!name) {
-      toast("Informe o nome do lanche.", "err");
+      toast("Informe o nome do produto.", "err");
       return;
     }
     if (priceCents <= 0) {
@@ -105,10 +150,10 @@ export default function ProdutosPage() {
     setOpen(false);
   }
 
-  async function seed() {
-    const n = await seedDemoProducts();
+  async function seedThisNiche() {
+    const n = await seedNiche(nicheId);
     scheduleSync();
-    toast(`${n} lanches de exemplo adicionados`);
+    toast(`${n} itens de exemplo em ${niche.label}`);
   }
 
   return (
@@ -116,20 +161,41 @@ export default function ProdutosPage() {
       <div className="flex gap-2">
         <Button className="flex-1" onClick={startCreate}>
           <Plus className="h-5 w-5" />
-          Novo lanche
+          Novo produto
         </Button>
       </div>
 
+      {products && products.length > 0 ? (
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+          {chips.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setFilter(c)}
+              className={`min-h-11 shrink-0 rounded-full border-2 px-4 text-sm font-extrabold ${
+                filter === c
+                  ? "border-sun bg-sun text-sunink"
+                  : "border-line bg-surface text-white"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {products && products.length === 0 ? (
         <EmptyState
-          title="Cardápio vazio"
-          text="Cadastre coxinha, pastel, refri… ou carregue um exemplo."
-          action={<Button onClick={() => void seed()}>Cardápio de exemplo</Button>}
+          title="Catálogo vazio"
+          text="Escolha o nicho e cadastre lanches, capinhas, meias, sabonetes…"
+          action={
+            <Button onClick={startCreate}>Começar pelo nicho</Button>
+          }
         />
       ) : null}
 
       <ul className="flex flex-col gap-3">
-        {products?.map((p) => (
+        {visible.map((p) => (
           <li key={p.id} className="rounded-3xl border-2 border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -177,7 +243,7 @@ export default function ProdutosPage() {
 
       <Modal
         open={open}
-        title={editing ? "Editar lanche" : "Novo lanche"}
+        title={editing ? "Editar produto" : "Novo produto"}
         onClose={() => setOpen(false)}
       >
         <form
@@ -187,10 +253,61 @@ export default function ProdutosPage() {
             void submit();
           }}
         >
+          <Field label="Selecionar categoria / nicho">
+            <div className="flex flex-col gap-2">
+              {NICHES.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => selectNiche(n.id)}
+                  className={`min-h-12 rounded-2xl border-2 px-3 text-left text-sm font-extrabold ${
+                    nicheId === n.id
+                      ? "border-sun bg-sun text-sunink"
+                      : "border-line bg-surface text-white"
+                  }`}
+                >
+                  {n.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {!editing ? (
+            <div>
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-widest text-sun">
+                Adicionar rápido
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {niche.templates.map((t) => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    onDoubleClick={() => void addTemplateNow(t)}
+                    className="rounded-2xl border-2 border-line bg-surface2 px-3 py-3 text-left"
+                  >
+                    <span className="block text-sm font-black leading-tight">{t.name}</span>
+                    <span className="text-xs font-bold text-sun">
+                      {formatBRL(t.priceCents)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="line"
+                className="mt-2 min-h-12 w-full text-sm"
+                onClick={() => void seedThisNiche()}
+              >
+                Incluir os {niche.templates.length} exemplos
+              </Button>
+            </div>
+          ) : null}
+
           <Field label="Nome">
             <input
               className={inputClass}
-              placeholder="Coxinha"
+              placeholder="Nome do produto"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
@@ -204,13 +321,17 @@ export default function ProdutosPage() {
               onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
             />
           </Field>
-          <Field label="Categoria">
+          <Field label="Subcategoria">
             <select
               className={inputClass}
-              value={form.category}
+              value={
+                niche.categories.includes(form.category)
+                  ? form.category
+                  : niche.categories[0]
+              }
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             >
-              {CATEGORIES.map((c) => (
+              {niche.categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -268,10 +389,10 @@ export default function ProdutosPage() {
 
       <Modal
         open={Boolean(confirmId)}
-        title="Excluir lanche?"
+        title="Excluir produto?"
         onClose={() => setConfirmId(null)}
       >
-        <p className="mb-4 text-muted">Ele some do cardápio, mas o histórico de vendas fica.</p>
+        <p className="mb-4 text-muted">Ele some do catálogo, mas o histórico de vendas fica.</p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="ghost" onClick={() => setConfirmId(null)}>
             Cancelar
@@ -281,7 +402,7 @@ export default function ProdutosPage() {
             onClick={async () => {
               if (confirmId) await removeProduct(confirmId);
               setConfirmId(null);
-              toast("Lanche removido");
+              toast("Produto removido");
             }}
           >
             Excluir
