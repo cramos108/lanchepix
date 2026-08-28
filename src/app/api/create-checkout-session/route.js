@@ -7,55 +7,49 @@ const PRICE_IDS = {
   negocio: "price_1U9XItBkxEAZdEGdmlGyzYsk",
 };
 
-function originFromRequest(request) {
-  const env = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  if (env) return env;
-  const proto = request.headers.get("x-forwarded-proto") || "http";
-  const host =
-    request.headers.get("x-forwarded-host") ||
-    request.headers.get("host") ||
-    "localhost:3000";
-  return `${proto}://${host}`;
-}
-
 function planKey(plan) {
   if (plan === "negocio" || plan === "equipe") return "negocio";
+  if (plan === "pro") return "pro";
   return "pro";
+}
+
+function returnUrl(request) {
+  const referer =
+    request.headers.get("referer") ||
+    request.headers.get("referrer") ||
+    request.headers.get("origin");
+  const base = (referer || "https://pixdaconfianca.com").replace(/\/$/, "");
+  return `${base}/?session_id={CHECKOUT_SESSION_ID}`;
 }
 
 export async function POST(request) {
   try {
     const secret = process.env.STRIPE_SECRET_KEY;
     if (!secret) {
-      return Response.json(
-        { error: "Stripe não configurado" },
-        { status: 500 },
-      );
+      const err = new Error("STRIPE_SECRET_KEY ausente");
+      console.error("Stripe Session Error:", err);
+      return Response.json({ error: err.message }, { status: 400 });
     }
 
     const body = await request.json().catch(() => ({}));
-    const plan = planKey(body.plan);
-    const priceId = PRICE_IDS[plan];
+    const plan = planKey(typeof body.plan === "string" ? body.plan : "pro");
+    const selectedPriceId = PRICE_IDS[plan];
 
     const stripe = new Stripe(secret);
-    const origin = originFromRequest(request);
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded",
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      locale: "pt-BR",
-      return_url: `${origin}/pro/sucesso?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
-      metadata: { plan },
+      line_items: [{ price: selectedPriceId, quantity: 1 }],
+      return_url: returnUrl(request),
     });
 
     return Response.json({
       clientSecret: session.client_secret,
       sessionId: session.id,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Falha ao criar sessão";
-    console.error("[create-checkout-session]", error);
-    return Response.json({ error: message }, { status: 500 });
+  } catch (err) {
+    console.error("Stripe Session Error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: message }, { status: 400 });
   }
 }
