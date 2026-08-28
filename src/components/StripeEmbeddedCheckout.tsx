@@ -90,6 +90,9 @@ export function StripeEmbeddedCheckout({
         };
         const initEmbeddedCheckout =
           checkoutApi.initEmbeddedCheckout ?? checkoutApi.createEmbeddedCheckoutPage;
+        if (!initEmbeddedCheckout) {
+          throw new Error("stripe.initEmbeddedCheckout indisponível");
+        }
         const checkout = await initEmbeddedCheckout.call(checkoutApi, {
           clientSecret: data.clientSecret,
           onComplete: () => {
