@@ -2,6 +2,11 @@ import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
+const PRICE_IDS = {
+  pro: "price_1U96hbBkxEAZdEGdotk2YTG4",
+  negocio: "price_1U9XItBkxEAZdEGdmlGyzYsk",
+};
+
 function originFromRequest(request) {
   const env = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (env) return env;
@@ -13,17 +18,9 @@ function originFromRequest(request) {
   return `${proto}://${host}`;
 }
 
-function catalogFor(plan) {
-  const isNegocio = plan === "negocio" || plan === "equipe";
-  return {
-    key: isNegocio ? "negocio" : "pro",
-    name: isNegocio ? "Pix da Confiança Negócio" : "Pix da Confiança Pro",
-    amount: isNegocio ? 2490 : 990,
-    priceId:
-      (isNegocio
-        ? process.env.STRIPE_PRICE_NEGOCIO || process.env.NEXT_PUBLIC_STRIPE_PRICE_NEGOCIO
-        : process.env.STRIPE_PRICE_PRO || process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO) || "",
-  };
+function planKey(plan) {
+  if (plan === "negocio" || plan === "equipe") return "negocio";
+  return "pro";
 }
 
 export async function POST(request) {
@@ -37,44 +34,18 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const requestedPriceId =
-      typeof body.priceId === "string" ? body.priceId.trim() : "";
-    const catalog = catalogFor(body.plan);
-    const allowed = [
-      process.env.STRIPE_PRICE_PRO,
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO,
-      process.env.STRIPE_PRICE_NEGOCIO,
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_NEGOCIO,
-    ].filter(Boolean);
-
-    let lineItems;
-    if (requestedPriceId && allowed.includes(requestedPriceId)) {
-      lineItems = [{ price: requestedPriceId, quantity: 1 }];
-    } else if (catalog.priceId) {
-      lineItems = [{ price: catalog.priceId, quantity: 1 }];
-    } else {
-      lineItems = [
-        {
-          price_data: {
-            currency: "brl",
-            product_data: { name: catalog.name },
-            unit_amount: catalog.amount,
-            recurring: { interval: "month" },
-          },
-          quantity: 1,
-        },
-      ];
-    }
+    const plan = planKey(body.plan);
+    const priceId = PRICE_IDS[plan];
 
     const stripe = new Stripe(secret);
     const origin = originFromRequest(request);
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded",
       mode: "subscription",
-      line_items: lineItems,
+      line_items: [{ price: priceId, quantity: 1 }],
       locale: "pt-BR",
-      return_url: `${origin}/pro/sucesso?session_id={CHECKOUT_SESSION_ID}&plan=${catalog.key}`,
-      metadata: { plan: catalog.key },
+      return_url: `${origin}/pro/sucesso?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
+      metadata: { plan },
     });
 
     return Response.json({
@@ -84,6 +55,7 @@ export async function POST(request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Falha ao criar sessão";
+    console.error("[create-checkout-session]", error);
     return Response.json({ error: message }, { status: 500 });
   }
 }

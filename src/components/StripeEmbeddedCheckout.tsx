@@ -5,8 +5,6 @@ import { loadStripe, type Stripe, type StripeEmbeddedCheckout } from "@stripe/st
 import { Button } from "@/components/ui";
 import {
   PLANS,
-  STRIPE_PRICE_NEGOCIO,
-  STRIPE_PRICE_PRO,
   STRIPE_PUBLISHABLE_KEY,
   type PaidPlan,
 } from "@/lib/plan";
@@ -26,7 +24,6 @@ export function StripeEmbeddedCheckout({
 }) {
   const plan = PLANS[planId];
   const publicPlan = planId === "equipe" ? "negocio" : "pro";
-  const priceId = planId === "equipe" ? STRIPE_PRICE_NEGOCIO : STRIPE_PRICE_PRO;
   const checkoutRef = useRef<StripeEmbeddedCheckout | null>(null);
   const onDoneRef = useRef(onDone);
   const [loading, setLoading] = useState(true);
@@ -60,29 +57,24 @@ export function StripeEmbeddedCheckout({
       setError("");
       destroyCheckout();
 
-      if (!STRIPE_PUBLISHABLE_KEY) {
-        if (!cancelled) {
-          setError(FAIL_MSG);
-          setLoading(false);
-        }
-        return;
-      }
-
       try {
         const response = await fetch("/api/create-checkout-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            priceId: priceId || undefined,
-            plan: publicPlan,
-          }),
+          body: JSON.stringify({ plan: publicPlan }),
         });
         const data = (await response.json().catch(() => ({}))) as {
           clientSecret?: string;
           error?: string;
         };
-        if (!response.ok || !data.clientSecret) {
+        if (!response.ok || data.error || !data.clientSecret) {
+          console.error("[create-checkout-session]", data.error || data, response.status);
           throw new Error(data.error || FAIL_MSG);
+        }
+
+        if (!STRIPE_PUBLISHABLE_KEY) {
+          console.error("[create-checkout-session] NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ausente");
+          throw new Error(FAIL_MSG);
         }
 
         const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
@@ -116,7 +108,8 @@ export function StripeEmbeddedCheckout({
         checkoutRef.current = checkout;
         checkout.mount("#checkout-container");
         setLoading(false);
-      } catch {
+      } catch (err) {
+        console.error("[create-checkout-session]", err);
         if (!cancelled) {
           destroyCheckout();
           setError(FAIL_MSG);
@@ -130,14 +123,14 @@ export function StripeEmbeddedCheckout({
       cancelled = true;
       destroyCheckout();
     };
-  }, [destroyCheckout, planId, priceId, publicPlan, retry]);
+  }, [destroyCheckout, planId, publicPlan, retry]);
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-center text-lg font-black leading-tight">
         {plan.name}
         <span className="mt-1 block text-sm font-bold text-muted">
-          {plan.priceLabel} · pague no checkout sem sair do app
+          {plan.priceLabel} · Pix ou cartão, sem sair do app
         </span>
       </p>
 
