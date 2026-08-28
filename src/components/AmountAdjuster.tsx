@@ -1,6 +1,6 @@
 "use client";
 
-import { Money } from "@/components/Money";
+import { Price } from "@/components/Money";
 import { centsToInput, parseBRLToCents } from "@/lib/money";
 import { inputClass } from "@/components/ui";
 
@@ -21,7 +21,7 @@ export function AmountAdjuster({
       <p className="text-sm font-bold text-muted">
         {suggested ? "Contribuição sugerida" : "Valor"}{" "}
         <span className="text-white">
-          <Money cents={baseCents} />
+          <Price cents={baseCents} />
         </span>
       </p>
       <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
@@ -53,7 +53,7 @@ export function AmountAdjuster({
       {extraCents !== 0 ? (
         <p className={`text-sm font-extrabold ${extraCents > 0 ? "text-mint" : "text-amber"}`}>
           Gorjeta / extra: {extraCents > 0 ? "+" : ""}
-          <Money cents={extraCents} />
+          <Price cents={extraCents} />
         </p>
       ) : null}
     </div>

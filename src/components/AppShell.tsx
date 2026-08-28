@@ -22,7 +22,7 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
-import { isPro, openUpgradeModal } from "@/lib/plan";
+import { openUpgradeModal, planBadge } from "@/lib/plan";
 import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
@@ -138,9 +138,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {isPro(settings) ? (
+            {planBadge(settings) ? (
               <span className="rounded-full border-2 border-sun bg-sun px-2 py-1 text-[11px] font-black uppercase text-sunink">
-                Pro
+                {planBadge(settings)}
               </span>
             ) : (
               <button
@@ -160,18 +160,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="rounded-full border-2 border-sky px-2 py-1 text-[11px] font-black uppercase text-sky">
                 Sync
               </span>
-            ) : isPro(settings) ? (
+            ) : planBadge(settings) ? (
               <span className="rounded-full border-2 border-mint px-2 py-1 text-[11px] font-black uppercase text-mint">
                 Online
               </span>
             ) : null}
             <button
               type="button"
-              aria-label={hideBalances ? "Mostrar valores" : "Ocultar valores"}
+              aria-label={hideBalances ? "Mostrar saldos" : "Ocultar saldos"}
+              title={hideBalances ? "Saldos ocultos — toque para mostrar" : "Saldos visíveis — toque para ocultar"}
               onClick={toggleHideBalances}
               className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
             >
-              {hideBalances ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
+              {hideBalances ? (
+                <EyeOff className="h-6 w-6" aria-hidden />
+              ) : (
+                <Eye className="h-6 w-6" aria-hidden />
+              )}
             </button>
             <button
               type="button"

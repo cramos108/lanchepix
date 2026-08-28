@@ -1,7 +1,14 @@
 import { NICHES, type CatalogTemplate } from "./catalog";
+import { normalizeBusinessType } from "./types";
 import type { Product } from "./types";
 import { db } from "./db";
 import { newId, nowIso } from "./id";
+
+export function nicheIdForBusinessType(businessType?: string | null): string {
+  const type = normalizeBusinessType(businessType);
+  if (type === "consultora") return "cosmeticos";
+  return type;
+}
 
 export async function seedTemplates(templates: CatalogTemplate[]): Promise<number> {
   const now = nowIso();
@@ -21,8 +28,8 @@ export async function seedTemplates(templates: CatalogTemplate[]): Promise<numbe
   return rows.length;
 }
 
-export async function seedDemoProducts(): Promise<number> {
-  return seedTemplates(NICHES[0].templates);
+export async function seedDemoProducts(businessType?: string | null): Promise<number> {
+  return seedNiche(nicheIdForBusinessType(businessType));
 }
 
 export async function seedNiche(nicheId: string): Promise<number> {

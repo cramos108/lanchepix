@@ -6,7 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
-import { Money } from "@/components/Money";
+import { Money, Price } from "@/components/Money";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
@@ -28,10 +28,8 @@ import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
 import {
-  FREE_CONFIANCA_LIMIT,
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
-  countConfiancaSales,
   isPro,
   openUpgradeModal,
 } from "@/lib/plan";
@@ -113,7 +111,6 @@ export default function VenderPage() {
   const pendingSales = (sales ?? []).filter((s) => s.status === "pending");
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
-  const confiancaUsed = countConfiancaSales(sales ?? []);
   const todayTips = useMemo(
     () => tipsInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
     [sales, settings?.resetDayAt],
@@ -136,7 +133,7 @@ export default function VenderPage() {
   }
 
   async function seed() {
-    const n = await seedDemoProducts();
+    const n = await seedDemoProducts(settings?.businessType);
     scheduleSync();
     toast(`${n} produtos de exemplo no catálogo`);
   }
@@ -229,8 +226,8 @@ export default function VenderPage() {
       <section className="grid grid-cols-2 gap-2">
         <MetricCard label="Hoje" value={todayPaid} highlight />
         <MetricCard label="Esta Semana" value={weekPaid} />
-        <MetricCard label="Este mês" value={monthPaid} />
-        <MetricCard label="Este ano" value={yearPaid} />
+        <MetricCard label="Este Mês" value={monthPaid} />
+        <MetricCard label="Este Ano" value={yearPaid} />
       </section>
 
       <Link
@@ -264,8 +261,8 @@ export default function VenderPage() {
 
       {!isPro(settings) ? (
         <p className="text-xs font-extrabold uppercase tracking-wide text-amber">
-          Uso grátis: {confiancaUsed}/{FREE_CONFIANCA_LIMIT} Pix Confiança ·{" "}
-          {customerCount}/{FREE_LOYALTY_LIMIT} cartões
+          Grátis: Pix Confiança ilimitado · {customerCount}/{FREE_LOYALTY_LIMIT}{" "}
+          cartões fidelidade
         </p>
       ) : null}
 
@@ -326,7 +323,7 @@ export default function VenderPage() {
                 </div>
                 <p className="text-right">
                   <span className="block text-2xl font-black tabular-nums text-sun">
-                    <Money cents={product.priceCents} />
+                    <Price cents={product.priceCents} />
                   </span>
                   {product.priceMode === "suggested" ? (
                     <span className="text-[10px] font-extrabold uppercase text-amber">
@@ -350,7 +347,7 @@ export default function VenderPage() {
                   onChange={(n) => setQtyById((m) => ({ ...m, [product.id]: n }))}
                 />
                 <p className="text-sm font-bold text-muted">
-                  Total <Money cents={product.priceCents * q} />
+                  Total <Price cents={product.priceCents * q} />
                 </p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -384,7 +381,7 @@ export default function VenderPage() {
             <p className="text-lg font-bold">
               {draft.product.name} × {draft.quantity}
               <span className="mt-1 block text-2xl font-black text-sun">
-                <Money
+                <Price
                   cents={Math.max(
                     0,
                     draft.product.priceCents * draft.quantity + extraCents,
@@ -461,7 +458,7 @@ export default function VenderPage() {
             <p className="text-center text-lg font-bold">
               {paidSale.productName} × {paidSale.quantity}
               <span className="block text-3xl font-black text-sun">
-                <Money cents={paidSale.totalCents} />
+                <Price cents={paidSale.totalCents} />
               </span>
             </p>
             {pixPayload ? (

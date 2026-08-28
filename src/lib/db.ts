@@ -41,7 +41,7 @@ export async function ensureSettings(): Promise<Settings> {
     rewardLabel: "1 brinde grátis",
     stampsRequired: 10,
     plan: "free",
-    businessType: "ambulante",
+    businessType: "alimentacao",
     updatedAt: nowIso(),
     dirty: true,
   };

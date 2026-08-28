@@ -1,6 +1,6 @@
 import { db, ensureSettings } from "./db";
 import { supabase, supabaseConfigured } from "./supabase";
-import type { Customer, Product, Sale, Settings } from "./types";
+import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let running = false;
@@ -212,7 +212,7 @@ function toRemoteSettings(s: Settings): RemoteSettings {
     reward_label: s.rewardLabel,
     stamps_required: s.stampsRequired,
     plan: s.plan ?? "free",
-    business_type: s.businessType ?? "ambulante",
+    business_type: normalizeBusinessType(s.businessType),
     updated_at: s.updatedAt,
   };
 }
@@ -345,13 +345,13 @@ export async function pushAndPull(): Promise<void> {
           whatsapp: remote.whatsapp,
           rewardLabel: remote.reward_label,
           stampsRequired: remote.stamps_required,
-          plan: remote.plan === "pro" ? "pro" : "free",
-          businessType:
-            remote.business_type === "consultora" ||
-            remote.business_type === "loja" ||
-            remote.business_type === "outros"
-              ? remote.business_type
-              : "ambulante",
+          plan:
+            remote.plan === "equipe"
+              ? "equipe"
+              : remote.plan === "pro"
+                ? "pro"
+                : "free",
+          businessType: normalizeBusinessType(remote.business_type),
           updatedAt: remote.updated_at,
           dirty: false,
         };
@@ -366,4 +366,12 @@ export async function pushAndPull(): Promise<void> {
     running = false;
     emit();
   }
+}
+
+export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
+  if (!supabaseConfigured || !vendorId) return;
+  await supabase.from("sales").delete().eq("vendor_id", vendorId);
+  await supabase.from("products").delete().eq("vendor_id", vendorId);
+  await supabase.from("customers").delete().eq("vendor_id", vendorId);
+  await supabase.from("settings").delete().eq("vendor_id", vendorId);
 }

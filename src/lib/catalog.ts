@@ -19,9 +19,9 @@ export const NICHES: Niche[] = [
     categories: ["Salgados", "Bolo no Pote", "Doces", "Bebidas"],
     templates: [
       { name: "Coxinha", priceCents: 800, category: "Salgados", stock: 20 },
-      { name: "Bolo no pote", priceCents: 1200, category: "Bolo no Pote", stock: 8 },
-      { name: "Brigadeiro", priceCents: 400, category: "Doces", stock: 24 },
-      { name: "Refrigerante lata", priceCents: 600, category: "Bebidas", stock: 20 },
+      { name: "Bolo no Pote", priceCents: 1200, category: "Bolo no Pote", stock: 8 },
+      { name: "Guaraná", priceCents: 600, category: "Bebidas", stock: 20 },
+      { name: "Pastel", priceCents: 1000, category: "Salgados", stock: 15 },
     ],
   },
   {
@@ -29,10 +29,10 @@ export const NICHES: Niche[] = [
     label: "Acessórios para Celular",
     categories: ["Capinhas", "Películas", "Cabos", "Fones"],
     templates: [
-      { name: "Capinha silicone", priceCents: 2500, category: "Capinhas", stock: 15 },
-      { name: "Película de vidro", priceCents: 1500, category: "Películas", stock: 20 },
+      { name: "Capinha Transparente", priceCents: 2500, category: "Capinhas", stock: 15 },
+      { name: "Película 3D", priceCents: 2000, category: "Películas", stock: 20 },
       { name: "Cabo USB-C", priceCents: 1800, category: "Cabos", stock: 12 },
-      { name: "Fone bluetooth", priceCents: 4500, category: "Fones", stock: 8 },
+      { name: "Fone de Ouvido", priceCents: 3500, category: "Fones", stock: 8 },
     ],
   },
   {
@@ -40,10 +40,10 @@ export const NICHES: Niche[] = [
     label: "Vestuário e Acessórios",
     categories: ["Meias", "Bonés", "Óculos de Sol", "Bijuterias"],
     templates: [
-      { name: "Meia soquete", priceCents: 800, category: "Meias", stock: 24 },
-      { name: "Boné liso", priceCents: 3500, category: "Bonés", stock: 10 },
-      { name: "Óculos de sol", priceCents: 2500, category: "Óculos de Sol", stock: 12 },
-      { name: "Brinco", priceCents: 1200, category: "Bijuterias", stock: 16 },
+      { name: "Kit Meias (3 pares)", priceCents: 1500, category: "Meias", stock: 18 },
+      { name: "Boné", priceCents: 3500, category: "Bonés", stock: 10 },
+      { name: "Óculos de Sol", priceCents: 2500, category: "Óculos de Sol", stock: 12 },
+      { name: "Bijuterias", priceCents: 1200, category: "Bijuterias", stock: 16 },
     ],
   },
   {
@@ -51,15 +51,14 @@ export const NICHES: Niche[] = [
     label: "Utilidades e Lar",
     categories: ["Panos de Prato", "Tapetes", "Utensílios"],
     templates: [
-      { name: "Pano de prato", priceCents: 1000, category: "Panos de Prato", stock: 20 },
-      { name: "Tapete pequeno", priceCents: 2500, category: "Tapetes", stock: 8 },
-      { name: "Escorredor", priceCents: 1800, category: "Utensílios", stock: 6 },
-      { name: "Pote plástico", priceCents: 1200, category: "Utensílios", stock: 15 },
+      { name: "Panos de Prato (Kit c/ 3)", priceCents: 1500, category: "Panos de Prato", stock: 16 },
+      { name: "Tapete de Entrada", priceCents: 3000, category: "Tapetes", stock: 8 },
+      { name: "Utensílio de Cozinha", priceCents: 1800, category: "Utensílios", stock: 10 },
     ],
   },
   {
     id: "cosmeticos",
-    label: "Cosméticos, Perfumaria e Beleza",
+    label: "Consultora / Revendedora",
     categories: [
       "Batons / Maquiagem",
       "Perfumes / Colônias",
@@ -70,10 +69,10 @@ export const NICHES: Niche[] = [
       "Maquiagem",
     ],
     templates: [
-      { name: "Batons / Maquiagem", priceCents: 2500, category: "Batons / Maquiagem", stock: 12 },
-      { name: "Perfumes / Colônias", priceCents: 4500, category: "Perfumes / Colônias", stock: 8 },
-      { name: "Kits de Sabonete / Hidratante", priceCents: 3500, category: "Kits de Sabonete / Hidratante", stock: 10 },
-      { name: "Potes / Utensílios Domésticos", priceCents: 2800, category: "Potes / Utensílios Domésticos", stock: 10 },
+      { name: "Batom Matte", priceCents: 2500, category: "Batons / Maquiagem", stock: 12 },
+      { name: "Colônia / Perfume", priceCents: 4500, category: "Perfumes / Colônias", stock: 8 },
+      { name: "Kit Sabonetes", priceCents: 3500, category: "Kits de Sabonete / Hidratante", stock: 10 },
+      { name: "Pote Multiuso", priceCents: 2800, category: "Potes / Utensílios Domésticos", stock: 10 },
     ],
   },
   {
@@ -81,9 +80,8 @@ export const NICHES: Niche[] = [
     label: "Outros / Geral",
     categories: ["Outros"],
     templates: [
-      { name: "Produto avulso", priceCents: 1000, category: "Outros", stock: 10 },
-      { name: "Kit promocional", priceCents: 2500, category: "Outros", stock: 8 },
-      { name: "Brinde", priceCents: 500, category: "Outros", stock: 20 },
+      { name: "Produto Exemplo A", priceCents: 1000, category: "Outros", stock: 10 },
+      { name: "Produto Exemplo B", priceCents: 2500, category: "Outros", stock: 8 },
     ],
   },
 ];

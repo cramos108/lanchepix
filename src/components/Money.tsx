@@ -13,6 +13,7 @@ export function useMoney() {
   return (cents: number) => (hide ? "R$ ••••" : formatBRL(cents));
 }
 
+/** Personal financial metric — respects the header eye toggle. */
 export function Money({
   cents,
   className,
@@ -23,5 +24,18 @@ export function Money({
   const money = useMoney();
   return (
     <span className={`tabular-nums ${className ?? ""}`.trim()}>{money(cents)}</span>
+  );
+}
+
+/** Catalog / tag / sticker / checkout unit prices — always visible. */
+export function Price({
+  cents,
+  className,
+}: {
+  cents: number;
+  className?: string;
+}) {
+  return (
+    <span className={`tabular-nums ${className ?? ""}`.trim()}>{formatBRL(cents)}</span>
   );
 }

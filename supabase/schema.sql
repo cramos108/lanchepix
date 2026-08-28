@@ -64,12 +64,14 @@ create table if not exists public.settings (
   whatsapp text not null default '',
   reward_label text not null default '1 lanche grátis',
   stamps_required integer not null default 10,
-  plan text not null default 'free' check (plan in ('free', 'pro')),
+  plan text not null default 'free' check (plan in ('free', 'pro', 'equipe')),
   updated_at timestamptz not null default now()
 );
 
 alter table public.settings add column if not exists plan text not null default 'free';
-alter table public.settings add column if not exists business_type text not null default 'ambulante';
+alter table public.settings add column if not exists business_type text not null default 'alimentacao';
+alter table public.settings drop constraint if exists settings_plan_check;
+alter table public.settings add constraint settings_plan_check check (plan in ('free', 'pro', 'equipe'));
 alter table public.products add column if not exists price_mode text not null default 'fixed';
 alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;

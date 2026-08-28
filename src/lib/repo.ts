@@ -241,8 +241,47 @@ export async function upsertCustomer(input: {
   return created;
 }
 
+export async function activatePlan(plan: "pro" | "equipe"): Promise<Settings> {
+  return saveSettings({ plan });
+}
+
 export async function activatePro(): Promise<Settings> {
-  return saveSettings({ plan: "pro" });
+  return activatePlan("pro");
+}
+
+export async function activateEquipe(): Promise<Settings> {
+  return activatePlan("equipe");
+}
+
+export async function deleteAccountAndAllData(): Promise<void> {
+  const current = await ensureSettings();
+  const vendorId = current.vendorId;
+  try {
+    const { deleteRemoteVendorData } = await import("./sync");
+    await deleteRemoteVendorData(vendorId);
+  } catch {
+    /* offline or no backend */
+  }
+  await db.transaction("rw", db.products, db.sales, db.customers, db.settings, async () => {
+    await db.products.clear();
+    await db.sales.clear();
+    await db.customers.clear();
+    await db.settings.put({
+      id: "app",
+      vendorId: newId(),
+      storeName: "Meu negócio",
+      pixKey: "",
+      merchantName: "MEU NEGOCIO",
+      merchantCity: "SAO PAULO",
+      whatsapp: "",
+      rewardLabel: "1 brinde grátis",
+      stampsRequired: 10,
+      plan: "free",
+      businessType: "alimentacao",
+      updatedAt: nowIso(),
+      dirty: true,
+    });
+  });
 }
 
 export async function addStamp(customerId: string): Promise<Customer | undefined> {

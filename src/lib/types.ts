@@ -51,23 +51,38 @@ export type Customer = {
   dirty?: boolean;
 };
 
-export type Plan = "free" | "pro";
+export type Plan = "free" | "pro" | "equipe";
 
 export type BusinessType =
-  | "ambulante"
+  | "alimentacao"
+  | "celular"
+  | "vestuario"
   | "consultora"
-  | "loja"
-  | "outros";
+  | "lar"
+  | "outros"
+  | "ambulante"
+  | "loja";
 
 export const BUSINESS_TYPES: Array<{ id: BusinessType; label: string }> = [
-  { id: "ambulante", label: "Vendedor Ambulante / Banca de Rua" },
-  {
-    id: "consultora",
-    label: "Consultora / Revendedora (Natura, Avon, Tupperware, etc.)",
-  },
-  { id: "loja", label: "Loja Física / Pop-up" },
+  { id: "alimentacao", label: "Alimentação" },
+  { id: "celular", label: "Acessórios para Celular" },
+  { id: "vestuario", label: "Vestuário" },
+  { id: "consultora", label: "Consultora / Revendedora" },
+  { id: "lar", label: "Utilidades e Lar" },
   { id: "outros", label: "Outros" },
 ];
+
+/** Maps legacy Tipo de Negócio values to the current picker ids. */
+export function normalizeBusinessType(value?: string | null): BusinessType {
+  if (value === "celular") return "celular";
+  if (value === "vestuario") return "vestuario";
+  if (value === "consultora") return "consultora";
+  if (value === "lar") return "lar";
+  if (value === "outros") return "outros";
+  if (value === "loja") return "vestuario";
+  if (value === "alimentacao" || value === "ambulante") return "alimentacao";
+  return "alimentacao";
+}
 
 export type Settings = {
   id: "app";

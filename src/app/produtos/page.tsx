@@ -10,7 +10,7 @@ import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
-import { Money } from "@/components/Money";
+import { Price } from "@/components/Money";
 import { centsToInput, parseBRLToCents } from "@/lib/money";
 import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
@@ -47,6 +47,7 @@ export default function ProdutosPage() {
   const [form, setForm] = useState(emptyForm);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sticker, setSticker] = useState<Product | null>(null);
+  const [needPixKey, setNeedPixKey] = useState(false);
   const [filter, setFilter] = useState("Todos");
 
   const niche = NICHES.find((n) => n.id === nicheId) ?? defaultNiche();
@@ -75,8 +76,8 @@ export default function ProdutosPage() {
   }
 
   function openSticker(product: Product) {
-    if (!settings?.pixKey) {
-      toast("Cadastre a chave Pix em Configurações.", "err");
+    if (!settings?.pixKey?.trim()) {
+      setNeedPixKey(true);
       return;
     }
     setSticker(product);
@@ -231,7 +232,7 @@ export default function ProdutosPage() {
               <p className="text-base font-black leading-tight">{p.name}</p>
               <p className="text-xs font-bold text-muted">{p.category}</p>
               <p className="mt-1 text-lg font-black text-sun">
-                <Money cents={p.priceCents} />
+                <Price cents={p.priceCents} />
               </p>
               {p.priceMode === "suggested" ? (
                 <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
@@ -323,7 +324,7 @@ export default function ProdutosPage() {
                   >
                     <span className="block text-sm font-black leading-tight">{t.name}</span>
                     <span className="text-xs font-bold text-sun">
-                      <Money cents={t.priceCents} />
+                      <Price cents={t.priceCents} />
                     </span>
                   </button>
                 ))}
@@ -502,6 +503,25 @@ export default function ProdutosPage() {
             </p>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={needPixKey}
+        title="Chave Pix necessária"
+        onClose={() => setNeedPixKey(false)}
+      >
+        <p className="mb-4 text-base font-bold text-muted">
+          Cadastre sua Chave Pix nas configurações primeiro para gerar seus
+          adesivos QR Code!
+        </p>
+        <Link href="/configuracoes" className="block">
+          <Button className="w-full" onClick={() => setNeedPixKey(false)}>
+            Ir para Configurações
+          </Button>
+        </Link>
+        <Button variant="ghost" className="mt-2 w-full" onClick={() => setNeedPixKey(false)}>
+          Agora não
+        </Button>
       </Modal>
 
       <Modal

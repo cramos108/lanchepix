@@ -32,6 +32,13 @@ export default function TermosPage() {
         o cliente autorizou o uso do número para cobrança de fiado e cartão
         fidelidade.
       </p>
+      <h3 className="text-xl font-black">Proteção de Dados (LGPD)</h3>
+      <p>
+        Proteção de Dados (LGPD - Lei nº 13.709/2018): Garantimos total
+        privacidade. Guardamos apenas seu nome, WhatsApp e chave Pix para
+        funcionamento do app. Não vendemos seus dados e você tem controle total
+        para excluí-los quando quiser.
+      </p>
       <Link href="/" className="mt-2 text-sun underline font-extrabold">
         Voltar para vender
       </Link>

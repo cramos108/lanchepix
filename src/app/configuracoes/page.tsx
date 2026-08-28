@@ -2,18 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Cloud, Sparkles, Trash2 } from "lucide-react";
+import { Cloud, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
-import { PRO_PRICE_LABEL, isPro, openUpgradeModal } from "@/lib/plan";
+import { isPro, openUpgradeModal, planLabel } from "@/lib/plan";
 import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
-import { saveSettings } from "@/lib/repo";
+import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { getSyncState, pushAndPull, scheduleSync, subscribeSync } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import { BUSINESS_TYPES, type BusinessType, type Settings } from "@/lib/types";
+import {
+  BUSINESS_TYPES,
+  normalizeBusinessType,
+  type BusinessType,
+  type Settings,
+} from "@/lib/types";
 
 export default function ConfiguracoesPage() {
   const settings = useLiveQuery(async () => {
@@ -25,7 +30,7 @@ export default function ConfiguracoesPage() {
     return <p className="text-muted">Carregando configurações…</p>;
   }
 
-  return <SettingsForm settings={settings} />;
+  return <SettingsForm key={settings.vendorId} settings={settings} />;
 }
 
 function SettingsForm({ settings }: { settings: Settings }) {
@@ -36,12 +41,13 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
   const [businessType, setBusinessType] = useState<BusinessType>(
-    settings.businessType ?? "ambulante",
+    normalizeBusinessType(settings.businessType),
   );
   const [syncLabel, setSyncLabel] = useState("Sincronizar agora");
   const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "year" | "all">(
     null,
   );
+  const [deleteAccount, setDeleteAccount] = useState(false);
 
   useEffect(() => subscribeSync(() => {
     const s = getSyncState();
@@ -72,21 +78,23 @@ function SettingsForm({ settings }: { settings: Settings }) {
           Plano atual
         </p>
         <p className="mt-1 text-2xl font-black">
-          {isPro(settings) ? "Pro" : "Gratuito"}
+          {planLabel(settings.plan)}
         </p>
         {isPro(settings) ? (
           <p className="mt-1 text-sm font-bold text-muted">
-            Clientes ilimitados e relatórios MEI liberados.
+            {settings.plan === "equipe"
+              ? "Tudo do Pro + multi-dispositivo e relatório por ajudante."
+              : "Cartões ilimitados, cobrança em lote e relatórios MEI."}
           </p>
         ) : (
           <>
             <p className="mt-1 text-sm font-bold text-muted">
-              Até 25 cartões fidelidade e 50 Pix Confiança. Catálogo e QR Pix
-              continuam grátis.
+              Pix Confiança ilimitado e até 100 cartões fidelidade. Catálogo e QR
+              Pix continuam grátis.
             </p>
             <Button className="mt-3 w-full" onClick={openUpgradeModal}>
               <Sparkles className="h-5 w-5" />
-              Atualizar para Pro — {PRO_PRICE_LABEL}
+              Ver planos
             </Button>
           </>
         )}
@@ -110,7 +118,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
           ))}
         </div>
       </Field>
-      <Field label="Nome do negócio / banca">
+      <Field label="Nome do Negócio / Banca">
         <input
           className={inputClass}
           value={storeName}
@@ -152,7 +160,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         />
       </Field>
       <Field
-        label="WhatsApp de contato / negócio"
+        label="WhatsApp de Contato"
         hint="Para cobranças e recados. Vale para lanches, capinhas, roupa, utilidades…"
       >
         <input
@@ -195,7 +203,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       <Button
         variant="line"
         onClick={async () => {
-          const n = await seedDemoProducts();
+          const n = await seedDemoProducts(businessType);
           scheduleSync();
           toast(`${n} produtos de exemplo adicionados`);
         }}
@@ -230,7 +238,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         Zerar saldo do ano
       </Button>
       <Button variant="alert" onClick={() => setWipe("all")}>
-        Limpar dados de teste (zerar tudo)
+        Limpar Dados de Teste (Zerar Saldo)
       </Button>
 
       <Button
@@ -248,6 +256,17 @@ function SettingsForm({ settings }: { settings: Settings }) {
       >
         <Trash2 className="h-5 w-5" />
         Apagar dados locais
+      </Button>
+
+      <div className="h-px bg-line" />
+      <h2 className="text-lg font-black">Privacidade e Dados (LGPD)</h2>
+      <p className="text-sm font-bold text-muted">
+        Guardamos apenas o necessário para o app funcionar. Você pode excluir
+        perfil, Chave Pix, catálogo e histórico quando quiser.
+      </p>
+      <Button variant="alert" onClick={() => setDeleteAccount(true)}>
+        <ShieldAlert className="h-5 w-5" />
+        Excluir Minha Conta e Todos os Dados
       </Button>
 
       <Modal
@@ -292,6 +311,32 @@ function SettingsForm({ settings }: { settings: Settings }) {
             }}
           >
             Confirmar
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteAccount}
+        title="Excluir conta"
+        onClose={() => setDeleteAccount(false)}
+      >
+        <p className="mb-4 font-bold text-muted">
+          Esta ação apagará permanentemente seu perfil, Chave Pix, catálogo e
+          histórico de vendas em conformidade com a LGPD. Deseja continuar?
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="ghost" onClick={() => setDeleteAccount(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="alert"
+            onClick={async () => {
+              await deleteAccountAndAllData();
+              setDeleteAccount(false);
+              toast("Conta e dados excluídos", "info");
+            }}
+          >
+            Excluir tudo
           </Button>
         </div>
       </Modal>

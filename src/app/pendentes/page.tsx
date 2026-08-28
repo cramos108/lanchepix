@@ -8,7 +8,7 @@ import { Button, EmptyState, Modal } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/id";
-import { Money } from "@/components/Money";
+import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import {
@@ -89,12 +89,13 @@ export default function PendentesPage() {
   }
 
   const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
+  const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-3xl border-2 border-amber bg-surface px-4 py-3">
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-          A receber · Pix Confiança
+          Dinheiro na rua · a receber
         </p>
         <p className="text-3xl font-black tabular-nums text-sun">
           <Money cents={pendingCents} />
@@ -137,6 +138,14 @@ export default function PendentesPage() {
           />
         ) : (
           <ul className="flex flex-col gap-3">
+            <li className="rounded-3xl border-2 border-sun/70 bg-surface px-4 py-3">
+              <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
+                Total no histórico
+              </p>
+              <p className="text-2xl font-black tabular-nums">
+                <Money cents={historyCents} />
+              </p>
+            </li>
             {history.map((sale) => (
               <li key={sale.id}>
                 <button
@@ -192,7 +201,7 @@ export default function PendentesPage() {
                 )}
               </div>
               <p className="text-2xl font-black text-sun">
-                <Money cents={sale.totalCents} />
+                <Price cents={sale.totalCents} />
               </p>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -320,7 +329,7 @@ export default function PendentesPage() {
             <p className="text-center text-lg font-bold">
               {paying.productName}
               <span className="block text-3xl font-black text-sun">
-                <Money cents={paying.totalCents} />
+                <Price cents={paying.totalCents} />
               </span>
             </p>
             {pixPayload ? (
