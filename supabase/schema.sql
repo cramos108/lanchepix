@@ -14,6 +14,7 @@ create table if not exists public.products (
   name text not null,
   price_cents integer not null check (price_cents >= 0),
   price_mode text not null default 'fixed',
+  image_data text,
   category text not null default 'Salgados',
   stock integer not null default 0,
   active boolean not null default true,
@@ -69,6 +70,7 @@ create table if not exists public.settings (
 
 alter table public.settings add column if not exists plan text not null default 'free';
 alter table public.products add column if not exists price_mode text not null default 'fixed';
+alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;
 alter table public.sales add column if not exists price_mode text;
 

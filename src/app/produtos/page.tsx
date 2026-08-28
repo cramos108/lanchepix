@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Camera, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { ProductSticker } from "@/components/ProductSticker";
+import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
 import { db } from "@/lib/db";
@@ -14,6 +15,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { scheduleSync } from "@/lib/sync";
+import { compressProductImage } from "@/lib/productImage";
 import { toast } from "@/lib/toast";
 import type { Product } from "@/lib/types";
 
@@ -23,6 +25,7 @@ const emptyForm = {
   category: defaultNiche().categories[0],
   stock: "10",
   priceMode: "fixed" as "fixed" | "suggested",
+  imageData: "" as string,
 };
 
 export default function ProdutosPage() {
@@ -104,6 +107,7 @@ export default function ProdutosPage() {
       category: p.category,
       stock: String(p.stock),
       priceMode: p.priceMode === "suggested" ? "suggested" : "fixed",
+      imageData: p.imageData ?? "",
     });
     setOpen(true);
   }
@@ -115,6 +119,7 @@ export default function ProdutosPage() {
       category: t.category,
       stock: String(t.stock),
       priceMode: "fixed",
+      imageData: form.imageData,
     });
   }
 
@@ -148,12 +153,24 @@ export default function ProdutosPage() {
       name,
       priceCents,
       priceMode: form.priceMode,
+      imageData: form.imageData,
       category: form.category,
       stock: Number.isFinite(stock) ? stock : 0,
       active: editing?.active ?? true,
     });
     toast(editing ? "Produto atualizado" : "Produto cadastrado");
     setOpen(false);
+  }
+
+  async function onPickPhoto(file: File | undefined) {
+    if (!file) return;
+    try {
+      const data = await compressProductImage(file);
+      setForm((f) => ({ ...f, imageData: data }));
+      toast("Foto pronta");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Não deu para usar a foto.", "err");
+    }
   }
 
   async function seedThisNiche() {
@@ -200,24 +217,24 @@ export default function ProdutosPage() {
         />
       ) : null}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-2 gap-3">
         {visible.map((p) => (
-          <li key={p.id} className="rounded-3xl border-2 border-line bg-surface p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xl font-black leading-tight">{p.name}</p>
-                <p className="text-sm font-bold text-muted">{p.category}</p>
-              </div>
-              <p className="text-right">
-                <span className="block text-xl font-black text-sun">
-                  {formatBRL(p.priceCents)}
-                </span>
-                {p.priceMode === "suggested" ? (
-                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
-                    Sugerida
-                  </span>
-                ) : null}
-              </p>
+          <li key={p.id} className="flex flex-col rounded-3xl border-2 border-line bg-surface p-3">
+            <ProductThumb
+              imageData={p.imageData}
+              category={p.category}
+              name={p.name}
+              size="lg"
+            />
+            <div className="mt-2 min-w-0">
+              <p className="text-base font-black leading-tight">{p.name}</p>
+              <p className="text-xs font-bold text-muted">{p.category}</p>
+              <p className="mt-1 text-lg font-black text-sun">{formatBRL(p.priceCents)}</p>
+              {p.priceMode === "suggested" ? (
+                <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
+                  Sugerida
+                </p>
+              ) : null}
             </div>
             <p
               className={`mt-1 text-sm font-extrabold ${
@@ -226,10 +243,10 @@ export default function ProdutosPage() {
             >
               Estoque: {p.stock} un.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-auto flex flex-col gap-2 pt-2">
               <Button
                 variant="line"
-                className="min-h-12 flex-1"
+                className="min-h-11 w-full text-xs"
                 onClick={() => startEdit(p)}
               >
                 <Pencil className="h-4 w-4" />
@@ -237,19 +254,19 @@ export default function ProdutosPage() {
               </Button>
               <Button
                 variant="sun"
-                className="min-h-12 flex-1 px-3 text-sm leading-tight"
+                className="min-h-11 w-full px-2 text-xs leading-tight"
                 onClick={() => openSticker(p)}
               >
                 <Printer className="h-4 w-4" />
-                Imprimir QR Code
+                Imprimir QR
               </Button>
               <Button
                 variant="alert"
-                className="min-h-12 px-3"
+                className="min-h-11 w-full text-xs"
                 onClick={() => setConfirmId(p.id)}
-                aria-label="Excluir"
               >
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-4 w-4" />
+                Excluir
               </Button>
             </div>
           </li>
@@ -319,6 +336,58 @@ export default function ProdutosPage() {
             </div>
           ) : null}
 
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-sun">
+              Foto do produto
+            </span>
+            <div className="flex items-center gap-3">
+              <ProductThumb
+                imageData={form.imageData || undefined}
+                category={form.category}
+                name={form.name || "Produto"}
+                size="md"
+              />
+              <div className="flex flex-1 flex-col gap-2">
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-sun bg-sun/10 px-3 text-xs font-extrabold uppercase text-sun">
+                  <Camera className="h-4 w-4" />
+                  Câmera
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      void onPickPhoto(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-line bg-surface px-3 text-xs font-extrabold uppercase">
+                  Galeria
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      void onPickPhoto(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            {form.imageData ? (
+              <button
+                type="button"
+                className="text-left text-sm font-bold text-alert underline"
+                onClick={() => setForm((f) => ({ ...f, imageData: "" }))}
+              >
+                Remover foto
+              </button>
+            ) : (
+              <span className="text-sm text-muted">Compactamos a foto para a rede móvel.</span>
+            )}
+          </div>
           <Field label="Nome">
             <input
               className={inputClass}
@@ -406,6 +475,8 @@ export default function ProdutosPage() {
                 payload={stickerPayload(sticker)}
                 storeName={settings?.storeName}
                 suggested={sticker.priceMode === "suggested"}
+                imageData={sticker.imageData}
+                category={sticker.category}
               />
             ) : (
               <p className="text-alert">

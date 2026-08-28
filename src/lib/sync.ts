@@ -43,6 +43,7 @@ type RemoteProduct = {
   name: string;
   price_cents: number;
   price_mode: string | null;
+  image_data: string | null;
   category: string;
   stock: number;
   active: boolean;
@@ -102,6 +103,7 @@ function toRemoteProduct(vendorId: string, p: Product): RemoteProduct {
     name: p.name,
     price_cents: p.priceCents,
     price_mode: p.priceMode ?? "fixed",
+    image_data: p.imageData ?? null,
     category: p.category,
     stock: p.stock,
     active: p.active,
@@ -117,6 +119,7 @@ function fromRemoteProduct(r: RemoteProduct): Product {
     name: r.name,
     priceCents: r.price_cents,
     priceMode: r.price_mode === "suggested" ? "suggested" : "fixed",
+    imageData: r.image_data ?? undefined,
     category: r.category,
     stock: r.stock,
     active: r.active,

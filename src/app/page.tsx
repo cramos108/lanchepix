@@ -6,6 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
+import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
@@ -310,9 +311,17 @@ export default function VenderPage() {
               className="rounded-3xl border-2 border-line bg-surface p-4"
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-black leading-tight">{product.name}</h2>
-                  <p className="text-sm font-bold text-muted">{product.category}</p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <ProductThumb
+                    imageData={product.imageData}
+                    category={product.category}
+                    name={product.name}
+                    size="md"
+                  />
+                  <div>
+                    <h2 className="text-xl font-black leading-tight">{product.name}</h2>
+                    <p className="text-sm font-bold text-muted">{product.category}</p>
+                  </div>
                 </div>
                 <p className="text-right">
                   <span className="block text-2xl font-black tabular-nums text-sun">

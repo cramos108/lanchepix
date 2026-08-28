@@ -10,6 +10,7 @@ export type Product = {
   name: string;
   priceCents: number;
   priceMode?: PriceMode;
+  imageData?: string;
   category: Category | string;
   stock: number;
   active: boolean;
