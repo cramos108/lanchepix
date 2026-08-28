@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { useMoney } from "@/components/Money";
 import { PixQr } from "@/components/PixQr";
 import { Button, EmptyState } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -22,6 +23,7 @@ export default function PixPage() {
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
+  const money = useMoney();
 
   const selectedProduct = products?.find((p) => p.id === selectedId);
 
@@ -88,7 +90,7 @@ export default function PixPage() {
             key={p.id}
             active={selectedId === p.id}
             onClick={() => setSelectedId(p.id)}
-            label={`${p.name} ${formatBRL(p.priceCents)}`}
+            label={`${p.name} ${money(p.priceCents)}`}
           />
         ))}
       </div>
@@ -99,7 +101,7 @@ export default function PixPage() {
           size={260}
           label={
             selectedProduct
-              ? `${selectedProduct.name} · ${formatBRL(selectedProduct.priceCents)}`
+              ? `${selectedProduct.name} · ${money(selectedProduct.priceCents)}`
               : "QR estático · cliente digita o valor"
           }
         />

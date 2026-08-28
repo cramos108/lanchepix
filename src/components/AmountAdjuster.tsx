@@ -1,6 +1,7 @@
 "use client";
 
-import { centsToInput, formatBRL, parseBRLToCents } from "@/lib/money";
+import { Money } from "@/components/Money";
+import { centsToInput, parseBRLToCents } from "@/lib/money";
 import { inputClass } from "@/components/ui";
 
 export function AmountAdjuster({
@@ -19,7 +20,9 @@ export function AmountAdjuster({
     <div className="flex flex-col gap-3">
       <p className="text-sm font-bold text-muted">
         {suggested ? "Contribuição sugerida" : "Valor"}{" "}
-        <span className="text-white">{formatBRL(baseCents)}</span>
+        <span className="text-white">
+          <Money cents={baseCents} />
+        </span>
       </p>
       <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
         Ajuste rápido
@@ -50,7 +53,7 @@ export function AmountAdjuster({
       {extraCents !== 0 ? (
         <p className={`text-sm font-extrabold ${extraCents > 0 ? "text-mint" : "text-amber"}`}>
           Gorjeta / extra: {extraCents > 0 ? "+" : ""}
-          {formatBRL(extraCents)}
+          <Money cents={extraCents} />
         </p>
       ) : null}
     </div>

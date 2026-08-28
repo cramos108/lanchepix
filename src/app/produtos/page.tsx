@@ -10,7 +10,8 @@ import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
-import { centsToInput, formatBRL, parseBRLToCents } from "@/lib/money";
+import { Money } from "@/components/Money";
+import { centsToInput, parseBRLToCents } from "@/lib/money";
 import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
@@ -229,7 +230,9 @@ export default function ProdutosPage() {
             <div className="mt-2 min-w-0">
               <p className="text-base font-black leading-tight">{p.name}</p>
               <p className="text-xs font-bold text-muted">{p.category}</p>
-              <p className="mt-1 text-lg font-black text-sun">{formatBRL(p.priceCents)}</p>
+              <p className="mt-1 text-lg font-black text-sun">
+                <Money cents={p.priceCents} />
+              </p>
               {p.priceMode === "suggested" ? (
                 <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
                   Sugerida
@@ -320,7 +323,7 @@ export default function ProdutosPage() {
                   >
                     <span className="block text-sm font-black leading-tight">{t.name}</span>
                     <span className="text-xs font-bold text-sun">
-                      {formatBRL(t.priceCents)}
+                      <Money cents={t.priceCents} />
                     </span>
                   </button>
                 ))}

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import {
   CircleHelp,
   CreditCard,
+  Eye,
+  EyeOff,
   Handshake,
   QrCode,
   Settings,
@@ -14,8 +16,10 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { useHideBalances } from "@/components/Money";
 import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
 import { isPro, openUpgradeModal } from "@/lib/plan";
@@ -61,6 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     step: tutorialStep,
     setStep: setTutorialStep,
   } = useTutorial();
+  const hideBalances = useHideBalances();
 
   const pendingCount =
     useLiveQuery(
@@ -160,6 +165,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Online
               </span>
             ) : null}
+            <button
+              type="button"
+              aria-label={hideBalances ? "Mostrar valores" : "Ocultar valores"}
+              onClick={toggleHideBalances}
+              className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
+            >
+              {hideBalances ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
+            </button>
             <button
               type="button"
               aria-label="Abrir tutorial"

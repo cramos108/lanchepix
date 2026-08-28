@@ -8,7 +8,7 @@ import { Button, EmptyState, Modal } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/id";
-import { formatBRL } from "@/lib/money";
+import { Money } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import {
@@ -96,7 +96,9 @@ export default function PendentesPage() {
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
           A receber · Pix Confiança
         </p>
-        <p className="text-3xl font-black tabular-nums text-sun">{formatBRL(pendingCents)}</p>
+        <p className="text-3xl font-black tabular-nums text-sun">
+          <Money cents={pendingCents} />
+        </p>
         <p className="text-sm font-bold text-muted">
           {(sales ?? []).length} {(sales ?? []).length === 1 ? "pedido aberto" : "pedidos abertos"}
         </p>
@@ -154,7 +156,9 @@ export default function PendentesPage() {
                         {sale.paidAt === sale.createdAt ? "PIX AGORA" : "PIX CONFIANÇA"}
                       </p>
                     </div>
-                    <p className="text-xl font-black text-sun">{formatBRL(sale.totalCents)}</p>
+                    <p className="text-xl font-black text-sun">
+                      <Money cents={sale.totalCents} />
+                    </p>
                   </div>
                 </button>
               </li>
@@ -187,7 +191,9 @@ export default function PendentesPage() {
                   <p className="text-sm text-muted">Sem telefone</p>
                 )}
               </div>
-              <p className="text-2xl font-black text-sun">{formatBRL(sale.totalCents)}</p>
+              <p className="text-2xl font-black text-sun">
+                <Money cents={sale.totalCents} />
+              </p>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button variant="mint" onClick={() => startSettle(sale)}>
@@ -241,7 +247,7 @@ export default function PendentesPage() {
             <p className="text-lg font-bold">
               {detail.productName} × {detail.quantity}
               <span className="mt-1 block text-2xl font-black text-sun">
-                {formatBRL(detail.totalCents)}
+                <Money cents={detail.totalCents} />
               </span>
             </p>
             <p className="text-sm font-bold text-muted">
@@ -249,7 +255,7 @@ export default function PendentesPage() {
             </p>
             {(detail.extraCents ?? 0) !== 0 ? (
               <p className="text-sm font-extrabold text-mint">
-                Gorjeta / extra: {formatBRL(detail.extraCents ?? 0)}
+                Gorjeta / extra: <Money cents={detail.extraCents ?? 0} />
               </p>
             ) : null}
             <Button
@@ -314,7 +320,7 @@ export default function PendentesPage() {
             <p className="text-center text-lg font-bold">
               {paying.productName}
               <span className="block text-3xl font-black text-sun">
-                {formatBRL(paying.totalCents)}
+                <Money cents={paying.totalCents} />
               </span>
             </p>
             {pixPayload ? (

@@ -6,13 +6,14 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
+import { Money } from "@/components/Money";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
-import { formatBRL } from "@/lib/money";
+
 import {
   isAfterCut,
   isSameLocalDay,
@@ -239,7 +240,9 @@ export default function VenderPage() {
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
           Pix Confiança · a receber
         </p>
-        <p className="text-2xl font-black tabular-nums text-sun">{formatBRL(pendingCents)}</p>
+        <p className="text-2xl font-black tabular-nums text-sun">
+          <Money cents={pendingCents} />
+        </p>
         <p className="text-sm font-bold text-muted">
           {pendingCount} {pendingCount === 1 ? "pedido aberto" : "pedidos abertos"} na rua
         </p>
@@ -251,10 +254,10 @@ export default function VenderPage() {
             Gorjetas / extra
           </p>
           <p className="text-xl font-black tabular-nums text-mint">
-            {formatBRL(todayTips)} hoje
+            <Money cents={todayTips} /> hoje
           </p>
           <p className="text-sm font-bold text-muted">
-            {formatBRL(monthTips)} neste mês
+            <Money cents={monthTips} /> neste mês
           </p>
         </div>
       ) : null}
@@ -323,7 +326,7 @@ export default function VenderPage() {
                 </div>
                 <p className="text-right">
                   <span className="block text-2xl font-black tabular-nums text-sun">
-                    {formatBRL(product.priceCents)}
+                    <Money cents={product.priceCents} />
                   </span>
                   {product.priceMode === "suggested" ? (
                     <span className="text-[10px] font-extrabold uppercase text-amber">
@@ -347,7 +350,7 @@ export default function VenderPage() {
                   onChange={(n) => setQtyById((m) => ({ ...m, [product.id]: n }))}
                 />
                 <p className="text-sm font-bold text-muted">
-                  Total {formatBRL(product.priceCents * q)}
+                  Total <Money cents={product.priceCents * q} />
                 </p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -381,9 +384,12 @@ export default function VenderPage() {
             <p className="text-lg font-bold">
               {draft.product.name} × {draft.quantity}
               <span className="mt-1 block text-2xl font-black text-sun">
-                {formatBRL(
-                  Math.max(0, draft.product.priceCents * draft.quantity + extraCents),
-                )}
+                <Money
+                  cents={Math.max(
+                    0,
+                    draft.product.priceCents * draft.quantity + extraCents,
+                  )}
+                />
               </span>
             </p>
             <p className="text-sm text-muted">
@@ -455,7 +461,7 @@ export default function VenderPage() {
             <p className="text-center text-lg font-bold">
               {paidSale.productName} × {paidSale.quantity}
               <span className="block text-3xl font-black text-sun">
-                {formatBRL(paidSale.totalCents)}
+                <Money cents={paidSale.totalCents} />
               </span>
             </p>
             {pixPayload ? (
@@ -517,7 +523,7 @@ function MetricCard({
         {label}
       </p>
       <p className="text-lg font-black tabular-nums leading-tight sm:text-xl">
-        {formatBRL(value)}
+        <Money cents={value} />
       </p>
     </div>
   );
