@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   CircleHelp,
   CreditCard,
@@ -22,7 +22,13 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
-import { openUpgradeModal, planBadge } from "@/lib/plan";
+import {
+  openUpgradeModal,
+  planBadge,
+  subscribeDevPlan,
+  getDevPlanOverride,
+  getDevSimulateLimit,
+} from "@/lib/plan";
 import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
@@ -66,6 +72,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setStep: setTutorialStep,
   } = useTutorial();
   const hideBalances = useHideBalances();
+  const devPlanTick = useSyncExternalStore(
+    subscribeDevPlan,
+    () => `${getDevPlanOverride() ?? ""}:${getDevSimulateLimit() ? "1" : "0"}`,
+    () => "",
+  );
+  void devPlanTick;
 
   const pendingCount =
     useLiveQuery(

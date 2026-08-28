@@ -35,7 +35,7 @@ export function UpgradeModal() {
   return (
     <Modal
       open={open}
-      title={checkout ? "Assinar via Pix" : "SEJA PRO / PLANOS"}
+      title={checkout ? "Assinar via Pix" : "GRÁTIS · PRO · NEGÓCIO"}
       onClose={close}
     >
       {checkout ? (
@@ -148,7 +148,7 @@ function PixCheckout({
         merchantName: SUBSCRIBE_PIX_NAME,
         merchantCity: SUBSCRIBE_PIX_CITY,
         amountCents: plan.cents,
-        description: planId === "equipe" ? "Plano Equipe" : "Plano Pro",
+        description: planId === "equipe" ? "Plano Negocio" : "Plano Pro",
       });
     } catch {
       return "";
@@ -192,12 +192,12 @@ function PixCheckout({
           onDone();
           toast(
             planId === "equipe"
-              ? "Plano Equipe / Negócio ativado neste aparelho"
+              ? "Plano Negócio ativado neste aparelho"
               : "Plano Pro ativado neste aparelho",
           );
         }}
       >
-        Já paguei — ativar {planId === "equipe" ? "Equipe" : "Pro"}
+        Já paguei — ativar {planId === "equipe" ? "Negócio" : "Pro"}
       </Button>
       <Button variant="ghost" onClick={onBack}>
         Voltar aos planos

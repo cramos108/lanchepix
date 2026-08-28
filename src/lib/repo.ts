@@ -242,6 +242,8 @@ export async function upsertCustomer(input: {
 }
 
 export async function activatePlan(plan: "pro" | "equipe"): Promise<Settings> {
+  const { clearDevOverrides } = await import("./plan");
+  clearDevOverrides();
   return saveSettings({ plan });
 }
 
@@ -254,6 +256,8 @@ export async function activateEquipe(): Promise<Settings> {
 }
 
 export async function deleteAccountAndAllData(): Promise<void> {
+  const { clearDevOverrides } = await import("./plan");
+  clearDevOverrides();
   const current = await ensureSettings();
   const vendorId = current.vendorId;
   try {

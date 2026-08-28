@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Cloud, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { Cloud, ShieldAlert, Trash2 } from "lucide-react";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
-import { isPro, openUpgradeModal, planLabel } from "@/lib/plan";
+import {
+  cycleDevPlan,
+  effectivePlan,
+  getDevPlanOverride,
+  getDevSimulateLimit,
+  openUpgradeModal,
+  planLabel,
+  simulateFreePlanLimit,
+  subscribeDevPlan,
+} from "@/lib/plan";
 import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
@@ -48,6 +57,11 @@ function SettingsForm({ settings }: { settings: Settings }) {
     null,
   );
   const [deleteAccount, setDeleteAccount] = useState(false);
+  const activePlan = useSyncExternalStore(
+    subscribeDevPlan,
+    () => effectivePlan(settings),
+    () => settings.plan,
+  );
 
   useEffect(() => subscribeSync(() => {
     const s = getSyncState();
@@ -74,30 +88,30 @@ function SettingsForm({ settings }: { settings: Settings }) {
   return (
     <div className="flex flex-col gap-5">
       <section className="rounded-3xl border-2 border-sun bg-surface p-4">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
-          Plano atual
-        </p>
-        <p className="mt-1 text-2xl font-black">
-          {planLabel(settings.plan)}
-        </p>
-        {isPro(settings) ? (
-          <p className="mt-1 text-sm font-bold text-muted">
-            {settings.plan === "equipe"
-              ? "Tudo do Pro + multi-dispositivo e relatório por ajudante."
-              : "Cartões ilimitados, cobrança em lote e relatórios MEI."}
-          </p>
-        ) : (
-          <>
-            <p className="mt-1 text-sm font-bold text-muted">
-              Pix Confiança ilimitado e até 100 cartões fidelidade. Catálogo e QR
-              Pix continuam grátis.
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
+              Plano
             </p>
-            <Button className="mt-3 w-full" onClick={openUpgradeModal}>
-              <Sparkles className="h-5 w-5" />
-              Ver planos
-            </Button>
-          </>
-        )}
+            <p className="mt-1 text-xl font-black leading-tight">
+              Plano Atual: {planLabel(activePlan)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openUpgradeModal}
+            className="shrink-0 pt-1 text-sm font-extrabold text-sun underline decoration-sun/60 underline-offset-4"
+          >
+            Mudar Plano
+          </button>
+        </div>
+        <p className="mt-2 text-sm font-bold text-muted">
+          {activePlan === "equipe"
+            ? "Tudo do Pro + multi-dispositivo e relatório por ajudante."
+            : activePlan === "pro"
+              ? "Cartões ilimitados, cobrança em lote e relatórios MEI."
+              : "Pix Confiança ilimitado e até 100 cartões fidelidade. Catálogo e QR Pix continuam grátis."}
+        </p>
       </section>
 
       <Field label="Tipo de negócio">
@@ -217,6 +231,37 @@ function SettingsForm({ settings }: { settings: Settings }) {
       <p className="text-sm text-muted">
         Os dados ficam neste celular (IndexedDB) e sobem para o Supabase quando houver
         internet. Instale o app na tela inicial para usar como PWA.
+      </p>
+
+      <div className="h-px bg-line" />
+      <h2 className="text-lg font-black">Dados e Testes</h2>
+      <p className="text-xs font-bold text-muted">
+        Ferramentas locais (localStorage). Não criam 100 vendas de verdade.
+      </p>
+      <Button
+        variant="line"
+        className="min-h-12 text-sm"
+        onClick={() => {
+          simulateFreePlanLimit();
+          toast("Paywall do plano grátis (simulado)", "info");
+        }}
+      >
+        Simular Limite do Plano Grátis (100 Vendas)
+      </Button>
+      <Button
+        variant="line"
+        className="min-h-12 text-sm"
+        onClick={() => {
+          const next = cycleDevPlan(settings.plan);
+          toast(`Modo Dev: ${planLabel(next)}`, "info");
+        }}
+      >
+        Alternar Modo Dev: Simulador de Planos (Grátis / Pro / Negócio)
+      </Button>
+      <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+        Simulador: {planLabel(activePlan)}
+        {getDevPlanOverride() ? " · override local" : ""}
+        {getDevSimulateLimit() ? " · limite grátis ligado" : ""}
       </p>
 
       <div className="h-px bg-line" />

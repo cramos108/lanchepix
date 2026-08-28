@@ -9,7 +9,9 @@ export const FREE_CONFIANCA_LIMIT = Number.POSITIVE_INFINITY;
 /** @deprecated use FREE_CONFIANCA_LIMIT */
 export const FREE_FIADO_MONTH_LIMIT = FREE_CONFIANCA_LIMIT;
 export const PRO_PRICE_LABEL = "R$ 9,90/mês";
-export const EQUIPE_PRICE_LABEL = "R$ 24,90/mês";
+export const NEGOCIO_PRICE_LABEL = "R$ 24,90/mês";
+/** @deprecated use NEGOCIO_PRICE_LABEL */
+export const EQUIPE_PRICE_LABEL = NEGOCIO_PRICE_LABEL;
 
 export const SUBSCRIBE_PIX_KEY =
   process.env.NEXT_PUBLIC_SUBSCRIBE_PIX_KEY?.trim() ||
@@ -31,7 +33,7 @@ export const PLANS = {
   },
   pro: {
     id: "pro" as const,
-    name: "PLANO PRO",
+    name: "PRO",
     priceLabel: "R$ 9,90 / mês",
     cents: 990,
     features: [
@@ -43,7 +45,7 @@ export const PLANS = {
   },
   equipe: {
     id: "equipe" as const,
-    name: "PLANO EQUIPE / NEGÓCIO",
+    name: "NEGÓCIO",
     priceLabel: "R$ 24,90 / mês",
     cents: 2490,
     features: [
@@ -56,24 +58,128 @@ export const PLANS = {
 
 export type PaidPlan = "pro" | "equipe";
 
-/** Pro e Equipe liberam os recursos pagos. */
+const DEV_PLAN_KEY = "dev_plan_override";
+const DEV_LIMIT_KEY = "dev_simulate_free_limit";
+const DEV_CYCLE: Plan[] = ["free", "pro", "equipe"];
+
+const devListeners = new Set<() => void>();
+let devPlanMemory: Plan | null | undefined;
+let devLimitMemory: boolean | undefined;
+let devBooted = false;
+
+function emitDev() {
+  devListeners.forEach((l) => l());
+}
+
+function parseStoredPlan(value: string | null): Plan | null {
+  if (value === "pro") return "pro";
+  if (value === "equipe" || value === "negocio") return "equipe";
+  if (value === "free") return "free";
+  return null;
+}
+
+function bootDev() {
+  if (devBooted || typeof window === "undefined") return;
+  try {
+    devPlanMemory = parseStoredPlan(localStorage.getItem(DEV_PLAN_KEY));
+    devLimitMemory = localStorage.getItem(DEV_LIMIT_KEY) === "true";
+  } catch {
+    devPlanMemory = null;
+    devLimitMemory = false;
+  }
+  devBooted = true;
+}
+
+export function subscribeDevPlan(listener: () => void): () => void {
+  devListeners.add(listener);
+  return () => devListeners.delete(listener);
+}
+
+export function getDevPlanOverride(): Plan | null {
+  if (typeof window === "undefined") return null;
+  bootDev();
+  return devPlanMemory ?? null;
+}
+
+export function setDevPlanOverride(plan: Plan | null): void {
+  bootDev();
+  devPlanMemory = plan;
+  try {
+    if (plan) localStorage.setItem(DEV_PLAN_KEY, plan);
+    else localStorage.removeItem(DEV_PLAN_KEY);
+  } catch {
+    /* private mode */
+  }
+  emitDev();
+}
+
+export function getDevSimulateLimit(): boolean {
+  if (typeof window === "undefined") return false;
+  bootDev();
+  return Boolean(devLimitMemory);
+}
+
+export function setDevSimulateLimit(on: boolean): void {
+  bootDev();
+  devLimitMemory = on;
+  try {
+    if (on) localStorage.setItem(DEV_LIMIT_KEY, "true");
+    else localStorage.removeItem(DEV_LIMIT_KEY);
+  } catch {
+    /* private mode */
+  }
+  emitDev();
+}
+
+export function cycleDevPlan(current?: Plan | null): Plan {
+  const cur = getDevPlanOverride() ?? current ?? "free";
+  const idx = Math.max(0, DEV_CYCLE.indexOf(cur));
+  const next = DEV_CYCLE[(idx + 1) % DEV_CYCLE.length];
+  setDevSimulateLimit(false);
+  setDevPlanOverride(next);
+  return next;
+}
+
+export function clearDevOverrides(): void {
+  setDevSimulateLimit(false);
+  setDevPlanOverride(null);
+}
+
+export function normalizePlan(plan?: string | null): Plan {
+  if (plan === "pro") return "pro";
+  if (plan === "equipe" || plan === "negocio") return "equipe";
+  return "free";
+}
+
+export function effectivePlan(settings?: Pick<Settings, "plan"> | null): Plan {
+  return getDevPlanOverride() ?? normalizePlan(settings?.plan);
+}
+
+/** Pro e Negócio liberam os recursos pagos. */
 export function isPro(settings?: Pick<Settings, "plan"> | null): boolean {
-  return settings?.plan === "pro" || settings?.plan === "equipe";
+  const plan = effectivePlan(settings);
+  return plan === "pro" || plan === "equipe";
 }
 
 export function isEquipe(settings?: Pick<Settings, "plan"> | null): boolean {
-  return settings?.plan === "equipe";
+  return effectivePlan(settings) === "equipe";
 }
 
-export function planLabel(plan?: Plan | null): string {
-  if (plan === "equipe") return "Equipe / Negócio";
-  if (plan === "pro") return "Pro";
-  return "Grátis";
+export function isNegocio(settings?: Pick<Settings, "plan"> | null): boolean {
+  return isEquipe(settings);
+}
+
+export function planLabel(plan?: Plan | string | null): string {
+  const p = normalizePlan(plan);
+  if (p === "equipe") return "NEGÓCIO";
+  if (p === "pro") return "PRO";
+  return "GRÁTIS";
 }
 
 export function planBadge(settings?: Pick<Settings, "plan"> | null): string | null {
-  if (settings?.plan === "equipe") return "Equipe";
-  if (settings?.plan === "pro") return "Pro";
+  const plan = effectivePlan(settings);
+  if (plan === "equipe") return "NEGÓCIO";
+  if (plan === "pro") return "PRO";
   return null;
 }
 
@@ -96,6 +202,7 @@ export function countFiadoThisMonth(sales: Sale[]): number {
 }
 
 export async function canAddLoyaltyCard(phone: string): Promise<boolean> {
+  if (getDevSimulateLimit()) return false;
   const settings = await ensureSettings();
   if (isPro(settings)) return true;
   const needle = nationalDigits(phone);
@@ -113,6 +220,11 @@ const listeners = new Set<() => void>();
 
 export function openUpgradeModal(): void {
   listeners.forEach((l) => l());
+}
+
+export function simulateFreePlanLimit(): void {
+  setDevSimulateLimit(true);
+  openUpgradeModal();
 }
 
 export function subscribeUpgradeModal(listener: () => void): () => void {
