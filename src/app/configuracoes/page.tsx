@@ -171,7 +171,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
           toast(`${n} produtos de exemplo adicionados`);
         }}
       >
-        Carregar cardápio de exemplo
+        Carregar catálogo de exemplo
       </Button>
 
       <p className="break-all text-xs text-muted">
