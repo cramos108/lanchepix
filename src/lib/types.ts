@@ -3,11 +3,13 @@ export { CATEGORIES } from "./catalog";
 export type Category = string;
 
 export type SaleStatus = "pending" | "paid" | "cancelled";
+export type PriceMode = "fixed" | "suggested";
 
 export type Product = {
   id: string;
   name: string;
   priceCents: number;
+  priceMode?: PriceMode;
   category: Category | string;
   stock: number;
   active: boolean;
@@ -24,6 +26,8 @@ export type Sale = {
   quantity: number;
   unitPriceCents: number;
   totalCents: number;
+  extraCents?: number;
+  priceMode?: PriceMode;
   status: SaleStatus;
   customerPhone?: string;
   customerName?: string;

@@ -22,6 +22,7 @@ const emptyForm = {
   price: "",
   category: defaultNiche().categories[0],
   stock: "10",
+  priceMode: "fixed" as "fixed" | "suggested",
 };
 
 export default function ProdutosPage() {
@@ -60,7 +61,8 @@ export default function ProdutosPage() {
         pixKey: settings.pixKey,
         merchantName: settings.merchantName || settings.storeName,
         merchantCity: settings.merchantCity,
-        amountCents: product.priceCents,
+        amountCents:
+          product.priceMode === "suggested" ? undefined : product.priceCents,
         description: product.name,
       });
     } catch {
@@ -101,6 +103,7 @@ export default function ProdutosPage() {
       price: centsToInput(p.priceCents),
       category: p.category,
       stock: String(p.stock),
+      priceMode: p.priceMode === "suggested" ? "suggested" : "fixed",
     });
     setOpen(true);
   }
@@ -111,6 +114,7 @@ export default function ProdutosPage() {
       price: centsToInput(t.priceCents),
       category: t.category,
       stock: String(t.stock),
+      priceMode: "fixed",
     });
   }
 
@@ -119,6 +123,7 @@ export default function ProdutosPage() {
       id: newId(),
       name: t.name,
       priceCents: t.priceCents,
+      priceMode: "fixed",
       category: t.category,
       stock: t.stock,
       active: true,
@@ -142,6 +147,7 @@ export default function ProdutosPage() {
       id: editing?.id ?? newId(),
       name,
       priceCents,
+      priceMode: form.priceMode,
       category: form.category,
       stock: Number.isFinite(stock) ? stock : 0,
       active: editing?.active ?? true,
@@ -202,7 +208,16 @@ export default function ProdutosPage() {
                 <p className="text-xl font-black leading-tight">{p.name}</p>
                 <p className="text-sm font-bold text-muted">{p.category}</p>
               </div>
-              <p className="text-xl font-black text-sun">{formatBRL(p.priceCents)}</p>
+              <p className="text-right">
+                <span className="block text-xl font-black text-sun">
+                  {formatBRL(p.priceCents)}
+                </span>
+                {p.priceMode === "suggested" ? (
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
+                    Sugerida
+                  </span>
+                ) : null}
+              </p>
             </div>
             <p
               className={`mt-1 text-sm font-extrabold ${
@@ -312,7 +327,34 @@ export default function ProdutosPage() {
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </Field>
-          <Field label="Preço (R$)" hint="Use vírgula: 8,50">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, priceMode: "fixed" }))}
+              className={`min-h-14 rounded-2xl border-2 px-3 text-sm font-extrabold ${
+                form.priceMode === "fixed"
+                  ? "border-sun bg-sun text-sunink"
+                  : "border-line bg-surface text-white"
+              }`}
+            >
+              Preço fixado
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, priceMode: "suggested" }))}
+              className={`min-h-14 rounded-2xl border-2 px-3 text-sm font-extrabold ${
+                form.priceMode === "suggested"
+                  ? "border-sun bg-sun text-sunink"
+                  : "border-line bg-surface text-white"
+              }`}
+            >
+              Contribuição sugerida
+            </button>
+          </div>
+          <Field
+            label={form.priceMode === "suggested" ? "Contribuição sugerida (R$)" : "Preço (R$)"}
+            hint="Use vírgula: 8,50"
+          >
             <input
               className={inputClass}
               inputMode="decimal"
@@ -363,6 +405,7 @@ export default function ProdutosPage() {
                 priceCents={sticker.priceCents}
                 payload={stickerPayload(sticker)}
                 storeName={settings?.storeName}
+                suggested={sticker.priceMode === "suggested"}
               />
             ) : (
               <p className="text-alert">

@@ -42,6 +42,7 @@ type RemoteProduct = {
   vendor_id: string;
   name: string;
   price_cents: number;
+  price_mode: string | null;
   category: string;
   stock: number;
   active: boolean;
@@ -58,6 +59,8 @@ type RemoteSale = {
   quantity: number;
   unit_price_cents: number;
   total_cents: number;
+  extra_cents: number | null;
+  price_mode: string | null;
   status: Sale["status"];
   customer_phone: string | null;
   customer_name: string | null;
@@ -98,6 +101,7 @@ function toRemoteProduct(vendorId: string, p: Product): RemoteProduct {
     vendor_id: vendorId,
     name: p.name,
     price_cents: p.priceCents,
+    price_mode: p.priceMode ?? "fixed",
     category: p.category,
     stock: p.stock,
     active: p.active,
@@ -112,6 +116,7 @@ function fromRemoteProduct(r: RemoteProduct): Product {
     id: r.id,
     name: r.name,
     priceCents: r.price_cents,
+    priceMode: r.price_mode === "suggested" ? "suggested" : "fixed",
     category: r.category,
     stock: r.stock,
     active: r.active,
@@ -131,6 +136,8 @@ function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
     quantity: s.quantity,
     unit_price_cents: s.unitPriceCents,
     total_cents: s.totalCents,
+    extra_cents: s.extraCents ?? 0,
+    price_mode: s.priceMode ?? "fixed",
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
@@ -149,6 +156,8 @@ function fromRemoteSale(r: RemoteSale): Sale {
     quantity: r.quantity,
     unitPriceCents: r.unit_price_cents,
     totalCents: r.total_cents,
+    extraCents: r.extra_cents ?? 0,
+    priceMode: r.price_mode === "suggested" ? "suggested" : "fixed",
     status: r.status,
     customerPhone: r.customer_phone ?? undefined,
     customerName: r.customer_name ?? undefined,

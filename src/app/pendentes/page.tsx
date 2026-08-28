@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, MessageCircle, Star, X } from "lucide-react";
+import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
@@ -34,13 +35,22 @@ export default function PendentesPage() {
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const [paying, setPaying] = useState<Sale | null>(null);
+  const [settle, setSettle] = useState<Sale | null>(null);
+  const [settleExtra, setSettleExtra] = useState(0);
   const [stampAsk, setStampAsk] = useState<Sale | null>(null);
 
-  async function pay(sale: Sale) {
-    const updated = await markSalePaid(sale.id);
+  function startSettle(sale: Sale) {
+    setSettle(sale);
+    setSettleExtra(sale.extraCents ?? 0);
+  }
+
+  async function confirmSettle() {
+    if (!settle) return;
+    const updated = await markSalePaid(settle.id, settleExtra);
     toast("Marcado como pago. Estoque baixado.");
-    setPaying(updated ?? sale);
-    if (sale.customerPhone) setStampAsk(sale);
+    setSettle(null);
+    setPaying(updated ?? settle);
+    if (settle.customerPhone) setStampAsk(settle);
   }
 
   async function giveStamp(sale: Sale) {
@@ -120,7 +130,7 @@ export default function PendentesPage() {
               <p className="text-2xl font-black text-sun">{formatBRL(sale.totalCents)}</p>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="mint" onClick={() => void pay(sale)}>
+              <Button variant="mint" onClick={() => startSettle(sale)}>
                 <Check className="h-5 w-5" />
                 Pago
               </Button>
@@ -159,6 +169,30 @@ export default function PendentesPage() {
           </li>
         ))}
       </ul>
+
+      <Modal
+        open={Boolean(settle)}
+        title="PIX CONFIANÇA · receber"
+        onClose={() => setSettle(null)}
+      >
+        {settle ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-bold">
+              {settle.productName} × {settle.quantity}
+            </p>
+            <AmountAdjuster
+              baseCents={settle.unitPriceCents * settle.quantity}
+              extraCents={settleExtra}
+              onChange={setSettleExtra}
+              suggested={settle.priceMode === "suggested"}
+            />
+            <Button variant="mint" onClick={() => void confirmSettle()}>
+              <Check className="h-5 w-5" />
+              Confirmar pago
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal open={Boolean(paying)} title="Recebido!" onClose={() => setPaying(null)}>
         {paying && settings ? (

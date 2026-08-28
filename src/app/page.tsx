@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle } from "lucide-react";
+import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
@@ -51,6 +52,7 @@ export default function VenderPage() {
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [lgpdOk, setLgpdOk] = useState(false);
+  const [extraCents, setExtraCents] = useState(0);
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
 
   const todayPaid = useMemo(
@@ -78,6 +80,30 @@ export default function VenderPage() {
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
   const confiancaUsed = countConfiancaSales(sales ?? []);
+  const todayTips = useMemo(
+    () =>
+      (sales ?? [])
+        .filter(
+          (s) =>
+            s.status === "paid" &&
+            (s.extraCents ?? 0) > 0 &&
+            isSameLocalDay(s.paidAt ?? s.createdAt),
+        )
+        .reduce((sum, s) => sum + (s.extraCents ?? 0), 0),
+    [sales],
+  );
+  const monthTips = useMemo(
+    () =>
+      (sales ?? [])
+        .filter(
+          (s) =>
+            s.status === "paid" &&
+            (s.extraCents ?? 0) > 0 &&
+            isSameLocalMonth(s.paidAt ?? s.createdAt),
+        )
+        .reduce((sum, s) => sum + (s.extraCents ?? 0), 0),
+    [sales],
+  );
 
   const categoryChips = [
     "Todos",
@@ -110,6 +136,7 @@ export default function VenderPage() {
     setPhone("");
     setCustomerName("");
     setLgpdOk(false);
+    setExtraCents(0);
   }
 
   async function confirmDraft(withWhatsApp: boolean) {
@@ -128,6 +155,7 @@ export default function VenderPage() {
         product: draft.product,
         quantity: draft.quantity,
         status: draft.mode,
+        extraCents,
         customerPhone: digits || undefined,
         customerName: customer?.name || customerName || undefined,
       });
@@ -218,6 +246,20 @@ export default function VenderPage() {
         </p>
       </Link>
 
+      {todayTips > 0 || monthTips > 0 ? (
+        <div className="rounded-3xl border-2 border-mint/50 bg-surface px-4 py-3">
+          <p className="text-[11px] font-extrabold uppercase tracking-widest text-mint">
+            Gorjetas / extra
+          </p>
+          <p className="text-xl font-black tabular-nums text-mint">
+            {formatBRL(todayTips)} hoje
+          </p>
+          <p className="text-sm font-bold text-muted">
+            {formatBRL(monthTips)} neste mês
+          </p>
+        </div>
+      ) : null}
+
       {!isPro(settings) ? (
         <p className="text-xs font-extrabold uppercase tracking-wide text-amber">
           Uso grátis: {confiancaUsed}/{FREE_CONFIANCA_LIMIT} Pix Confiança ·{" "}
@@ -272,8 +314,15 @@ export default function VenderPage() {
                   <h2 className="text-xl font-black leading-tight">{product.name}</h2>
                   <p className="text-sm font-bold text-muted">{product.category}</p>
                 </div>
-                <p className="text-2xl font-black tabular-nums text-sun">
-                  {formatBRL(product.priceCents)}
+                <p className="text-right">
+                  <span className="block text-2xl font-black tabular-nums text-sun">
+                    {formatBRL(product.priceCents)}
+                  </span>
+                  {product.priceMode === "suggested" ? (
+                    <span className="text-[10px] font-extrabold uppercase text-amber">
+                      Sugerida
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <p
@@ -325,7 +374,9 @@ export default function VenderPage() {
             <p className="text-lg font-bold">
               {draft.product.name} × {draft.quantity}
               <span className="mt-1 block text-2xl font-black text-sun">
-                {formatBRL(draft.product.priceCents * draft.quantity)}
+                {formatBRL(
+                  Math.max(0, draft.product.priceCents * draft.quantity + extraCents),
+                )}
               </span>
             </p>
             <p className="text-sm text-muted">
@@ -333,6 +384,12 @@ export default function VenderPage() {
                 ? "O estoque baixa agora. Mostre o QR para o cliente pagar."
                 : "O estoque só baixa quando você marcar como Pago na fila."}
             </p>
+            <AmountAdjuster
+              baseCents={draft.product.priceCents * draft.quantity}
+              extraCents={extraCents}
+              onChange={setExtraCents}
+              suggested={draft.product.priceMode === "suggested"}
+            />
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
                 Telefone do cliente (opcional)

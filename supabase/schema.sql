@@ -13,6 +13,7 @@ create table if not exists public.products (
   vendor_id uuid not null,
   name text not null,
   price_cents integer not null check (price_cents >= 0),
+  price_mode text not null default 'fixed',
   category text not null default 'Salgados',
   stock integer not null default 0,
   active boolean not null default true,
@@ -29,6 +30,8 @@ create table if not exists public.sales (
   quantity integer not null default 1 check (quantity > 0),
   unit_price_cents integer not null check (unit_price_cents >= 0),
   total_cents integer not null check (total_cents >= 0),
+  extra_cents integer not null default 0,
+  price_mode text,
   status text not null check (status in ('pending', 'paid', 'cancelled')),
   customer_phone text,
   customer_name text,
@@ -65,6 +68,9 @@ create table if not exists public.settings (
 );
 
 alter table public.settings add column if not exists plan text not null default 'free';
+alter table public.products add column if not exists price_mode text not null default 'fixed';
+alter table public.sales add column if not exists extra_cents integer not null default 0;
+alter table public.sales add column if not exists price_mode text;
 
 -- ---------------------------------------------------------------------------
 -- Índices

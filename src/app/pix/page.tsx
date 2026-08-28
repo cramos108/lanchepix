@@ -32,7 +32,10 @@ export default function PixPage() {
         pixKey: settings.pixKey,
         merchantName: settings.merchantName || settings.storeName,
         merchantCity: settings.merchantCity,
-        amountCents: selectedProduct?.priceCents,
+        amountCents:
+          selectedProduct?.priceMode === "suggested"
+            ? undefined
+            : selectedProduct?.priceCents,
         description: selectedProduct?.name ?? settings.storeName,
         txid: "***",
       });
@@ -118,7 +121,7 @@ export default function PixPage() {
                 pixKey: settings.pixKey,
                 merchantName: settings.merchantName || settings.storeName,
                 merchantCity: settings.merchantCity,
-                amountCents: p.priceCents,
+                amountCents: p.priceMode === "suggested" ? undefined : p.priceCents,
                 description: p.name,
               });
             } catch {
@@ -131,7 +134,11 @@ export default function PixPage() {
               >
                 <p className="text-xs font-bold uppercase">{settings.storeName}</p>
                 <p className="text-lg font-black">{p.name}</p>
-                <p className="mb-2 text-xl font-black">{formatBRL(p.priceCents)}</p>
+                <p className="mb-2 text-xl font-black">
+                  {p.priceMode === "suggested"
+                    ? `Contribuição Sugerida: ${formatBRL(p.priceCents)}`
+                    : formatBRL(p.priceCents)}
+                </p>
                 <div className="flex justify-center">
                   <QRCodeSVG value={code} size={140} bgColor="#fff" fgColor="#000" level="M" />
                 </div>

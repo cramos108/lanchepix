@@ -9,11 +9,13 @@ export function ProductSticker({
   priceCents,
   payload,
   storeName,
+  suggested,
 }: {
   name: string;
   priceCents: number;
   payload: string;
   storeName?: string;
+  suggested?: boolean;
 }) {
   return (
     <div className="label-sticker mx-auto w-full max-w-[320px] rounded-[28px] border-4 border-black bg-white p-5 text-center text-black">
@@ -23,7 +25,13 @@ export function ProductSticker({
         </p>
       ) : null}
       <p className="mt-1 text-2xl font-black leading-tight">{name}</p>
-      <p className="mt-1 text-3xl font-black tabular-nums">{formatBRL(priceCents)}</p>
+      {suggested ? (
+        <p className="mt-1 text-lg font-black leading-tight">
+          Contribuição Sugerida: {formatBRL(priceCents)}
+        </p>
+      ) : (
+        <p className="mt-1 text-3xl font-black tabular-nums">{formatBRL(priceCents)}</p>
+      )}
       <div className="mx-auto mt-4 flex justify-center rounded-2xl bg-white p-2">
         <QRCodeSVG
           value={payload}

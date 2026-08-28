@@ -9,6 +9,7 @@ export async function seedTemplates(templates: CatalogTemplate[]): Promise<numbe
     id: newId(),
     name: item.name,
     priceCents: item.priceCents,
+    priceMode: "fixed",
     category: item.category,
     stock: item.stock,
     active: true,

@@ -47,6 +47,7 @@ export async function createSale(input: {
   product: Product;
   quantity: number;
   status: "pending" | "paid";
+  extraCents?: number;
   customerPhone?: string;
   customerName?: string;
   notes?: string;
@@ -59,13 +60,17 @@ export async function createSale(input: {
   }
   const now = nowIso();
   const qty = Math.max(1, Math.floor(input.quantity));
+  const extraCents = input.extraCents ?? 0;
+  const base = input.product.priceCents * qty;
   const sale: Sale = {
     id: newId(),
     productId: input.product.id,
     productName: input.product.name,
     quantity: qty,
     unitPriceCents: input.product.priceCents,
-    totalCents: input.product.priceCents * qty,
+    totalCents: Math.max(0, base + extraCents),
+    extraCents,
+    priceMode: input.product.priceMode ?? "fixed",
     status: input.status,
     customerPhone: input.customerPhone,
     customerName: input.customerName,
@@ -93,11 +98,23 @@ export async function createSale(input: {
   return sale;
 }
 
-export async function markSalePaid(id: string): Promise<Sale | undefined> {
+export async function markSalePaid(
+  id: string,
+  extraCents = 0,
+): Promise<Sale | undefined> {
   const sale = await db.sales.get(id);
   if (!sale || sale.status === "paid") return sale;
   const now = nowIso();
-  const next: Sale = { ...sale, status: "paid", paidAt: now, updatedAt: now, dirty: true };
+  const base = sale.unitPriceCents * sale.quantity;
+  const next: Sale = {
+    ...sale,
+    extraCents,
+    totalCents: Math.max(0, base + extraCents),
+    status: "paid",
+    paidAt: now,
+    updatedAt: now,
+    dirty: true,
+  };
   await db.transaction("rw", db.sales, db.products, async () => {
     await db.sales.put(next);
     if (sale.status === "pending") {
