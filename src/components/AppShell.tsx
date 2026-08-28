@@ -28,6 +28,7 @@ import {
   subscribeDevPlan,
   getDevPlanOverride,
   getDevSimulateLimit,
+  getStoredActivePlan,
 } from "@/lib/plan";
 import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
@@ -74,7 +75,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hideBalances = useHideBalances();
   const devPlanTick = useSyncExternalStore(
     subscribeDevPlan,
-    () => `${getDevPlanOverride() ?? ""}:${getDevSimulateLimit() ? "1" : "0"}`,
+    () =>
+      `${getDevPlanOverride() ?? ""}:${getDevSimulateLimit() ? "1" : "0"}:${getStoredActivePlan() ?? ""}`,
     () => "",
   );
   void devPlanTick;

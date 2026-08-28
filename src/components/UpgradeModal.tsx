@@ -1,22 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, Copy, Sparkles } from "lucide-react";
-import { PixQr } from "@/components/PixQr";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, Sparkles } from "lucide-react";
+import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
 import { Button, Modal } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
-import { formatBRL } from "@/lib/money";
-import { buildPixPayload } from "@/lib/pix";
-import {
-  PLANS,
-  SUBSCRIBE_PIX_CITY,
-  SUBSCRIBE_PIX_KEY,
-  SUBSCRIBE_PIX_NAME,
-  subscribeUpgradeModal,
-  type PaidPlan,
-} from "@/lib/plan";
-import { activatePlan } from "@/lib/repo";
-import { toast } from "@/lib/toast";
+import { PLANS, subscribeUpgradeModal, type PaidPlan } from "@/lib/plan";
 
 export function UpgradeModal() {
   const [open, setOpen] = useState(false);
@@ -28,8 +17,11 @@ export function UpgradeModal() {
   }), []);
 
   function close() {
+    if (checkout) {
+      setCheckout(null);
+      return;
+    }
     setOpen(false);
-    setCheckout(null);
   }
 
   return (
@@ -37,12 +29,16 @@ export function UpgradeModal() {
       open={open}
       title={checkout ? "Assinar via Pix" : "GRÁTIS · PRO · NEGÓCIO"}
       onClose={close}
+      wide={Boolean(checkout)}
     >
       {checkout ? (
-        <PixCheckout
+        <StripeEmbeddedCheckout
           planId={checkout}
           onBack={() => setCheckout(null)}
-          onDone={close}
+          onDone={() => {
+            setCheckout(null);
+            setOpen(false);
+          }}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -56,7 +52,7 @@ export function UpgradeModal() {
             features={[...PLANS.free.features]}
             tone="free"
             action={
-              <Button variant="line" className="w-full" onClick={close}>
+              <Button variant="line" className="w-full" onClick={() => setOpen(false)}>
                 Continuar grátis
               </Button>
             }
@@ -128,80 +124,5 @@ function PlanCard({
       </ul>
       <div className="mt-4">{action}</div>
     </section>
-  );
-}
-
-function PixCheckout({
-  planId,
-  onBack,
-  onDone,
-}: {
-  planId: PaidPlan;
-  onBack: () => void;
-  onDone: () => void;
-}) {
-  const plan = PLANS[planId];
-  const payload = useMemo(() => {
-    try {
-      return buildPixPayload({
-        pixKey: SUBSCRIBE_PIX_KEY,
-        merchantName: SUBSCRIBE_PIX_NAME,
-        merchantCity: SUBSCRIBE_PIX_CITY,
-        amountCents: plan.cents,
-        description: planId === "equipe" ? "Plano Negocio" : "Plano Pro",
-      });
-    } catch {
-      return "";
-    }
-  }, [plan.cents, planId]);
-
-  async function copyPix() {
-    if (!payload) return;
-    try {
-      await navigator.clipboard.writeText(payload);
-      toast("Código Pix copiado");
-    } catch {
-      toast("Não deu para copiar. Selecione o código.", "err");
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-center text-lg font-black leading-tight">
-        {plan.name}
-        <span className="mt-1 block text-3xl text-sun">{formatBRL(plan.cents)}</span>
-        <span className="block text-sm font-bold text-muted">por mês, via Pix</span>
-      </p>
-      {payload ? (
-        <PixQr payload={payload} size={220} label="Pague no app do seu banco" />
-      ) : (
-        <p className="text-center text-sm font-bold text-alert">
-          Não foi possível gerar o QR. Pague {formatBRL(plan.cents)} via Pix e
-          toque em Já paguei.
-        </p>
-      )}
-      {payload ? (
-        <Button variant="line" onClick={() => void copyPix()}>
-          <Copy className="h-5 w-5" />
-          Copiar código Pix
-        </Button>
-      ) : null}
-      <Button
-        onClick={async () => {
-          await activatePlan(planId);
-          onDone();
-          toast(
-            planId === "equipe"
-              ? "Plano Negócio ativado neste aparelho"
-              : "Plano Pro ativado neste aparelho",
-          );
-        }}
-      >
-        Já paguei — ativar {planId === "equipe" ? "Negócio" : "Pro"}
-      </Button>
-      <Button variant="ghost" onClick={onBack}>
-        Voltar aos planos
-      </Button>
-    </div>
   );
 }

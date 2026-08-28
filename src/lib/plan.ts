@@ -3,6 +3,12 @@ import { nationalDigits } from "./phone";
 import type { Plan, Sale, Settings } from "./types";
 
 export const STRIPE_PRO_URL = "https://buy.stripe.com/6oU7sK3TQ0X77vr5VC4ko00";
+export const STRIPE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? "";
+export const STRIPE_PRICE_PRO =
+  process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO?.trim() ?? "";
+export const STRIPE_PRICE_NEGOCIO =
+  process.env.NEXT_PUBLIC_STRIPE_PRICE_NEGOCIO?.trim() ?? "";
 export const FREE_LOYALTY_LIMIT = 100;
 /** Grátis: Pix Confiança ilimitado. Mantido por compatibilidade. */
 export const FREE_CONFIANCA_LIMIT = Number.POSITIVE_INFINITY;
@@ -60,11 +66,13 @@ export type PaidPlan = "pro" | "equipe";
 
 const DEV_PLAN_KEY = "dev_plan_override";
 const DEV_LIMIT_KEY = "dev_simulate_free_limit";
+const ACTIVE_PLAN_KEY = "active_plan";
 const DEV_CYCLE: Plan[] = ["free", "pro", "equipe"];
 
 const devListeners = new Set<() => void>();
 let devPlanMemory: Plan | null | undefined;
 let devLimitMemory: boolean | undefined;
+let activePlanMemory: Plan | null | undefined;
 let devBooted = false;
 
 function emitDev() {
@@ -83,9 +91,11 @@ function bootDev() {
   try {
     devPlanMemory = parseStoredPlan(localStorage.getItem(DEV_PLAN_KEY));
     devLimitMemory = localStorage.getItem(DEV_LIMIT_KEY) === "true";
+    activePlanMemory = parseStoredPlan(localStorage.getItem(ACTIVE_PLAN_KEY));
   } catch {
     devPlanMemory = null;
     devLimitMemory = false;
+    activePlanMemory = null;
   }
   devBooted = true;
 }
@@ -145,6 +155,33 @@ export function clearDevOverrides(): void {
   setDevPlanOverride(null);
 }
 
+export function getStoredActivePlan(): Plan | null {
+  if (typeof window === "undefined") return null;
+  bootDev();
+  return activePlanMemory ?? null;
+}
+
+/** Persistência local do plano pago: 'pro' | 'negocio'. */
+export function persistActivePlan(plan: "pro" | "negocio" | "free"): void {
+  bootDev();
+  if (plan === "free") {
+    activePlanMemory = null;
+    try {
+      localStorage.removeItem(ACTIVE_PLAN_KEY);
+    } catch {
+      /* private mode */
+    }
+  } else {
+    activePlanMemory = parseStoredPlan(plan);
+    try {
+      localStorage.setItem(ACTIVE_PLAN_KEY, plan);
+    } catch {
+      /* private mode */
+    }
+  }
+  emitDev();
+}
+
 export function normalizePlan(plan?: string | null): Plan {
   if (plan === "pro") return "pro";
   if (plan === "equipe" || plan === "negocio") return "equipe";
@@ -152,7 +189,7 @@ export function normalizePlan(plan?: string | null): Plan {
 }
 
 export function effectivePlan(settings?: Pick<Settings, "plan"> | null): Plan {
-  return getDevPlanOverride() ?? normalizePlan(settings?.plan);
+  return getDevPlanOverride() ?? getStoredActivePlan() ?? normalizePlan(settings?.plan);
 }
 
 /** Pro e Negócio liberam os recursos pagos. */
