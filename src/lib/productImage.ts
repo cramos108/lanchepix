@@ -18,6 +18,10 @@ const EMOJI: Record<string, string> = {
   Sabonetes: "🧼",
   Perfumes: "🌸",
   Maquiagem: "💄",
+  "Batons / Maquiagem": "💄",
+  "Perfumes / Colônias": "🌸",
+  "Kits de Sabonete / Hidratante": "🧴",
+  "Potes / Utensílios Domésticos": "🫙",
   Outros: "📦",
 };
 

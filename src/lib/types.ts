@@ -53,6 +53,22 @@ export type Customer = {
 
 export type Plan = "free" | "pro";
 
+export type BusinessType =
+  | "ambulante"
+  | "consultora"
+  | "loja"
+  | "outros";
+
+export const BUSINESS_TYPES: Array<{ id: BusinessType; label: string }> = [
+  { id: "ambulante", label: "Vendedor Ambulante / Banca de Rua" },
+  {
+    id: "consultora",
+    label: "Consultora / Revendedora (Natura, Avon, Tupperware, etc.)",
+  },
+  { id: "loja", label: "Loja Física / Pop-up" },
+  { id: "outros", label: "Outros" },
+];
+
 export type Settings = {
   id: "app";
   vendorId: string;
@@ -64,6 +80,7 @@ export type Settings = {
   rewardLabel: string;
   stampsRequired: number;
   plan: Plan;
+  businessType?: BusinessType;
   resetDayAt?: string;
   resetWeekAt?: string;
   resetMonthAt?: string;

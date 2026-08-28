@@ -18,15 +18,15 @@ export function paymentReminderMessage(opts: {
   totalCents: number;
   pixKey?: string;
 }): string {
-  const oi = opts.customerName ? `Oi, ${opts.customerName}!` : "Oi!";
+  const nome = opts.customerName?.trim() || "";
+  const oi = nome ? `Olá ${nome}!` : "Olá!";
   const item =
     opts.quantity > 1 ? `${opts.productName} (x${opts.quantity})` : opts.productName;
-  const pix = opts.pixKey ? `\n\nChave Pix: ${opts.pixKey}` : "";
+  const pedido = `${item} / ${formatBRL(opts.totalCents)}`;
+  const chave = opts.pixKey?.trim() || "a chave combinada";
   return (
-    `${oi} 👋 Aqui é da *${opts.storeName}*.\n\n` +
-    `Você tem um pedido pendente de *${item}* no valor de *${formatBRL(opts.totalCents)}*.\n\n` +
-    `Pode pagar via Pix quando puder? Qualquer dúvida, é só chamar! 😊` +
-    pix
+    `${oi} Passando pra lembrar do seu pedido de *${pedido}* no Pix Confiança. ` +
+    `Segue minha chave Pix para pagamento quando puder: *${chave}*. Muito obrigado(a)!`
   );
 }
 

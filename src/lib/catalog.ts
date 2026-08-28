@@ -59,13 +59,21 @@ export const NICHES: Niche[] = [
   },
   {
     id: "cosmeticos",
-    label: "Cosméticos e Perfumaria",
-    categories: ["Sabonetes", "Perfumes", "Maquiagem"],
+    label: "Cosméticos, Perfumaria e Beleza",
+    categories: [
+      "Batons / Maquiagem",
+      "Perfumes / Colônias",
+      "Kits de Sabonete / Hidratante",
+      "Potes / Utensílios Domésticos",
+      "Sabonetes",
+      "Perfumes",
+      "Maquiagem",
+    ],
     templates: [
-      { name: "Sabonete artesanal", priceCents: 1200, category: "Sabonetes", stock: 18 },
-      { name: "Perfume 15ml", priceCents: 2500, category: "Perfumes", stock: 10 },
-      { name: "Batom", priceCents: 1500, category: "Maquiagem", stock: 14 },
-      { name: "Creme de mão", priceCents: 1800, category: "Sabonetes", stock: 12 },
+      { name: "Batons / Maquiagem", priceCents: 2500, category: "Batons / Maquiagem", stock: 12 },
+      { name: "Perfumes / Colônias", priceCents: 4500, category: "Perfumes / Colônias", stock: 8 },
+      { name: "Kits de Sabonete / Hidratante", priceCents: 3500, category: "Kits de Sabonete / Hidratante", stock: 10 },
+      { name: "Potes / Utensílios Domésticos", priceCents: 2800, category: "Potes / Utensílios Domésticos", stock: 10 },
     ],
   },
   {

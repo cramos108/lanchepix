@@ -13,7 +13,7 @@ import { saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { getSyncState, pushAndPull, scheduleSync, subscribeSync } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import type { Settings } from "@/lib/types";
+import { BUSINESS_TYPES, type BusinessType, type Settings } from "@/lib/types";
 
 export default function ConfiguracoesPage() {
   const settings = useLiveQuery(async () => {
@@ -35,6 +35,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [merchantCity, setMerchantCity] = useState(settings.merchantCity);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
+  const [businessType, setBusinessType] = useState<BusinessType>(
+    settings.businessType ?? "ambulante",
+  );
   const [syncLabel, setSyncLabel] = useState("Sincronizar agora");
   const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "year" | "all">(
     null,
@@ -55,6 +58,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       merchantCity: merchantCity.trim().slice(0, 15),
       whatsapp: whatsapp.trim(),
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
+      businessType,
     });
     toast("Configurações salvas");
   }
@@ -88,6 +92,24 @@ function SettingsForm({ settings }: { settings: Settings }) {
         )}
       </section>
 
+      <Field label="Tipo de negócio">
+        <div className="flex flex-col gap-2">
+          {BUSINESS_TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setBusinessType(t.id)}
+              className={`min-h-12 rounded-2xl border-2 px-3 text-left text-sm font-extrabold ${
+                businessType === t.id
+                  ? "border-sun bg-sun text-sunink"
+                  : "border-line bg-surface text-white"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </Field>
       <Field label="Nome do negócio / banca">
         <input
           className={inputClass}

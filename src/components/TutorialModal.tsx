@@ -14,8 +14,8 @@ const SLIDES = [
   },
   {
     icon: Printer,
-    title: "2. Imprima Adesivos QR Code",
-    body: "Gere adesivos com QR Code para colar nos seus produtos (lanches, capinhas, embalagens). O cliente leva na hora e paga pelo Pix Confiança!",
+    title: "2. Adesivos e Catálogo Digital",
+    body: "Gere adesivos com QR Code ou mostre seus produtos (lanches, capinhas, cosméticos, revistas). O cliente leva na hora e paga pelo Pix Confiança!",
   },
   {
     icon: Zap,

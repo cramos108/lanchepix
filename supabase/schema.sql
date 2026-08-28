@@ -69,6 +69,7 @@ create table if not exists public.settings (
 );
 
 alter table public.settings add column if not exists plan text not null default 'free';
+alter table public.settings add column if not exists business_type text not null default 'ambulante';
 alter table public.products add column if not exists price_mode text not null default 'fixed';
 alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;

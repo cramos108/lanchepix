@@ -93,6 +93,7 @@ type RemoteSettings = {
   reward_label: string;
   stamps_required: number;
   plan: Settings["plan"] | null;
+  business_type: string | null;
   updated_at: string;
 };
 
@@ -211,6 +212,7 @@ function toRemoteSettings(s: Settings): RemoteSettings {
     reward_label: s.rewardLabel,
     stamps_required: s.stampsRequired,
     plan: s.plan ?? "free",
+    business_type: s.businessType ?? "ambulante",
     updated_at: s.updatedAt,
   };
 }
@@ -344,6 +346,12 @@ export async function pushAndPull(): Promise<void> {
           rewardLabel: remote.reward_label,
           stampsRequired: remote.stamps_required,
           plan: remote.plan === "pro" ? "pro" : "free",
+          businessType:
+            remote.business_type === "consultora" ||
+            remote.business_type === "loja" ||
+            remote.business_type === "outros"
+              ? remote.business_type
+              : "ambulante",
           updatedAt: remote.updated_at,
           dirty: false,
         };
