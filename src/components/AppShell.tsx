@@ -17,8 +17,10 @@ import {
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useHideBalances } from "@/components/Money";
+import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { accountVendorId, isAttendantDevice } from "@/lib/account";
 import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
@@ -31,6 +33,7 @@ import {
   getDevSimulateLimit,
   getStoredActivePlan,
 } from "@/lib/plan";
+import { restorePairFromLocal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
@@ -66,6 +69,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [syncTick, setSyncTick] = useState(0);
+  const [pairManual, setPairManual] = useState(false);
+  const [pairDismissed, setPairDismissed] = useState(false);
+  const pairCodeFromUrl = useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener("popstate", onChange);
+      return () => window.removeEventListener("popstate", onChange);
+    },
+    () =>
+      (new URLSearchParams(window.location.search).get("pair_code") ?? "")
+        .replace(/\D/g, "")
+        .slice(0, 6),
+    () => "",
+  );
+  const pairOpen = pairManual || (pairCodeFromUrl.length === 6 && !pairDismissed);
   const {
     open: tutorialOpen,
     openTutorial,
@@ -89,13 +106,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
 
   useEffect(() => {
-    void ensureSettings().then(() => scheduleSync());
+    void ensureSettings()
+      .then(() => restorePairFromLocal())
+      .then(() => scheduleSync());
   }, []);
 
   useEffect(() => {
-    if (!settings?.vendorId || !isNegocio(settings)) return;
-    return startSalesRealtime(settings.vendorId);
-  }, [settings, settings?.vendorId, settings?.plan, devPlanTick]);
+    const accountId = accountVendorId(settings);
+    if (!accountId) return;
+    if (!isNegocio(settings) && !isAttendantDevice(settings)) return;
+    return startSalesRealtime(accountId);
+  }, [settings, settings?.vendorId, settings?.plan, settings?.pairedOwnerId, devPlanTick]);
+
+
 
   useEffect(() => {
     const onOnline = () => {
@@ -157,7 +180,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {planBadge(settings) ? (
+            {isAttendantDevice(settings) ? (
+              <span className="rounded-full border-2 border-mint bg-mint px-2 py-1 text-[11px] font-black uppercase text-sunink">
+                Ajudante
+              </span>
+            ) : planBadge(settings) ? (
               <span className="rounded-full border-2 border-sun bg-sun px-2 py-1 text-[11px] font-black uppercase text-sunink">
                 {planBadge(settings)}
               </span>
@@ -292,6 +319,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={closeTutorial}
         step={tutorialStep}
         setStep={setTutorialStep}
+        onConnectHelper={() => setPairManual(true)}
+      />
+      <PairingJoinModal
+        key={`${pairOpen ? "open" : "shut"}-${pairCodeFromUrl}`}
+        open={pairOpen}
+        initialCode={pairCodeFromUrl}
+        onClose={() => {
+          setPairManual(false);
+          setPairDismissed(true);
+        }}
       />
       <UpgradeModal />
 

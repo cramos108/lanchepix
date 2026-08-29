@@ -1,3 +1,4 @@
+import { accountVendorId, isAttendantDevice } from "./account";
 import { db, ensureSettings } from "./db";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
@@ -228,10 +229,11 @@ export async function pushAndPull(): Promise<void> {
   emit();
   try {
     const settings = await ensureSettings();
-    const vendorId = settings.vendorId;
+    const vendorId = accountVendorId(settings);
+    const attendant = isAttendantDevice(settings);
 
     const dirtyProducts = await db.products.filter((p) => Boolean(p.dirty)).toArray();
-    if (dirtyProducts.length) {
+    if (dirtyProducts.length && !attendant) {
       const { error } = await supabase
         .from("products")
         .upsert(dirtyProducts.map((p) => toRemoteProduct(vendorId, p)));
@@ -263,7 +265,7 @@ export async function pushAndPull(): Promise<void> {
     }
 
     const dirtyCustomers = await db.customers.filter((c) => Boolean(c.dirty)).toArray();
-    if (dirtyCustomers.length) {
+    if (dirtyCustomers.length && !attendant) {
       const { error } = await supabase
         .from("customers")
         .upsert(dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)));
@@ -278,7 +280,7 @@ export async function pushAndPull(): Promise<void> {
       });
     }
 
-    if (settings.dirty) {
+    if (settings.dirty && !attendant) {
       const { error } = await supabase.from("settings").upsert(toRemoteSettings(settings));
       if (error) throw error;
       const current = await db.settings.get("app");
@@ -338,7 +340,10 @@ export async function pushAndPull(): Promise<void> {
     if (remoteSettings) {
       const remote = remoteSettings as RemoteSettings;
       const local = await db.settings.get("app");
-      if (local && !local.dirty && isNewer(remote.updated_at, local.updatedAt)) {
+      if (
+        local &&
+        (attendant || (!local.dirty && isNewer(remote.updated_at, local.updatedAt)))
+      ) {
         const merged: Settings = {
           ...local,
           storeName: remote.store_name,
@@ -355,8 +360,11 @@ export async function pushAndPull(): Promise<void> {
                 ? "pro"
                 : "free",
           businessType: normalizeBusinessType(remote.business_type),
-          updatedAt: remote.updated_at,
+          updatedAt: attendant ? local.updatedAt : remote.updated_at,
           dirty: false,
+          pairedOwnerId: local.pairedOwnerId,
+          deviceRole: local.deviceRole,
+          attendantName: local.attendantName,
         };
         await db.settings.put(merged);
       }
@@ -386,7 +394,7 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   const { data, error } = await supabase
     .from("sales")
     .select("*")
-    .eq("vendor_id", settings.vendorId);
+    .eq("vendor_id", accountVendorId(settings));
   if (error || !data) {
     return db.sales.toArray();
   }

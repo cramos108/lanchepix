@@ -146,8 +146,21 @@ drop policy if exists "lanchepix_settings_anon" on public.settings;
 create policy "lanchepix_settings_anon" on public.settings
   for all to anon, authenticated using (true) with check (true);
 
+create table if not exists public.pairing_codes (
+  code text primary key,
+  owner_vendor_id uuid not null,
+  store_name text not null default '',
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.pairing_codes enable row level security;
+drop policy if exists "lanchepix_pairing_codes_anon" on public.pairing_codes;
+create policy "lanchepix_pairing_codes_anon" on public.pairing_codes
+  for all to anon, authenticated using (true) with check (true);
+
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on public.products, public.sales, public.customers, public.settings
+grant select, insert, update, delete on public.products, public.sales, public.customers, public.settings, public.pairing_codes
   to anon, authenticated;
 
 do $$

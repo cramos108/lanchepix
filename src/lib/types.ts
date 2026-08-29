@@ -98,6 +98,8 @@ export type Settings = {
   plan: Plan;
   businessType?: BusinessType;
   attendantName?: string;
+  pairedOwnerId?: string;
+  deviceRole?: "owner" | "attendant";
   resetDayAt?: string;
   resetWeekAt?: string;
   resetMonthAt?: string;

@@ -2,10 +2,13 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Cloud, ShieldAlert, Trash2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Cloud, Copy, ShieldAlert, Trash2 } from "lucide-react";
+import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
+import { isAttendantDevice } from "@/lib/account";
 import {
   cycleDevPlan,
   effectivePlan,
@@ -17,6 +20,11 @@ import {
   simulateFreePlanLimit,
   subscribeDevPlan,
 } from "@/lib/plan";
+import {
+  createPairingCode,
+  disconnectAttendant,
+  inviteUrl,
+} from "@/lib/pairing";
 import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
@@ -59,6 +67,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
     null,
   );
   const [deleteAccount, setDeleteAccount] = useState(false);
+  const [pairCode, setPairCode] = useState("");
+  const [pairExpires, setPairExpires] = useState("");
+  const [pairBusy, setPairBusy] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const activePlan = useSyncExternalStore(
     subscribeDevPlan,
     () => effectivePlan(settings),
@@ -197,7 +209,96 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="(11) 99999-9999"
         />
       </Field>
-      {isNegocio(settings) || activePlan === "equipe" ? (
+      {isAttendantDevice(settings) ? (
+        <section className="rounded-3xl border-2 border-mint bg-surface p-4">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-mint">
+            Aparelho de ajudante
+          </p>
+          <p className="mt-1 text-sm font-bold text-muted">
+            Conectado à banca principal. Vendas entram com o nome{" "}
+            <span className="text-white">{settings.attendantName || "sem nome"}</span>.
+          </p>
+          <Button
+            variant="line"
+            className="mt-3 w-full"
+            onClick={async () => {
+              await disconnectAttendant();
+              toast("Aparelho desconectado da banca principal", "info");
+            }}
+          >
+            Desconectar deste negócio
+          </Button>
+        </section>
+      ) : null}
+
+      {isNegocio(settings) && !isAttendantDevice(settings) ? (
+        <section className="rounded-3xl border-2 border-sun bg-surface p-4">
+          <h2 className="text-lg font-black">Conectar Novo Aparelho / Ajudante</h2>
+          <p className="mt-1 text-sm font-bold text-muted">
+            Gere um código de 6 dígitos (válido por 24 horas) ou um QR. O ajudante
+            entra sem login da conta principal.
+          </p>
+          <Button
+            className="mt-3 w-full"
+            disabled={pairBusy}
+            onClick={async () => {
+              setPairBusy(true);
+              try {
+                const created = await createPairingCode();
+                setPairCode(created.code);
+                setPairExpires(created.expiresAt);
+                toast("Código de conexão gerado");
+              } catch (err) {
+                toast(
+                  err instanceof Error ? err.message : "Não deu para gerar o código.",
+                  "err",
+                );
+              } finally {
+                setPairBusy(false);
+              }
+            }}
+          >
+            {pairBusy ? "Gerando…" : "Gerar Código de Conexão"}
+          </Button>
+          {pairCode ? (
+            <div className="mt-4 flex flex-col items-center gap-3">
+              <p className="text-4xl font-black tracking-[0.28em] text-sun">{pairCode}</p>
+              <p className="text-center text-xs font-bold text-muted">
+                Expira em {new Date(pairExpires).toLocaleString("pt-BR")}
+              </p>
+              <div className="rounded-2xl bg-white p-3">
+                <QRCodeSVG
+                  value={inviteUrl(pairCode)}
+                  size={180}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="M"
+                />
+              </div>
+              <p className="break-all text-center text-xs font-bold text-muted">
+                {inviteUrl(pairCode)}
+              </p>
+              <Button
+                variant="line"
+                className="w-full"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(inviteUrl(pairCode));
+                    toast("Link copiado");
+                  } catch {
+                    toast("Não deu para copiar.", "err");
+                  }
+                }}
+              >
+                <Copy className="h-5 w-5" />
+                Copiar link do convite
+              </Button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {isNegocio(settings) || activePlan === "equipe" || isAttendantDevice(settings) ? (
         <Field
           label="Nome do atendente / aparelho"
           hint="Usado no relatório Desempenho por Ajudante (plano Negócio). Cada celular pode ter um nome."
@@ -218,6 +319,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="1 brinde grátis"
         />
       </Field>
+
+      {!isAttendantDevice(settings) ? (
+        <Button variant="line" onClick={() => setJoinOpen(true)}>
+          Conectar como Ajudante / Segunda Banca
+        </Button>
+      ) : null}
 
       <Button onClick={() => void save()}>Salvar</Button>
 
@@ -415,6 +522,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
           </Button>
         </div>
       </Modal>
+
+      <PairingJoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </div>
   );
 }

@@ -47,11 +47,13 @@ export function TutorialModal({
   onClose,
   step,
   setStep,
+  onConnectHelper,
 }: {
   open: boolean;
   onClose: () => void;
   step: number;
   setStep: (value: number | ((s: number) => number)) => void;
+  onConnectHelper?: () => void;
 }) {
   const touchX = useRef<number | null>(null);
   const last = step === SLIDES.length - 1;
@@ -152,6 +154,18 @@ export function TutorialModal({
             <Button onClick={next}>Próximo</Button>
           </div>
         )}
+        {onConnectHelper ? (
+          <button
+            type="button"
+            className="mt-3 w-full text-center text-sm font-extrabold uppercase tracking-wide text-sun underline decoration-sun/50 underline-offset-4"
+            onClick={() => {
+              finish();
+              onConnectHelper();
+            }}
+          >
+            Conectar como Ajudante / Segunda Banca
+          </button>
+        ) : null}
       </div>
     </div>
   );

@@ -263,8 +263,10 @@ export async function activateEquipe(): Promise<Settings> {
 
 export async function deleteAccountAndAllData(): Promise<void> {
   const { clearDevOverrides, persistActivePlan } = await import("./plan");
+  const { clearPairLocal } = await import("./pairing");
   clearDevOverrides();
   persistActivePlan("free");
+  clearPairLocal();
   const current = await ensureSettings();
   const vendorId = current.vendorId;
   try {
