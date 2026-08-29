@@ -144,12 +144,12 @@ export default function VenderPage() {
       setCatalogError(null);
       toast(n ? `Catálogo atualizado · ${n} itens` : "Catálogo vazio na banca principal");
     } catch (err) {
-      const text =
-        err instanceof Error && err.message.trim()
-          ? err.message
-          : "Não deu pra atualizar o catálogo. Confira a internet e tente de novo.";
-      setCatalogError(text);
-      toast(text, "err");
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message ?? "").trim()
+          : "";
+      setCatalogError(message);
+      toast(message || "Não deu pra atualizar o catálogo.", "err");
     } finally {
       setRefreshing(false);
     }

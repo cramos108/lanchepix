@@ -57,10 +57,6 @@ function ownershipEq(ownerId: string) {
   return `${OWNERSHIP_COLUMN}=eq.${ownerId}`;
 }
 
-function productOwnershipEq(ownerId: string) {
-  return `${PRODUCT_OWNER_COLUMN}=eq.${ownerId}`;
-}
-
 type RemoteProduct = {
   id: string;
   owner_id: string;
@@ -265,30 +261,8 @@ function remoteErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function friendlyCatalogError(error: unknown): string {
-  const raw = remoteErrorMessage(error).toLowerCase();
-  if (
-    raw.includes("failed to fetch") ||
-    raw.includes("network") ||
-    raw.includes("offline") ||
-    raw.includes("internet")
-  ) {
-    return "Sem internet. Conecte o celular e toque em Atualizar.";
-  }
-  if (raw.includes("timeout")) {
-    return "A conexão demorou demais. Tente atualizar de novo.";
-  }
-  if (raw.includes("não configurado") || raw.includes("sem conexão com o servidor")) {
-    return "Sem conexão com o servidor. Tente de novo em instantes.";
-  }
-  return "Não deu pra atualizar o catálogo. Confira a internet e tente de novo.";
-}
-
 async function fetchProductsByOwnerId(activeOwnerId: string) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("owner_id", activeOwnerId);
+  const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
   console.log(
     "Fetching products for owner_id:",
     activeOwnerId,
@@ -376,7 +350,7 @@ export async function pushAndPull(): Promise<void> {
     const { data: remoteProducts, error: pErr } = await fetchProductsByOwnerId(activeOwnerId);
     if (pErr) {
       console.error("products fetch", pErr);
-      throw new Error(friendlyCatalogError(pErr));
+      throw new Error(remoteErrorMessage(pErr) || pErr.message || "products fetch failed");
     }
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
@@ -568,16 +542,20 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
 export async function refetchOwnerProducts(): Promise<number> {
   const settings = await ensureSettings();
   const activeOwnerId = getActiveOwnerId(settings);
-  if (!activeOwnerId) {
-    throw new Error("Não deu pra atualizar o catálogo. Confira a internet e tente de novo.");
-  }
-  if (!supabaseConfigured) {
-    throw new Error("Sem conexão com o servidor. Tente de novo em instantes.");
-  }
-  const { data, error } = await fetchProductsByOwnerId(activeOwnerId);
+  if (!activeOwnerId) throw new Error("owner_id ausente.");
+  if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
+  const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
+  console.log(
+    "Fetching products for owner_id:",
+    activeOwnerId,
+    "Result:",
+    data,
+    "Error:",
+    error,
+  );
   if (error) {
     console.error("products fetch", error);
-    throw new Error(friendlyCatalogError(error));
+    throw new Error(error.message);
   }
   const rows = (data ?? []) as RemoteProduct[];
   const keep = new Set(rows.map((r) => r.id));
@@ -679,7 +657,7 @@ export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
   const ownerId = getActiveOwnerId() || vendorId;
   const filter = ownershipEq(ownerId);
-  const productFilter = productOwnershipEq(ownerId);
+  const productFilter = `owner_id=eq.${ownerId}`;
   const channel = supabase
     .channel(`account-${ownerId}`)
     .on(
