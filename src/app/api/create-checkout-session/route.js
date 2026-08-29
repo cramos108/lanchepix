@@ -39,6 +39,7 @@ export async function POST(request) {
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded_page",
       mode: "subscription",
+      locale: "pt-BR",
       line_items: [{ price: selectedPriceId, quantity: 1 }],
       return_url: returnUrl(request),
     });
