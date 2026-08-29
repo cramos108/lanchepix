@@ -71,6 +71,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [pairExpires, setPairExpires] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [allowHelperTotals, setAllowHelperTotals] = useState(
+    settings.hideStoreTotals === false,
+  );
   const activePlan = useSyncExternalStore(
     subscribeDevPlan,
     () => effectivePlan(settings),
@@ -103,11 +106,51 @@ function SettingsForm({ settings }: { settings: Settings }) {
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
       businessType,
       attendantName: attendantName.trim(),
+      hideStoreTotals: !allowHelperTotals,
     });
     toast("Configurações salvas");
   }
 
   const sync = getSyncState();
+
+  if (isAttendantDevice(settings)) {
+    return (
+      <div className="flex flex-col gap-4">
+        <section className="rounded-3xl border-2 border-mint bg-surface p-4">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-mint">
+            Aparelho de ajudante
+          </p>
+          <p className="mt-1 text-lg font-black">{settings.attendantName || "Ajudante"}</p>
+          <p className="text-sm font-bold text-muted">
+            Conectado à banca. Ajustes da conta e cobrança ficam só com o dono.
+          </p>
+        </section>
+        <Field label="Seu nome neste aparelho">
+          <input
+            className={inputClass}
+            value={attendantName}
+            onChange={(e) => setAttendantName(e.target.value)}
+          />
+        </Field>
+        <Button
+          onClick={async () => {
+            await saveSettings({ attendantName: attendantName.trim() });
+          }}
+        >
+          Salvar nome
+        </Button>
+        <Button
+          variant="line"
+          onClick={async () => {
+            await disconnectAttendant();
+            toast("Aparelho desconectado da banca principal", "info");
+          }}
+        >
+          Desconectar deste negócio
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -238,12 +281,27 @@ function SettingsForm({ settings }: { settings: Settings }) {
             Gere um código de 6 dígitos (válido por 24 horas) ou um QR. O ajudante
             entra sem login da conta principal.
           </p>
+          <label className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-line bg-surface2 p-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-6 w-6 shrink-0 accent-sun"
+              checked={allowHelperTotals}
+              onChange={(e) => setAllowHelperTotals(e.target.checked)}
+            />
+            <span className="text-sm font-bold leading-snug">
+              Permitir que ajudantes vejam o total geral da banca
+              <span className="mt-1 block text-xs font-bold text-muted">
+                Padrão: desligado. Com isso off, o ajudante só vê as próprias vendas.
+              </span>
+            </span>
+          </label>
           <Button
             className="mt-3 w-full"
             disabled={pairBusy}
             onClick={async () => {
               setPairBusy(true);
               try {
+                await saveSettings({ hideStoreTotals: !allowHelperTotals });
                 const created = await createPairingCode();
                 setPairCode(created.code);
                 setPairExpires(created.expiresAt);

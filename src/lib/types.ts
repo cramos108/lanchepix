@@ -100,6 +100,8 @@ export type Settings = {
   attendantName?: string;
   pairedOwnerId?: string;
   deviceRole?: "owner" | "attendant";
+  /** When true, helpers cannot see store-wide totals (default). */
+  hideStoreTotals?: boolean;
   resetDayAt?: string;
   resetWeekAt?: string;
   resetMonthAt?: string;

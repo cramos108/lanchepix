@@ -20,7 +20,7 @@ import { useHideBalances } from "@/components/Money";
 import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
-import { accountVendorId, isAttendantDevice } from "@/lib/account";
+import { accountVendorId, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
 import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
@@ -33,7 +33,7 @@ import {
   getDevSimulateLimit,
   getStoredActivePlan,
 } from "@/lib/plan";
-import { restorePairFromLocal } from "@/lib/pairing";
+import { restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
@@ -83,6 +83,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => "",
   );
   const pairOpen = pairManual || (pairCodeFromUrl.length === 6 && !pairDismissed);
+
+  useEffect(() => subscribePairingJoinModal(() => setPairManual(true)), []);
   const {
     open: tutorialOpen,
     openTutorial,
@@ -99,10 +101,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   const pendingCount =
-    useLiveQuery(
-      () => db.sales.filter((s) => s.status === "pending").count(),
-      [],
-    ) ?? 0;
+    useLiveQuery(async () => {
+      const app = await db.settings.get("app");
+      const rows = await db.sales.filter((s) => s.status === "pending").toArray();
+      return visibleSalesForDevice(rows, app).length;
+    }, []) ?? 0;
   const settings = useLiveQuery(() => db.settings.get("app"), []);
 
   useEffect(() => {
@@ -232,17 +235,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <CircleHelp className="h-6 w-6" />
             </button>
-            <Link
-              href="/configuracoes"
-              aria-label="Configurações"
-              className={`grid h-12 w-12 place-items-center rounded-2xl border-2 ${
-                pathname === "/configuracoes"
-                  ? "border-sun bg-sun text-sunink"
-                  : "border-line bg-surface text-white"
-              }`}
-            >
-              <Settings className="h-6 w-6" />
-            </Link>
+            {isAttendantDevice(settings) ? null : (
+              <Link
+                href="/configuracoes"
+                aria-label="Configurações"
+                className={`grid h-12 w-12 place-items-center rounded-2xl border-2 ${
+                  pathname === "/configuracoes"
+                    ? "border-sun bg-sun text-sunink"
+                    : "border-line bg-surface text-white"
+                }`}
+              >
+                <Settings className="h-6 w-6" />
+              </Link>
+            )}
           </div>
         </div>
       </header>

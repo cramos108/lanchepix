@@ -36,11 +36,10 @@ export function PairingJoinModal({
   }
 
   return (
-    <Modal open={open} title="Conectar como Ajudante" onClose={onClose}>
+    <Modal open={open} title="Sou Ajudante / Conectar a uma Banca" onClose={onClose}>
       <div className="flex flex-col gap-4">
         <p className="text-sm font-bold text-muted">
-          Segunda banca / atendente: digite o código de 6 dígitos do dono e o
-          seu nome.
+          Digite o código de 6 dígitos do dono e o seu nome neste aparelho.
         </p>
         <Field label="Código de 6 dígitos">
           <input

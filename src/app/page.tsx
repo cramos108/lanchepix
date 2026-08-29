@@ -27,6 +27,8 @@ import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
+import { helperHidesStoreTotals, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
+import { openPairingJoinModal } from "@/lib/pairing";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
@@ -108,7 +110,9 @@ export default function VenderPage() {
     () => paidInPeriod(sales, isSameLocalYear, settings?.resetYearAt),
     [sales, settings?.resetYearAt],
   );
-  const pendingSales = (sales ?? []).filter((s) => s.status === "pending");
+  const scopedSales = visibleSalesForDevice(sales, settings);
+  const hideStore = helperHidesStoreTotals(settings);
+  const pendingSales = scopedSales.filter((s) => s.status === "pending");
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
   const todayTips = useMemo(
@@ -223,29 +227,45 @@ export default function VenderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="grid grid-cols-2 gap-2">
-        <MetricCard label="Hoje" value={todayPaid} highlight />
-        <MetricCard label="Esta Semana" value={weekPaid} />
-        <MetricCard label="Este Mês" value={monthPaid} />
-        <MetricCard label="Este Ano" value={yearPaid} />
-      </section>
+      {!isAttendantDevice(settings) ? (
+        <Button variant="line" className="w-full text-sm" onClick={openPairingJoinModal}>
+          Sou Ajudante / Conectar a uma Banca
+        </Button>
+      ) : (
+        <p className="text-center text-xs font-extrabold uppercase tracking-wide text-mint">
+          Ajudante: {settings?.attendantName || "conectado"}
+        </p>
+      )}
+
+      {hideStore ? null : (
+        <section className="grid grid-cols-2 gap-2">
+          <MetricCard label="Hoje" value={todayPaid} highlight />
+          <MetricCard label="Esta Semana" value={weekPaid} />
+          <MetricCard label="Este Mês" value={monthPaid} />
+          <MetricCard label="Este Ano" value={yearPaid} />
+        </section>
+      )}
 
       <Link
         href="/pendentes"
         className="rounded-3xl border-2 border-amber bg-surface px-4 py-3"
       >
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-          Pix Confiança · a receber
+          {hideStore ? "Seus pedidos · Pix Confiança" : "Pix Confiança · a receber"}
         </p>
-        <p className="text-2xl font-black tabular-nums text-sun">
-          <Money cents={pendingCents} />
-        </p>
+        {hideStore ? (
+          <p className="text-2xl font-black">{pendingCount} abertos</p>
+        ) : (
+          <p className="text-2xl font-black tabular-nums text-sun">
+            <Money cents={pendingCents} />
+          </p>
+        )}
         <p className="text-sm font-bold text-muted">
           {pendingCount} {pendingCount === 1 ? "pedido aberto" : "pedidos abertos"} na rua
         </p>
       </Link>
 
-      {todayTips > 0 || monthTips > 0 ? (
+      {!hideStore && (todayTips > 0 || monthTips > 0) ? (
         <div className="rounded-3xl border-2 border-mint/50 bg-surface px-4 py-3">
           <p className="text-[11px] font-extrabold uppercase tracking-widest text-mint">
             Gorjetas / extra

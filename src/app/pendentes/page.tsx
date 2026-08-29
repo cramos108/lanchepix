@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, FileDown, MessageCircle, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
+import { helperHidesStoreTotals, visibleSalesForDevice } from "@/lib/account";
 import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
@@ -36,9 +37,10 @@ export default function PendentesPage() {
         ),
     [],
   );
-  const sales = (allSales ?? []).filter((s) => s.status === "pending");
-  const history = (allSales ?? []).filter((s) => s.status === "paid");
   const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const scoped = visibleSalesForDevice(allSales, settings);
+  const sales = scoped.filter((s) => s.status === "pending");
+  const history = scoped.filter((s) => s.status === "paid");
   const [tab, setTab] = useState<"open" | "history" | "reports">("open");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [paying, setPaying] = useState<Sale | null>(null);
@@ -94,9 +96,10 @@ export default function PendentesPage() {
 
   const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
   const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
-  const helpers = useMemo(() => attendantPerformance(allSales ?? []), [allSales]);
+  const helpers = attendantPerformance(scoped);
   const pro = isPro(settings);
-  const negocio = isNegocio(settings);
+  const hideStore = helperHidesStoreTotals(settings);
+  const showReports = isNegocio(settings) && !hideStore;
 
   async function downloadReport() {
     if (!pro) {
@@ -118,6 +121,14 @@ export default function PendentesPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {hideStore ? (
+        <div className="rounded-3xl border-2 border-amber bg-surface px-4 py-3">
+          <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
+            Seus pedidos abertos
+          </p>
+          <p className="text-3xl font-black">{sales.length}</p>
+        </div>
+      ) : (
       <div className="rounded-3xl border-2 border-amber bg-surface px-4 py-3">
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
           Dinheiro na rua · a receber
@@ -129,12 +140,13 @@ export default function PendentesPage() {
           {(sales ?? []).length} {(sales ?? []).length === 1 ? "pedido aberto" : "pedidos abertos"}
         </p>
       </div>
+      )}
       <p className="text-sm font-bold text-muted">
         Toque em <span className="text-sun">Pago</span> quando o Pix cair. O valor
         entra no lucro de hoje, da semana, do mês e do ano.
       </p>
 
-      <div className={`grid gap-2 ${negocio ? "grid-cols-3" : "grid-cols-2"}`}>
+      <div className={`grid gap-2 ${showReports ? "grid-cols-3" : "grid-cols-2"}`}>
         <button
           type="button"
           onClick={() => setTab("open")}
@@ -153,7 +165,7 @@ export default function PendentesPage() {
         >
           Histórico
         </button>
-        {negocio ? (
+        {showReports ? (
           <button
             type="button"
             onClick={() => setTab("reports")}
@@ -166,7 +178,7 @@ export default function PendentesPage() {
         ) : null}
       </div>
 
-      {tab === "reports" && negocio ? (
+      {tab === "reports" && showReports ? (
         <section className="flex flex-col gap-3">
           <div>
             <h2 className="text-lg font-black">Desempenho por Ajudante</h2>
@@ -209,9 +221,12 @@ export default function PendentesPage() {
             <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
               Total no histórico
             </p>
-            <p className="text-2xl font-black tabular-nums">
-              <Money cents={historyCents} />
-            </p>
+            {hideStore ? null : (
+              <p className="text-2xl font-black tabular-nums">
+                <Money cents={historyCents} />
+              </p>
+            )}
+            {hideStore ? null : (
             <Button
               className="mt-3 w-full"
               variant={pro ? "sun" : "line"}
@@ -221,6 +236,7 @@ export default function PendentesPage() {
               <FileDown className="h-5 w-5" />
               {pdfBusy ? "Gerando PDF…" : "Baixar Relatório PDF (MEI)"}
             </Button>
+            )}
           </li>
           {history.length === 0 ? (
             <li>

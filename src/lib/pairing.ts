@@ -5,8 +5,20 @@ import type { Settings } from "./types";
 
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
+export const PAIR_HIDE_KEY = "pair_hide_store_totals";
 const PAIR_FALLBACK_KEY = "pair_codes_fallback";
 const PAIR_TTL_MS = 24 * 60 * 60 * 1000;
+
+const joinListeners = new Set<() => void>();
+
+export function openPairingJoinModal(): void {
+  joinListeners.forEach((l) => l());
+}
+
+export function subscribePairingJoinModal(listener: () => void): () => void {
+  joinListeners.add(listener);
+  return () => joinListeners.delete(listener);
+}
 
 type PairingCodeRow = {
   code: string;
@@ -18,16 +30,25 @@ type FallbackEntry = {
   owner_id: string;
   store_name: string;
   expires_at: string;
+  hide_store_totals: boolean;
 };
 
 function randomCode(): string {
   return String(100000 + Math.floor(Math.random() * 900000));
 }
 
-function parseMetadata(raw?: string | null): { store_name?: string; expires_at?: string } {
+function parseMetadata(raw?: string | null): {
+  store_name?: string;
+  expires_at?: string;
+  hide_store_totals?: boolean;
+} {
   if (!raw) return {};
   try {
-    const value = JSON.parse(raw) as { store_name?: string; expires_at?: string };
+    const value = JSON.parse(raw) as {
+      store_name?: string;
+      expires_at?: string;
+      hide_store_totals?: boolean;
+    };
     return value && typeof value === "object" ? value : {};
   } catch {
     return {};
@@ -58,9 +79,15 @@ function saveLocalFallback(
   ownerId: string,
   storeName: string,
   expiresAt: string,
+  hideStoreTotals: boolean,
 ): void {
   const map = readFallbackMap();
-  map[code] = { owner_id: ownerId, store_name: storeName, expires_at: expiresAt };
+  map[code] = {
+    owner_id: ownerId,
+    store_name: storeName,
+    expires_at: expiresAt,
+    hide_store_totals: hideStoreTotals,
+  };
   writeFallbackMap(map);
 }
 
@@ -74,10 +101,15 @@ export function inviteUrl(code: string): string {
   return `${origin}/?pair_code=${code}`;
 }
 
-export function persistPairLocal(ownerId: string, attendantName: string): void {
+export function persistPairLocal(
+  ownerId: string,
+  attendantName: string,
+  hideStoreTotals: boolean,
+): void {
   try {
     localStorage.setItem(PAIR_OWNER_KEY, ownerId);
     localStorage.setItem(PAIR_NAME_KEY, attendantName);
+    localStorage.setItem(PAIR_HIDE_KEY, hideStoreTotals ? "true" : "false");
   } catch {
     /* private mode */
   }
@@ -89,12 +121,15 @@ export async function restorePairFromLocal(): Promise<void> {
   try {
     const owner = localStorage.getItem(PAIR_OWNER_KEY);
     const name = localStorage.getItem(PAIR_NAME_KEY) ?? "";
+    const hide = localStorage.getItem(PAIR_HIDE_KEY);
     if (!owner) return;
     await db.settings.put({
       ...settings,
       pairedOwnerId: owner,
       attendantName: name || settings.attendantName,
       deviceRole: "attendant",
+      hideStoreTotals: hide !== "false",
+      plan: "equipe",
       dirty: false,
     });
   } catch {
@@ -106,6 +141,7 @@ export function clearPairLocal(): void {
   try {
     localStorage.removeItem(PAIR_OWNER_KEY);
     localStorage.removeItem(PAIR_NAME_KEY);
+    localStorage.removeItem(PAIR_HIDE_KEY);
   } catch {
     /* private mode */
   }
@@ -121,7 +157,12 @@ export async function createPairingCode(): Promise<{
   const code = randomCode();
   const ownerId = settings.vendorId;
   const storeName = settings.storeName || "Meu negócio";
-  const metadata = JSON.stringify({ store_name: storeName, expires_at: expiresAt });
+  const hideStoreTotals = settings.hideStoreTotals !== false;
+  const metadata = JSON.stringify({
+    store_name: storeName,
+    expires_at: expiresAt,
+    hide_store_totals: hideStoreTotals,
+  });
 
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
@@ -133,10 +174,10 @@ export async function createPairingCode(): Promise<{
     }
   } catch (err) {
     console.error("Pairing code insert failed, using local fallback:", err);
-    saveLocalFallback(code, ownerId, storeName, expiresAt);
+    saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals);
   }
 
-  saveLocalFallback(code, ownerId, storeName, expiresAt);
+  saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals);
   return { code, expiresAt, url: inviteUrl(code) };
 }
 
@@ -152,21 +193,30 @@ export async function redeemPairingCode(
   let ownerId = "";
   let storeName = "";
   let expiresAt = "";
+  let hideStoreTotals = true;
 
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
-    const { data, error } = await supabase
+    let query = await supabase
       .from("pairing_codes")
-      .select("code, owner_id")
+      .select("code, owner_id, metadata")
       .eq("code", code)
       .maybeSingle();
-    if (error) throw error;
-    const row = data as PairingCodeRow | null;
+    if (query.error) {
+      query = await supabase
+        .from("pairing_codes")
+        .select("code, owner_id")
+        .eq("code", code)
+        .maybeSingle();
+    }
+    if (query.error) throw query.error;
+    const row = query.data as PairingCodeRow | null;
     if (!row?.owner_id) throw new Error("Código não encontrado.");
     ownerId = row.owner_id;
     const extra = parseMetadata(row.metadata);
     storeName = extra.store_name ?? "";
     expiresAt = extra.expires_at ?? "";
+    hideStoreTotals = extra.hide_store_totals !== false;
   } catch (err) {
     console.error("Pairing code select failed, trying local fallback:", err);
     const local = lookupLocalFallback(code);
@@ -176,6 +226,7 @@ export async function redeemPairingCode(
     ownerId = local.owner_id;
     storeName = local.store_name;
     expiresAt = local.expires_at;
+    hideStoreTotals = local.hide_store_totals !== false;
   }
 
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -188,12 +239,20 @@ export async function redeemPairingCode(
     pairedOwnerId: ownerId,
     attendantName: name,
     deviceRole: "attendant",
+    hideStoreTotals,
+    plan: "equipe",
     storeName: storeName || settings.storeName,
     updatedAt: nowIso(),
     dirty: false,
   };
   await db.settings.put(next);
-  persistPairLocal(ownerId, name);
+  persistPairLocal(ownerId, name, hideStoreTotals);
+  try {
+    const { persistActivePlan } = await import("./plan");
+    persistActivePlan("negocio");
+  } catch {
+    /* ignore */
+  }
   const { pushAndPull } = await import("./sync");
   await pushAndPull();
   return next;

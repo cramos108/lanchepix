@@ -155,16 +155,16 @@ export function TutorialModal({
           </div>
         )}
         {onConnectHelper ? (
-          <button
-            type="button"
-            className="mt-3 w-full text-center text-sm font-extrabold uppercase tracking-wide text-sun underline decoration-sun/50 underline-offset-4"
+          <Button
+            variant="line"
+            className="mt-3 w-full text-sm"
             onClick={() => {
               finish();
               onConnectHelper();
             }}
           >
-            Conectar como Ajudante / Segunda Banca
-          </button>
+            Sou Ajudante / Conectar a uma Banca
+          </Button>
         ) : null}
       </div>
     </div>

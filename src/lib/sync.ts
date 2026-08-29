@@ -353,8 +353,9 @@ export async function pushAndPull(): Promise<void> {
           whatsapp: remote.whatsapp,
           rewardLabel: remote.reward_label,
           stampsRequired: remote.stamps_required,
-          plan:
-            remote.plan === "equipe"
+          plan: attendant
+            ? "equipe"
+            : remote.plan === "equipe"
               ? "equipe"
               : remote.plan === "pro"
                 ? "pro"
@@ -365,6 +366,7 @@ export async function pushAndPull(): Promise<void> {
           pairedOwnerId: local.pairedOwnerId,
           deviceRole: local.deviceRole,
           attendantName: local.attendantName,
+          hideStoreTotals: local.hideStoreTotals,
         };
         await db.settings.put(merged);
       }

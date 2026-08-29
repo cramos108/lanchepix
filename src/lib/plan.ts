@@ -1,3 +1,4 @@
+import { isAttendantDevice } from "./account";
 import { db, ensureSettings } from "./db";
 import { nationalDigits } from "./phone";
 import type { Plan, Sale, Settings } from "./types";
@@ -192,17 +193,25 @@ export function effectivePlan(settings?: Pick<Settings, "plan"> | null): Plan {
   return getDevPlanOverride() ?? getStoredActivePlan() ?? normalizePlan(settings?.plan);
 }
 
-/** Pro e Negócio liberam os recursos pagos. */
-export function isPro(settings?: Pick<Settings, "plan"> | null): boolean {
+/** Pro e Negócio liberam os recursos pagos. Ajudantes herdam o plano Negócio. */
+export function isPro(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  if (isAttendantDevice(settings)) return true;
   const plan = effectivePlan(settings);
   return plan === "pro" || plan === "equipe";
 }
 
-export function isEquipe(settings?: Pick<Settings, "plan"> | null): boolean {
+export function isEquipe(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  if (isAttendantDevice(settings)) return true;
   return effectivePlan(settings) === "equipe";
 }
 
-export function isNegocio(settings?: Pick<Settings, "plan"> | null): boolean {
+export function isNegocio(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
   return isEquipe(settings);
 }
 
