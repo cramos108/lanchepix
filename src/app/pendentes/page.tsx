@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, MessageCircle, Star, X } from "lucide-react";
+import { Check, FileDown, MessageCircle, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
+import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
   cancelSale,
@@ -19,6 +20,8 @@ import {
   unpaySale,
   upsertCustomer,
 } from "@/lib/repo";
+import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
+import { fetchVendorSalesFromSupabase, pushAndPull } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import type { Sale } from "@/lib/types";
@@ -36,7 +39,8 @@ export default function PendentesPage() {
   const sales = (allSales ?? []).filter((s) => s.status === "pending");
   const history = (allSales ?? []).filter((s) => s.status === "paid");
   const settings = useLiveQuery(() => db.settings.get("app"), []);
-  const [tab, setTab] = useState<"open" | "history">("open");
+  const [tab, setTab] = useState<"open" | "history" | "reports">("open");
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [paying, setPaying] = useState<Sale | null>(null);
   const [settle, setSettle] = useState<Sale | null>(null);
   const [settleExtra, setSettleExtra] = useState(0);
@@ -90,6 +94,27 @@ export default function PendentesPage() {
 
   const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
   const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
+  const helpers = useMemo(() => attendantPerformance(allSales ?? []), [allSales]);
+  const pro = isPro(settings);
+  const negocio = isNegocio(settings);
+
+  async function downloadReport() {
+    if (!pro) {
+      openUpgradeModal();
+      return;
+    }
+    setPdfBusy(true);
+    try {
+      await pushAndPull();
+      const rows = await fetchVendorSalesFromSupabase();
+      await downloadMeiPdf(rows, settings?.storeName ?? "Meu negócio");
+      toast("Relatório PDF salvo");
+    } catch {
+      toast("Não deu para gerar o PDF.", "err");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -109,11 +134,11 @@ export default function PendentesPage() {
         entra no lucro de hoje, da semana, do mês e do ano.
       </p>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2 ${negocio ? "grid-cols-3" : "grid-cols-2"}`}>
         <button
           type="button"
           onClick={() => setTab("open")}
-          className={`min-h-12 rounded-2xl border-2 text-sm font-extrabold uppercase ${
+          className={`min-h-12 rounded-2xl border-2 px-1 text-sm font-extrabold uppercase ${
             tab === "open" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
           }`}
         >
@@ -122,31 +147,90 @@ export default function PendentesPage() {
         <button
           type="button"
           onClick={() => setTab("history")}
-          className={`min-h-12 rounded-2xl border-2 text-sm font-extrabold uppercase ${
+          className={`min-h-12 rounded-2xl border-2 px-1 text-sm font-extrabold uppercase ${
             tab === "history" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
           }`}
         >
           Histórico
         </button>
+        {negocio ? (
+          <button
+            type="button"
+            onClick={() => setTab("reports")}
+            className={`min-h-12 rounded-2xl border-2 px-1 text-sm font-extrabold uppercase ${
+              tab === "reports" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
+            }`}
+          >
+            Relatórios
+          </button>
+        ) : null}
       </div>
 
+      {tab === "reports" && negocio ? (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-lg font-black">Desempenho por Ajudante</h2>
+            <p className="text-sm font-bold text-muted">
+              Totais de vendas pagas neste negócio, por nome do aparelho/atendente.
+            </p>
+          </div>
+          {helpers.length === 0 ? (
+            <EmptyState
+              title="Sem dados de ajudante"
+              text="Cadastre o nome do atendente nas configurações e registre vendas neste aparelho."
+            />
+          ) : (
+            helpers.map((row) => (
+              <article
+                key={row.name}
+                className="rounded-3xl border-2 border-line bg-surface p-4"
+              >
+                <p className="text-lg font-black">{row.name}</p>
+                <p className="text-sm font-bold text-muted">
+                  {row.salesCount} {row.salesCount === 1 ? "venda" : "vendas"} ·{" "}
+                  {row.quantity} un.
+                </p>
+                <p className="mt-1 text-2xl font-black text-sun">
+                  <Money cents={row.totalCents} />
+                </p>
+                <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+                  PIX AGORA <Money cents={row.pixAgoraCents} /> · PIX CONFIANÇA{" "}
+                  <Money cents={row.pixConfiancaCents} />
+                </p>
+              </article>
+            ))
+          )}
+        </section>
+      ) : null}
+
       {tab === "history" ? (
-        history.length === 0 ? (
-          <EmptyState
-            title="Sem vendas pagas"
-            text="PIX AGORA e Pix Confiança pagos aparecem aqui. Dá para desfazer."
-          />
-        ) : (
-          <ul className="flex flex-col gap-3">
-            <li className="rounded-3xl border-2 border-sun/70 bg-surface px-4 py-3">
-              <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
-                Total no histórico
-              </p>
-              <p className="text-2xl font-black tabular-nums">
-                <Money cents={historyCents} />
-              </p>
+        <ul className="flex flex-col gap-3">
+          <li className="rounded-3xl border-2 border-sun/70 bg-surface px-4 py-3">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
+              Total no histórico
+            </p>
+            <p className="text-2xl font-black tabular-nums">
+              <Money cents={historyCents} />
+            </p>
+            <Button
+              className="mt-3 w-full"
+              variant={pro ? "sun" : "line"}
+              disabled={pdfBusy}
+              onClick={() => void downloadReport()}
+            >
+              <FileDown className="h-5 w-5" />
+              {pdfBusy ? "Gerando PDF…" : "Baixar Relatório PDF (MEI)"}
+            </Button>
+          </li>
+          {history.length === 0 ? (
+            <li>
+              <EmptyState
+                title="Sem vendas pagas"
+                text="PIX AGORA e Pix Confiança pagos aparecem aqui. Dá para desfazer."
+              />
             </li>
-            {history.map((sale) => (
+          ) : (
+            history.map((sale) => (
               <li key={sale.id}>
                 <button
                   type="button"
@@ -164,6 +248,11 @@ export default function PendentesPage() {
                       <p className="text-xs font-extrabold uppercase text-mint">
                         {sale.paidAt === sale.createdAt ? "PIX AGORA" : "PIX CONFIANÇA"}
                       </p>
+                      {sale.attendantName ? (
+                        <p className="text-xs font-bold text-muted">
+                          Ajudante: {sale.attendantName}
+                        </p>
+                      ) : null}
                     </div>
                     <p className="text-xl font-black text-sun">
                       <Money cents={sale.totalCents} />
@@ -171,10 +260,12 @@ export default function PendentesPage() {
                   </div>
                 </button>
               </li>
-            ))}
-          </ul>
-        )
-      ) : sales.length === 0 ? (
+            ))
+          )}
+        </ul>
+      ) : null}
+
+      {tab === "open" && sales.length === 0 ? (
         <EmptyState
           title="Nada no Pix Confiança"
           text="Quando alguém levar e pagar depois, a venda aparece aqui."

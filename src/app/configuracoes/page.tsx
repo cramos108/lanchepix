@@ -11,6 +11,7 @@ import {
   effectivePlan,
   getDevPlanOverride,
   getDevSimulateLimit,
+  isNegocio,
   openUpgradeModal,
   planLabel,
   simulateFreePlanLimit,
@@ -49,6 +50,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [merchantCity, setMerchantCity] = useState(settings.merchantCity);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
+  const [attendantName, setAttendantName] = useState(settings.attendantName ?? "");
   const [businessType, setBusinessType] = useState<BusinessType>(
     normalizeBusinessType(settings.businessType),
   );
@@ -62,6 +64,15 @@ function SettingsForm({ settings }: { settings: Settings }) {
     () => effectivePlan(settings),
     () => settings.plan,
   );
+  const devQuery = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener("popstate", onStoreChange);
+      return () => window.removeEventListener("popstate", onStoreChange);
+    },
+    () => new URLSearchParams(window.location.search).get("dev") === "true",
+    () => false,
+  );
+  const showDevTools = process.env.NODE_ENV === "development" || devQuery;
 
   useEffect(() => subscribeSync(() => {
     const s = getSyncState();
@@ -79,6 +90,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       whatsapp: whatsapp.trim(),
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
       businessType,
+      attendantName: attendantName.trim(),
     });
     toast("Configurações salvas");
   }
@@ -185,6 +197,19 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="(11) 99999-9999"
         />
       </Field>
+      {isNegocio(settings) || activePlan === "equipe" ? (
+        <Field
+          label="Nome do atendente / aparelho"
+          hint="Usado no relatório Desempenho por Ajudante (plano Negócio). Cada celular pode ter um nome."
+        >
+          <input
+            className={inputClass}
+            value={attendantName}
+            onChange={(e) => setAttendantName(e.target.value)}
+            placeholder="Ex.: Maria, Banca 2"
+          />
+        </Field>
+      ) : null}
       <Field label="Prêmio do cartão fidelidade">
         <input
           className={inputClass}
@@ -233,36 +258,41 @@ function SettingsForm({ settings }: { settings: Settings }) {
         internet. Instale o app na tela inicial para usar como PWA.
       </p>
 
-      <div className="h-px bg-line" />
-      <h2 className="text-lg font-black">Dados e Testes</h2>
-      <p className="text-xs font-bold text-muted">
-        Ferramentas locais (localStorage). Não criam 100 vendas de verdade.
-      </p>
-      <Button
-        variant="line"
-        className="min-h-12 text-sm"
-        onClick={() => {
-          simulateFreePlanLimit();
-          toast("Paywall do plano grátis (simulado)", "info");
-        }}
-      >
-        Simular Limite do Plano Grátis (100 Vendas)
-      </Button>
-      <Button
-        variant="line"
-        className="min-h-12 text-sm"
-        onClick={() => {
-          const next = cycleDevPlan(settings.plan);
-          toast(`Modo Dev: ${planLabel(next)}`, "info");
-        }}
-      >
-        Alternar Modo Dev: Simulador de Planos (Grátis / Pro / Negócio)
-      </Button>
-      <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-        Simulador: {planLabel(activePlan)}
-        {getDevPlanOverride() ? " · override local" : ""}
-        {getDevSimulateLimit() ? " · limite grátis ligado" : ""}
-      </p>
+      {showDevTools ? (
+        <>
+          <div className="h-px bg-line" />
+          <h2 className="text-lg font-black">Dados e Testes</h2>
+          <p className="text-xs font-bold text-muted">
+            Ferramentas locais (localStorage). Não criam 100 vendas de verdade.
+            Só aparece em desenvolvimento ou com ?dev=true.
+          </p>
+          <Button
+            variant="line"
+            className="min-h-12 text-sm"
+            onClick={() => {
+              simulateFreePlanLimit();
+              toast("Paywall do plano grátis (simulado)", "info");
+            }}
+          >
+            Simular Limite do Plano Grátis (100 Vendas)
+          </Button>
+          <Button
+            variant="line"
+            className="min-h-12 text-sm"
+            onClick={() => {
+              const next = cycleDevPlan(settings.plan);
+              toast(`Modo Dev: ${planLabel(next)}`, "info");
+            }}
+          >
+            Alternar Modo Dev: Simulador de Planos (Grátis / Pro / Negócio)
+          </Button>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            Simulador: {planLabel(activePlan)}
+            {getDevPlanOverride() ? " · override local" : ""}
+            {getDevSimulateLimit() ? " · limite grátis ligado" : ""}
+          </p>
+        </>
+      ) : null}
 
       <div className="h-px bg-line" />
       <h2 className="text-lg font-black">Gerenciar dados e saldo</h2>

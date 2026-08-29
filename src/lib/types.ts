@@ -32,6 +32,7 @@ export type Sale = {
   status: SaleStatus;
   customerPhone?: string;
   customerName?: string;
+  attendantName?: string;
   notes?: string;
   createdAt: string;
   paidAt?: string;
@@ -96,6 +97,7 @@ export type Settings = {
   stampsRequired: number;
   plan: Plan;
   businessType?: BusinessType;
+  attendantName?: string;
   resetDayAt?: string;
   resetWeekAt?: string;
   resetMonthAt?: string;

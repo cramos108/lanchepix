@@ -50,6 +50,7 @@ export async function createSale(input: {
   extraCents?: number;
   customerPhone?: string;
   customerName?: string;
+  attendantName?: string;
   notes?: string;
 }): Promise<Sale> {
   if (input.status === "pending") {
@@ -58,10 +59,13 @@ export async function createSale(input: {
       throw new Error("PLAN_LIMIT_FIADO");
     }
   }
+  const settings = await ensureSettings();
   const now = nowIso();
   const qty = Math.max(1, Math.floor(input.quantity));
   const extraCents = input.extraCents ?? 0;
   const base = input.product.priceCents * qty;
+  const attendantName =
+    input.attendantName?.trim() || settings.attendantName?.trim() || undefined;
   const sale: Sale = {
     id: newId(),
     productId: input.product.id,
@@ -74,6 +78,7 @@ export async function createSale(input: {
     status: input.status,
     customerPhone: input.customerPhone,
     customerName: input.customerName,
+    attendantName,
     notes: input.notes,
     createdAt: now,
     paidAt: input.status === "paid" ? now : undefined,

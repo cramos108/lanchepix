@@ -23,6 +23,7 @@ import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
 import {
+  isNegocio,
   openUpgradeModal,
   planBadge,
   subscribeDevPlan,
@@ -30,7 +31,7 @@ import {
   getDevSimulateLimit,
   getStoredActivePlan,
 } from "@/lib/plan";
-import { scheduleSync, subscribeSync, getSyncState } from "@/lib/sync";
+import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 
 const NAV = [
@@ -79,7 +80,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       `${getDevPlanOverride() ?? ""}:${getDevSimulateLimit() ? "1" : "0"}:${getStoredActivePlan() ?? ""}`,
     () => "",
   );
-  void devPlanTick;
 
   const pendingCount =
     useLiveQuery(
@@ -91,6 +91,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void ensureSettings().then(() => scheduleSync());
   }, []);
+
+  useEffect(() => {
+    if (!settings?.vendorId || !isNegocio(settings)) return;
+    return startSalesRealtime(settings.vendorId);
+  }, [settings, settings?.vendorId, settings?.plan, devPlanTick]);
 
   useEffect(() => {
     const onOnline = () => {

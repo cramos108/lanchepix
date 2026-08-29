@@ -76,6 +76,7 @@ alter table public.products add column if not exists price_mode text not null de
 alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;
 alter table public.sales add column if not exists price_mode text;
+alter table public.sales add column if not exists attendant_name text;
 
 -- ---------------------------------------------------------------------------
 -- Índices
@@ -148,3 +149,10 @@ create policy "lanchepix_settings_anon" on public.settings
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.products, public.sales, public.customers, public.settings
   to anon, authenticated;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.sales;
+exception
+  when duplicate_object then null;
+end $$;

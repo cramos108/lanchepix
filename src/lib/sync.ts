@@ -65,6 +65,7 @@ type RemoteSale = {
   status: Sale["status"];
   customer_phone: string | null;
   customer_name: string | null;
+  attendant_name: string | null;
   notes: string | null;
   created_at: string;
   paid_at: string | null;
@@ -145,6 +146,7 @@ function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
+    attendant_name: s.attendantName ?? null,
     notes: s.notes ?? null,
     created_at: s.createdAt,
     paid_at: s.paidAt ?? null,
@@ -165,6 +167,7 @@ function fromRemoteSale(r: RemoteSale): Sale {
     status: r.status,
     customerPhone: r.customer_phone ?? undefined,
     customerName: r.customer_name ?? undefined,
+    attendantName: r.attendant_name ?? undefined,
     notes: r.notes ?? undefined,
     createdAt: r.created_at,
     paidAt: r.paid_at ?? undefined,
@@ -366,6 +369,56 @@ export async function pushAndPull(): Promise<void> {
     running = false;
     emit();
   }
+}
+
+export async function applyRemoteSaleRow(row: RemoteSale): Promise<void> {
+  const local = await db.sales.get(row.id);
+  if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+    await db.sales.put(fromRemoteSale(row));
+  }
+}
+
+export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
+  const settings = await ensureSettings();
+  if (!supabaseConfigured) {
+    return db.sales.toArray();
+  }
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("vendor_id", settings.vendorId);
+  if (error || !data) {
+    return db.sales.toArray();
+  }
+  return (data as RemoteSale[]).map(fromRemoteSale);
+}
+
+export function startSalesRealtime(vendorId: string): () => void {
+  if (!supabaseConfigured || !vendorId) return () => undefined;
+  const channel = supabase
+    .channel(`sales-${vendorId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "sales",
+        filter: `vendor_id=eq.${vendorId}`,
+      },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.sales.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteSale | null;
+        if (row?.id) void applyRemoteSaleRow(row);
+      },
+    )
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
