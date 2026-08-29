@@ -37,7 +37,14 @@ export async function saveProduct(
   try {
     await import("./sync").then((m) => m.pushProductImmediate(row));
   } catch (err) {
-    console.error("products upsert", err);
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: unknown }).message ?? "").trim()
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    console.error("products insert", err);
+    throw new Error(message || "Não deu pra gravar o produto.");
   }
   return row;
 }

@@ -26,7 +26,7 @@ import { maskPhoneInput, nationalDigits } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
-import { refetchOwnerProducts, scheduleSync } from "@/lib/sync";
+import { refetchOwnerProducts } from "@/lib/sync";
 import { canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
 import {
   FREE_LOYALTY_LIMIT,
@@ -156,9 +156,15 @@ export default function VenderPage() {
   }
 
   async function seed() {
-    const n = await seedDemoProducts(settings?.businessType);
-    scheduleSync();
-    toast(`${n} produtos de exemplo no catálogo`);
+    try {
+      const n = await seedDemoProducts(settings?.businessType);
+      toast(`${n} produtos de exemplo no catálogo`);
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Não deu pra gravar os exemplos.",
+        "err",
+      );
+    }
   }
 
   async function openDraft(product: Product, mode: "pending" | "paid") {

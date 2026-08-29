@@ -502,16 +502,8 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
   }
 }
 
-/** Desktop/Negócio: persist a product with owner_id = currentUser.id immediately. */
-export async function pushProductImmediate(product: Product): Promise<void> {
-  if (!supabaseConfigured) return;
-  const settings = await ensureSettings();
-  const currentUser = { id: settings.vendorId };
-  if (!currentUser?.id) {
-    console.error("PRODUCT INSERT BLOCKED: currentUser.id is missing. owner_id was not set.");
-    throw new Error("owner_id ausente.");
-  }
-  const payload = {
+function productInsertPayload(product: Product, ownerId: string) {
+  return {
     id: product.id,
     name: product.name,
     price_cents: product.priceCents,
@@ -523,17 +515,36 @@ export async function pushProductImmediate(product: Product): Promise<void> {
     created_at: product.createdAt,
     updated_at: product.updatedAt,
     deleted_at: product.deleted ? product.updatedAt : null,
-    vendor_id: currentUser.id,
-    owner_id: currentUser?.id,
+    vendor_id: ownerId,
+    owner_id: ownerId,
   };
+}
+
+/** Desktop/Negócio: persist products with owner_id = currentUser.id immediately. */
+export async function pushProductsImmediate(products: Product[]): Promise<void> {
+  if (!products.length) return;
+  if (!supabaseConfigured) return;
+  const settings = await ensureSettings();
+  const currentUser = { id: settings.vendorId };
+  if (!currentUser?.id) {
+    console.error("PRODUCT INSERT BLOCKED: currentUser.id is missing. owner_id was not set.");
+    throw new Error("currentUser.id ausente: owner_id não foi definido.");
+  }
+  const payload = products.map((p) => ({
+    ...productInsertPayload(p, currentUser.id),
+    owner_id: currentUser?.id,
+  }));
   const { error } = await supabase.from("products").insert(payload);
   if (error) {
-    const retry = await supabase.from("products").upsert({
-      ...payload,
-      owner_id: currentUser?.id,
-    });
-    if (retry.error) throw retry.error;
+    const retry = await supabase.from("products").upsert(
+      payload.map((row) => ({ ...row, owner_id: currentUser?.id })),
+    );
+    if (retry.error) throw new Error(retry.error.message);
   }
+}
+
+export async function pushProductImmediate(product: Product): Promise<void> {
+  await pushProductsImmediate([product]);
 }
 
 export async function pushSaleImmediate(sale: Sale): Promise<void> {

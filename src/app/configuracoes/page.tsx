@@ -39,7 +39,7 @@ import { detectPixKeyType } from "@/lib/pix";
 import { maskPhoneInput } from "@/lib/phone";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
-import { getSyncState, pushAndPull, scheduleSync, subscribeSync } from "@/lib/sync";
+import { getSyncState, pushAndPull, subscribeSync } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import {
   BUSINESS_TYPES,
@@ -490,9 +490,15 @@ function SettingsForm({ settings }: { settings: Settings }) {
       <Button
         variant="line"
         onClick={async () => {
-          const n = await seedDemoProducts(businessType);
-          scheduleSync();
-          toast(`${n} produtos de exemplo adicionados`);
+          try {
+            const n = await seedDemoProducts(businessType);
+            toast(`${n} produtos de exemplo adicionados`);
+          } catch (err) {
+            toast(
+              err instanceof Error ? err.message : "Não deu pra gravar os exemplos.",
+              "err",
+            );
+          }
         }}
       >
         Carregar catálogo de exemplo

@@ -25,6 +25,19 @@ export async function seedTemplates(templates: CatalogTemplate[]): Promise<numbe
     dirty: true,
   }));
   await db.products.bulkAdd(rows);
+  try {
+    const { pushProductsImmediate } = await import("./sync");
+    await pushProductsImmediate(rows);
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: unknown }).message ?? "").trim()
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    console.error("products bulk insert", err);
+    throw new Error(message || "Não deu pra gravar os exemplos.");
+  }
   return rows.length;
 }
 

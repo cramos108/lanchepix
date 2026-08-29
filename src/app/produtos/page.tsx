@@ -15,7 +15,6 @@ import { centsToInput, parseBRLToCents } from "@/lib/money";
 import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
-import { scheduleSync } from "@/lib/sync";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog } from "@/lib/account";
 import { toast } from "@/lib/toast";
@@ -51,6 +50,19 @@ export default function ProdutosPage() {
   const [sticker, setSticker] = useState<Product | null>(null);
   const [needPixKey, setNeedPixKey] = useState(false);
   const [filter, setFilter] = useState("Todos");
+  const [productError, setProductError] = useState<string | null>(null);
+
+  function showProductError(err: unknown) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: unknown }).message ?? "").trim()
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    const text = message || "Não deu pra gravar o produto.";
+    setProductError(text);
+    toast(text, "err");
+  }
 
   const niche = NICHES.find((n) => n.id === nicheId) ?? defaultNiche();
   const chips = useMemo(() => {
@@ -116,28 +128,22 @@ export default function ProdutosPage() {
     setOpen(true);
   }
 
-  function applyTemplate(t: CatalogTemplate) {
-    setForm({
-      name: t.name,
-      price: centsToInput(t.priceCents),
-      category: t.category,
-      stock: String(t.stock),
-      priceMode: "fixed",
-      imageData: form.imageData,
-    });
-  }
-
   async function addTemplateNow(t: CatalogTemplate) {
-    await saveProduct({
-      id: newId(),
-      name: t.name,
-      priceCents: t.priceCents,
-      priceMode: "fixed",
-      category: t.category,
-      stock: t.stock,
-      active: true,
-    });
-    toast(`${t.name} no catálogo`);
+    try {
+      await saveProduct({
+        id: newId(),
+        name: t.name,
+        priceCents: t.priceCents,
+        priceMode: "fixed",
+        category: t.category,
+        stock: t.stock,
+        active: true,
+      });
+      setProductError(null);
+      toast(`${t.name} no catálogo`);
+    } catch (err) {
+      showProductError(err);
+    }
   }
 
   async function submit() {
@@ -152,18 +158,23 @@ export default function ProdutosPage() {
       toast("Informe um preço válido.", "err");
       return;
     }
-    await saveProduct({
-      id: editing?.id ?? newId(),
-      name,
-      priceCents,
-      priceMode: form.priceMode,
-      imageData: form.imageData,
-      category: form.category,
-      stock: Number.isFinite(stock) ? stock : 0,
-      active: editing?.active ?? true,
-    });
-    toast(editing ? "Produto atualizado" : "Produto cadastrado");
-    setOpen(false);
+    try {
+      await saveProduct({
+        id: editing?.id ?? newId(),
+        name,
+        priceCents,
+        priceMode: form.priceMode,
+        imageData: form.imageData,
+        category: form.category,
+        stock: Number.isFinite(stock) ? stock : 0,
+        active: editing?.active ?? true,
+      });
+      setProductError(null);
+      toast(editing ? "Produto atualizado" : "Produto cadastrado");
+      setOpen(false);
+    } catch (err) {
+      showProductError(err);
+    }
   }
 
   async function onPickPhoto(file: File | undefined) {
@@ -178,9 +189,13 @@ export default function ProdutosPage() {
   }
 
   async function seedThisNiche() {
-    const n = await seedNiche(nicheId);
-    scheduleSync();
-    toast(`${n} itens de exemplo em ${niche.label}`);
+    try {
+      const n = await seedNiche(nicheId);
+      setProductError(null);
+      toast(`${n} itens de exemplo em ${niche.label}`);
+    } catch (err) {
+      showProductError(err);
+    }
   }
 
   return (
@@ -192,6 +207,11 @@ export default function ProdutosPage() {
           Novo produto
         </Button>
       </div>
+      ) : null}
+      {productError ? (
+        <p className="break-all rounded-2xl border-2 border-alert bg-surface px-3 py-2 text-xs font-bold text-alert">
+          {productError}
+        </p>
       ) : null}
 
       {products && products.length > 0 ? (
@@ -326,7 +346,7 @@ export default function ProdutosPage() {
                   <button
                     key={t.name}
                     type="button"
-                    onClick={() => applyTemplate(t)}
+                    onClick={() => void addTemplateNow(t)}
                     onDoubleClick={() => void addTemplateNow(t)}
                     className="rounded-2xl border-2 border-line bg-surface2 px-3 py-3 text-left"
                   >
