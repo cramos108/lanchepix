@@ -44,18 +44,25 @@ function isNewer(a?: string, b?: string): boolean {
 }
 
 /**
- * Account-owner FK on products, sales, customers, settings.
- * This app is not Supabase Auth: there is no `user_id`. pairing_codes uses
- * `owner_id` only. Store tables must use this exact column everywhere.
+ * sales / customers / settings are owned by vendor_id (device account id).
+ * pairing_codes uses owner_id only.
  */
 export const OWNERSHIP_COLUMN = "vendor_id" as const;
+
+/** products are fetched and filtered by user_id (owner's account id). */
+export const PRODUCT_OWNER_COLUMN = "user_id" as const;
 
 function ownershipEq(ownerId: string) {
   return `${OWNERSHIP_COLUMN}=eq.${ownerId}`;
 }
 
+function productOwnershipEq(ownerId: string) {
+  return `${PRODUCT_OWNER_COLUMN}=eq.${ownerId}`;
+}
+
 type RemoteProduct = {
   id: string;
+  user_id: string;
   vendor_id: string;
   name: string;
   price_cents: number;
@@ -115,10 +122,11 @@ type RemoteSettings = {
   updated_at: string;
 };
 
-function toRemoteProduct(vendorId: string, p: Product): RemoteProduct {
+function toRemoteProduct(ownerId: string, p: Product): RemoteProduct {
   return {
     id: p.id,
-    [OWNERSHIP_COLUMN]: vendorId,
+    user_id: ownerId,
+    vendor_id: ownerId,
     name: p.name,
     price_cents: p.priceCents,
     price_mode: p.priceMode ?? "fixed",
@@ -246,6 +254,22 @@ async function selectOwned(table: string, ownerId: string) {
   return supabase.from(table).select("*").eq(OWNERSHIP_COLUMN, ownerId);
 }
 
+async function fetchProductsByUserId(activeOwnerId: string) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("user_id", activeOwnerId);
+  console.log(
+    "Fetching products for user_id:",
+    activeOwnerId,
+    "Result:",
+    data,
+    "Error:",
+    error,
+  );
+  return { data, error };
+}
+
 export async function pushAndPull(): Promise<void> {
   if (running || !supabaseConfigured) return;
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -319,7 +343,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteProducts, error: pErr } = await selectOwned("products", activeOwnerId);
+    const { data: remoteProducts, error: pErr } = await fetchProductsByUserId(activeOwnerId);
     if (pErr) throw pErr;
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
@@ -455,15 +479,16 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
   }
 }
 
-/** Desktop/Negócio: persist a product with the unified ownership column immediately. */
+/** Desktop/Negócio: persist a product with user_id = owner's id immediately. */
 export async function pushProductImmediate(product: Product): Promise<void> {
   if (!supabaseConfigured) return;
   const settings = await ensureSettings();
   const activeOwnerId = getActiveOwnerId(settings);
-  if (!activeOwnerId) throw new Error("vendor_id (ID do chefe) ausente.");
+  if (!activeOwnerId) throw new Error("user_id (ID do chefe) ausente.");
   const payload = {
     ...toRemoteProduct(activeOwnerId, product),
-    [OWNERSHIP_COLUMN]: activeOwnerId,
+    user_id: activeOwnerId,
+    vendor_id: activeOwnerId,
   };
   const { error } = await upsertOwned("products", [payload]);
   if (error) throw error;
@@ -509,10 +534,10 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
 
 export async function refetchOwnerProducts(): Promise<number> {
   const settings = await ensureSettings();
-  const ownerId = getActiveOwnerId(settings);
-  if (!ownerId) throw new Error("vendor_id (ID do chefe) ausente.");
+  const activeOwnerId = getActiveOwnerId(settings);
+  if (!activeOwnerId) throw new Error("user_id (ID do chefe) ausente.");
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await selectOwned("products", ownerId);
+  const { data, error } = await fetchProductsByUserId(activeOwnerId);
   if (error) throw error;
   const rows = (data ?? []) as RemoteProduct[];
   const keep = new Set(rows.map((r) => r.id));
@@ -614,6 +639,7 @@ export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
   const ownerId = getActiveOwnerId() || vendorId;
   const filter = ownershipEq(ownerId);
+  const productFilter = productOwnershipEq(ownerId);
   const channel = supabase
     .channel(`account-${ownerId}`)
     .on(
@@ -633,17 +659,17 @@ export function startAccountRealtime(vendorId: string): () => void {
     )
     .on(
       "postgres_changes",
-      { event: "INSERT", schema: "public", table: "products", filter },
+      { event: "INSERT", schema: "public", table: "products", filter: productFilter },
       (payload) => handleProductChange(payload),
     )
     .on(
       "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "products", filter },
+      { event: "UPDATE", schema: "public", table: "products", filter: productFilter },
       (payload) => handleProductChange(payload),
     )
     .on(
       "postgres_changes",
-      { event: "DELETE", schema: "public", table: "products", filter },
+      { event: "DELETE", schema: "public", table: "products", filter: productFilter },
       (payload) => handleProductChange(payload),
     )
     .on(
@@ -660,6 +686,7 @@ export function startAccountRealtime(vendorId: string): () => void {
 export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
   if (!supabaseConfigured || !vendorId) return;
   await supabase.from("sales").delete().eq(OWNERSHIP_COLUMN, vendorId);
+  await supabase.from("products").delete().eq(PRODUCT_OWNER_COLUMN, vendorId);
   await supabase.from("products").delete().eq(OWNERSHIP_COLUMN, vendorId);
   await supabase.from("customers").delete().eq(OWNERSHIP_COLUMN, vendorId);
   await supabase.from("settings").delete().eq(OWNERSHIP_COLUMN, vendorId);
