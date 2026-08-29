@@ -28,7 +28,6 @@ import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
 import { canSeeFinances, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
-import { openPairingJoinModal } from "@/lib/pairing";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
@@ -227,19 +226,13 @@ export default function VenderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {!isStaffDevice(settings) ? (
-        <Button variant="line" className="w-full text-sm" onClick={openPairingJoinModal}>
-          Sou Ajudante / Conectar a uma Banca
-        </Button>
-      ) : (
+      {isStaffDevice(settings) ? (
         <p className="text-center text-xs font-extrabold uppercase tracking-wide text-mint">
-          {isStaffDevice(settings)
-            ? `${settings?.deviceRole === "gerente" ? "Gerente" : "Ajudante"}: ${
-                settings?.attendantName || "conectado"
-              }`
-            : ""}
+          {`${settings?.deviceRole === "gerente" ? "Gerente" : "Ajudante"}: ${
+            settings?.attendantName || "conectado"
+          }`}
         </p>
-      )}
+      ) : null}
 
       {hideStore ? null : (
         <section className="grid grid-cols-2 gap-2">
@@ -310,14 +303,20 @@ export default function VenderPage() {
       {products && products.length === 0 ? (
         <EmptyState
           title="Nenhum produto cadastrado"
-          text="Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
+          text={
+            isStaffDevice(settings)
+              ? "O catálogo da banca principal ainda não chegou. Confira a internet e aguarde o sync."
+              : "Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
+          }
           action={
+            isStaffDevice(settings) ? undefined : (
             <div className="flex flex-col gap-2">
               <Button onClick={() => void seed()}>Carregar catálogo de exemplo</Button>
               <Link href="/produtos" className="text-sm font-bold text-sun underline">
                 Cadastrar na mão
               </Link>
             </div>
+            )
           }
         />
       ) : null}

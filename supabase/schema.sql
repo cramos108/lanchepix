@@ -169,3 +169,15 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.products;
+exception
+  when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.customers;
+exception
+  when duplicate_object then null;
+end $$;

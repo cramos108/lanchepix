@@ -266,7 +266,7 @@ export async function pushAndPull(): Promise<void> {
     }
 
     const dirtyCustomers = await db.customers.filter((c) => Boolean(c.dirty)).toArray();
-    if (dirtyCustomers.length && role !== "ajudante") {
+    if (dirtyCustomers.length) {
       const { error } = await supabase
         .from("customers")
         .upsert(dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)));
@@ -296,10 +296,22 @@ export async function pushAndPull(): Promise<void> {
       .eq("vendor_id", vendorId);
     if (pErr) throw pErr;
     if (remoteProducts) {
-      for (const row of remoteProducts as RemoteProduct[]) {
-        const local = await db.products.get(row.id);
-        if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+      const rows = remoteProducts as RemoteProduct[];
+      if (staff) {
+        const keep = new Set(rows.map((r) => r.id));
+        const locals = await db.products.toArray();
+        for (const p of locals) {
+          if (!keep.has(p.id)) await db.products.delete(p.id);
+        }
+        for (const row of rows) {
           await db.products.put(fromRemoteProduct(row));
+        }
+      } else {
+        for (const row of rows) {
+          const local = await db.products.get(row.id);
+          if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+            await db.products.put(fromRemoteProduct(row));
+          }
         }
       }
     }
@@ -324,7 +336,15 @@ export async function pushAndPull(): Promise<void> {
       .eq("vendor_id", vendorId);
     if (cErr) throw cErr;
     if (remoteCustomers) {
-      for (const row of remoteCustomers as RemoteCustomer[]) {
+      const rows = remoteCustomers as RemoteCustomer[];
+      if (staff) {
+        const keep = new Set(rows.map((r) => r.id));
+        const locals = await db.customers.toArray();
+        for (const c of locals) {
+          if (!keep.has(c.id) && !c.dirty) await db.customers.delete(c.id);
+        }
+      }
+      for (const row of rows) {
         const local = await db.customers.get(row.id);
         if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
           await db.customers.put(fromRemoteCustomer(row));
@@ -389,6 +409,26 @@ export async function applyRemoteSaleRow(row: RemoteSale): Promise<void> {
   }
 }
 
+export async function applyRemoteProductRow(row: RemoteProduct): Promise<void> {
+  const settings = await db.settings.get("app");
+  const staff = Boolean(settings && !isOwnerDevice(settings));
+  if (staff) {
+    await db.products.put(fromRemoteProduct(row));
+    return;
+  }
+  const local = await db.products.get(row.id);
+  if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+    await db.products.put(fromRemoteProduct(row));
+  }
+}
+
+export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void> {
+  const local = await db.customers.get(row.id);
+  if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+    await db.customers.put(fromRemoteCustomer(row));
+  }
+}
+
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   const settings = await ensureSettings();
   if (!supabaseConfigured) {
@@ -405,17 +445,17 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
 }
 
 export function startSalesRealtime(vendorId: string): () => void {
+  return startAccountRealtime(vendorId);
+}
+
+export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
+  const filter = `vendor_id=eq.${vendorId}`;
   const channel = supabase
-    .channel(`sales-${vendorId}`)
+    .channel(`account-${vendorId}`)
     .on(
       "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "sales",
-        filter: `vendor_id=eq.${vendorId}`,
-      },
+      { event: "*", schema: "public", table: "sales", filter },
       (payload) => {
         if (payload.eventType === "DELETE") {
           const id = (payload.old as { id?: string } | null)?.id;
@@ -424,6 +464,32 @@ export function startSalesRealtime(vendorId: string): () => void {
         }
         const row = payload.new as RemoteSale | null;
         if (row?.id) void applyRemoteSaleRow(row);
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "products", filter },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.products.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteProduct | null;
+        if (row?.id) void applyRemoteProductRow(row);
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "customers", filter },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.customers.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteCustomer | null;
+        if (row?.id) void applyRemoteCustomerRow(row);
       },
     )
     .subscribe();
