@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
 import { Money, Price } from "@/components/Money";
@@ -26,8 +26,8 @@ import { maskPhoneInput, nationalDigits } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
-import { scheduleSync } from "@/lib/sync";
-import { canSeeFinances, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
+import { refetchOwnerProducts, scheduleSync } from "@/lib/sync";
+import { canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
@@ -92,6 +92,7 @@ export default function VenderPage() {
   const [lgpdOk, setLgpdOk] = useState(false);
   const [extraCents, setExtraCents] = useState(0);
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const todayPaid = useMemo(
     () => paidInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
@@ -133,6 +134,18 @@ export default function VenderPage() {
 
   function qty(id: string) {
     return qtyById[id] ?? 1;
+  }
+
+  async function refreshCatalog() {
+    setRefreshing(true);
+    try {
+      const n = await refetchOwnerProducts();
+      toast(n ? `Catálogo atualizado · ${n} itens` : "Catálogo vazio na banca principal");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Não deu para atualizar o catálogo.", "err");
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   async function seed() {
@@ -204,7 +217,7 @@ export default function VenderPage() {
         openUpgradeModal();
         return;
       }
-      toast("Não deu para registrar a venda.", "err");
+      toast(message || "Não deu para registrar a venda.", "err");
     }
   }
 
@@ -227,11 +240,24 @@ export default function VenderPage() {
   return (
     <div className="flex flex-col gap-4">
       {isStaffDevice(settings) ? (
-        <p className="text-center text-xs font-extrabold uppercase tracking-wide text-mint">
-          {`${settings?.deviceRole === "gerente" ? "Gerente" : "Ajudante"}: ${
-            settings?.attendantName || "conectado"
-          }`}
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-center text-xs font-extrabold uppercase tracking-wide text-mint">
+            {`${settings?.deviceRole === "gerente" ? "Gerente" : "Ajudante"}: ${
+              settings?.attendantName || "conectado"
+            }`}
+          </p>
+          {isAttendantDevice(settings) ? (
+            <Button
+              variant="line"
+              className="w-full text-sm"
+              disabled={refreshing}
+              onClick={() => void refreshCatalog()}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {refreshing ? "Atualizando…" : "Atualizar"}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {hideStore ? null : (
@@ -309,7 +335,16 @@ export default function VenderPage() {
               : "Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
           }
           action={
-            isStaffDevice(settings) ? undefined : (
+            isStaffDevice(settings) ? (
+              <Button
+                variant="line"
+                disabled={refreshing}
+                onClick={() => void refreshCatalog()}
+              >
+                <RefreshCw className="h-4 w-4" />
+                {refreshing ? "Atualizando…" : "Atualizar"}
+              </Button>
+            ) : (
             <div className="flex flex-col gap-2">
               <Button onClick={() => void seed()}>Carregar catálogo de exemplo</Button>
               <Link href="/produtos" className="text-sm font-bold text-sun underline">

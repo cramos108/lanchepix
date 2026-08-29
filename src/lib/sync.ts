@@ -435,6 +435,21 @@ export async function applyRemoteProductRow(row: RemoteProduct): Promise<void> {
   await db.products.put(fromRemoteProduct(row));
 }
 
+/** Replace the local product with the same id (UPDATE). */
+export async function replaceLocalProduct(row: RemoteProduct): Promise<void> {
+  const incoming = fromRemoteProduct(row);
+  const existing = await db.products.get(incoming.id);
+  if (!existing) {
+    await db.products.put(incoming);
+    return;
+  }
+  await db.products.put({ ...existing, ...incoming, id: incoming.id, dirty: false });
+}
+
+export async function removeLocalProduct(id: string): Promise<void> {
+  if (id) await db.products.delete(id);
+}
+
 export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void> {
   const local = await db.customers.get(row.id);
   if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
@@ -443,11 +458,49 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
 }
 
 export async function pushSaleImmediate(sale: Sale): Promise<void> {
-  if (!supabaseConfigured) return;
-  const ownerId = getActiveOwnerId(await ensureSettings());
-  if (!ownerId) return;
-  const { error } = await upsertOwned("sales", [toRemoteSale(ownerId, sale)]);
-  if (error) console.error("pushSaleImmediate", error);
+  const { toast } = await import("./toast");
+  try {
+    if (!supabaseConfigured) {
+      throw new Error("Supabase não configurado. A venda ficou só neste aparelho.");
+    }
+    const ownerId = getActiveOwnerId(await ensureSettings());
+    if (!ownerId) throw new Error("owner_id ausente (aparelho não vinculado).");
+    const payload = toRemoteSale(ownerId, sale);
+    const inserted = await supabase.from("sales").insert(payload);
+    if (inserted.error) {
+      const retry = await upsertOwned("sales", [payload]);
+      if (retry.error) throw retry.error;
+    }
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: string }).message)
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    console.error("sales insert", err);
+    toast(message, "err");
+    throw new Error(message);
+  }
+}
+
+export async function refetchOwnerProducts(): Promise<number> {
+  const settings = await ensureSettings();
+  const ownerId = getActiveOwnerId(settings);
+  if (!ownerId) throw new Error("owner_id ausente.");
+  if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
+  const { data, error } = await selectOwned("products", ownerId);
+  if (error) throw error;
+  const rows = (data ?? []) as RemoteProduct[];
+  const keep = new Set(rows.map((r) => r.id));
+  const locals = await db.products.toArray();
+  for (const p of locals) {
+    if (!keep.has(p.id)) await db.products.delete(p.id);
+  }
+  for (const row of rows) {
+    await db.products.put(fromRemoteProduct(row));
+  }
+  return rows.length;
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
@@ -468,32 +521,55 @@ export function startSalesRealtime(vendorId: string): () => void {
 
 type ChangePayload = {
   eventType?: string;
+  event?: string;
   new?: Record<string, unknown> | null;
   old?: Record<string, unknown> | null;
+  payload?: {
+    eventType?: string;
+    new?: Record<string, unknown> | null;
+    old?: Record<string, unknown> | null;
+  };
 };
 
+function normalizeChange(raw: ChangePayload): {
+  event: string;
+  newRow: Record<string, unknown> | null;
+  oldRow: Record<string, unknown> | null;
+} {
+  const inner = raw.payload ?? raw;
+  return {
+    event: String(raw.eventType || raw.event || inner.eventType || "").toUpperCase(),
+    newRow: (raw.new ?? inner.new ?? null) as Record<string, unknown> | null,
+    oldRow: (raw.old ?? inner.old ?? null) as Record<string, unknown> | null,
+  };
+}
+
 function handleProductChange(payload: ChangePayload): void {
-  const event = payload.eventType;
+  const { event, newRow, oldRow } = normalizeChange(payload);
   if (event === "DELETE") {
-    const id = payload.old?.id as string | undefined;
-    if (id) void db.products.delete(id);
+    const id = oldRow?.id as string | undefined;
+    if (id) void removeLocalProduct(id);
     return;
   }
-  const row = payload.new as RemoteProduct | undefined;
-  if (!row?.id) return;
-  if (event === "UPDATE" || event === "INSERT") {
-    void applyRemoteProductRow(row);
+  if (event === "UPDATE") {
+    const row = newRow as RemoteProduct | null;
+    if (row?.id) void replaceLocalProduct(row);
+    return;
+  }
+  if (event === "INSERT") {
+    const row = newRow as RemoteProduct | null;
+    if (row?.id) void applyRemoteProductRow(row);
   }
 }
 
 function handleSaleChange(payload: ChangePayload): void {
-  const event = payload.eventType;
+  const { event, newRow, oldRow } = normalizeChange(payload);
   if (event === "DELETE") {
-    const id = payload.old?.id as string | undefined;
+    const id = oldRow?.id as string | undefined;
     if (id) void db.sales.delete(id);
     return;
   }
-  const row = payload.new as RemoteSale | undefined;
+  const row = newRow as RemoteSale | null;
   if (!row?.id) return;
   if (event === "INSERT" || event === "UPDATE") {
     void applyRemoteSaleRow(row, true);
@@ -501,13 +577,13 @@ function handleSaleChange(payload: ChangePayload): void {
 }
 
 function handleCustomerChange(payload: ChangePayload): void {
-  const event = payload.eventType;
+  const { event, newRow, oldRow } = normalizeChange(payload);
   if (event === "DELETE") {
-    const id = payload.old?.id as string | undefined;
+    const id = oldRow?.id as string | undefined;
     if (id) void db.customers.delete(id);
     return;
   }
-  const row = payload.new as RemoteCustomer | undefined;
+  const row = newRow as RemoteCustomer | null;
   if (row?.id) void applyRemoteCustomerRow(row);
 }
 

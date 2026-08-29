@@ -104,7 +104,12 @@ export async function createSale(input: {
     }
   });
   scheduleSync();
-  void import("./sync").then((m) => m.pushSaleImmediate(sale));
+  try {
+    await import("./sync").then((m) => m.pushSaleImmediate(sale));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(message);
+  }
   return sale;
 }
 
