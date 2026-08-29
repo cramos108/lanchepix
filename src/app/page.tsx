@@ -93,6 +93,7 @@ export default function VenderPage() {
   const [extraCents, setExtraCents] = useState(0);
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const todayPaid = useMemo(
     () => paidInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
@@ -140,9 +141,18 @@ export default function VenderPage() {
     setRefreshing(true);
     try {
       const n = await refetchOwnerProducts();
+      setCatalogError(null);
       toast(n ? `Catálogo atualizado · ${n} itens` : "Catálogo vazio na banca principal");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Não deu para atualizar o catálogo.", "err");
+      const raw =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message ?? "").trim()
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      const text = `Erro: ${raw || "Não deu pra atualizar o catálogo"}`;
+      setCatalogError(text);
+      toast(text, "err");
     } finally {
       setRefreshing(false);
     }
@@ -257,6 +267,11 @@ export default function VenderPage() {
               {refreshing ? "Atualizando…" : "Atualizar"}
             </Button>
           ) : null}
+          {catalogError ? (
+            <p className="break-all rounded-2xl border-2 border-alert bg-surface px-3 py-2 text-left text-xs font-bold text-alert">
+              {catalogError}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -331,7 +346,8 @@ export default function VenderPage() {
           title="Nenhum produto cadastrado"
           text={
             isStaffDevice(settings)
-              ? "O catálogo da banca principal ainda não chegou. Confira a internet e aguarde o sync."
+              ? catalogError ||
+                "O catálogo da banca principal ainda não chegou. Confira a internet e aguarde o sync."
               : "Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
           }
           action={

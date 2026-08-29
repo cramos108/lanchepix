@@ -254,6 +254,16 @@ async function selectOwned(table: string, ownerId: string) {
   return supabase.from(table).select("*").eq(OWNERSHIP_COLUMN, ownerId);
 }
 
+function remoteErrorMessage(error: unknown): string {
+  if (!error) return "";
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const msg = String((error as { message: unknown }).message ?? "").trim();
+    if (msg) return msg;
+  }
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 async function fetchProductsByUserId(activeOwnerId: string) {
   const { data, error } = await supabase
     .from("products")
@@ -538,7 +548,7 @@ export async function refetchOwnerProducts(): Promise<number> {
   if (!activeOwnerId) throw new Error("user_id (ID do chefe) ausente.");
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
   const { data, error } = await fetchProductsByUserId(activeOwnerId);
-  if (error) throw error;
+  if (error) throw new Error(remoteErrorMessage(error) || "Não deu pra atualizar o catálogo");
   const rows = (data ?? []) as RemoteProduct[];
   const keep = new Set(rows.map((r) => r.id));
   const locals = await db.products.toArray();
