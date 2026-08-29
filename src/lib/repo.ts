@@ -64,8 +64,12 @@ export async function createSale(input: {
   const qty = Math.max(1, Math.floor(input.quantity));
   const extraCents = input.extraCents ?? 0;
   const base = input.product.priceCents * qty;
+  const { getAttendantNameLocal } = await import("./account");
   const attendantName =
-    input.attendantName?.trim() || settings.attendantName?.trim() || undefined;
+    input.attendantName?.trim() ||
+    getAttendantNameLocal(settings) ||
+    settings.attendantName?.trim() ||
+    undefined;
   const sale: Sale = {
     id: newId(),
     productId: input.product.id,

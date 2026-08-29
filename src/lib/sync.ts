@@ -1,4 +1,9 @@
-import { accountVendorId, isOwnerDevice, staffRole } from "./account";
+import {
+  getActiveOwnerId,
+  getAttendantNameLocal,
+  isOwnerDevice,
+  staffRole,
+} from "./account";
 import { db, ensureSettings } from "./db";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
@@ -41,6 +46,7 @@ function isNewer(a?: string, b?: string): boolean {
 type RemoteProduct = {
   id: string;
   vendor_id: string;
+  owner_id?: string;
   name: string;
   price_cents: number;
   price_mode: string | null;
@@ -56,6 +62,7 @@ type RemoteProduct = {
 type RemoteSale = {
   id: string;
   vendor_id: string;
+  owner_id?: string;
   product_id: string | null;
   product_name: string;
   quantity: number;
@@ -76,6 +83,7 @@ type RemoteSale = {
 type RemoteCustomer = {
   id: string;
   vendor_id: string;
+  owner_id?: string;
   phone: string;
   name: string;
   stamps: number;
@@ -103,6 +111,7 @@ function toRemoteProduct(vendorId: string, p: Product): RemoteProduct {
   return {
     id: p.id,
     vendor_id: vendorId,
+    owner_id: vendorId,
     name: p.name,
     price_cents: p.priceCents,
     price_mode: p.priceMode ?? "fixed",
@@ -137,6 +146,7 @@ function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
   return {
     id: s.id,
     vendor_id: vendorId,
+    owner_id: vendorId,
     product_id: s.productId || null,
     product_name: s.productName,
     quantity: s.quantity,
@@ -147,7 +157,7 @@ function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
-    attendant_name: s.attendantName ?? null,
+    attendant_name: s.attendantName || getAttendantNameLocal() || null,
     notes: s.notes ?? null,
     created_at: s.createdAt,
     paid_at: s.paidAt ?? null,
@@ -181,6 +191,7 @@ function toRemoteCustomer(vendorId: string, c: Customer): RemoteCustomer {
   return {
     id: c.id,
     vendor_id: vendorId,
+    owner_id: vendorId,
     phone: c.phone,
     name: c.name,
     stamps: c.stamps,
@@ -221,6 +232,23 @@ function toRemoteSettings(s: Settings): RemoteSettings {
   };
 }
 
+async function upsertOwned(table: string, rows: object[]) {
+  const first = await supabase.from(table).upsert(rows);
+  if (!first.error) return first;
+  const stripped = rows.map((row) => {
+    const copy = { ...(row as Record<string, unknown>) };
+    delete copy.owner_id;
+    return copy;
+  });
+  return supabase.from(table).upsert(stripped);
+}
+
+async function selectOwned(table: string, ownerId: string) {
+  const byOwner = await supabase.from(table).select("*").eq("owner_id", ownerId);
+  if (!byOwner.error) return byOwner;
+  return supabase.from(table).select("*").eq("vendor_id", ownerId);
+}
+
 export async function pushAndPull(): Promise<void> {
   if (running || !supabaseConfigured) return;
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -229,15 +257,16 @@ export async function pushAndPull(): Promise<void> {
   emit();
   try {
     const settings = await ensureSettings();
-    const vendorId = accountVendorId(settings);
+    const vendorId = getActiveOwnerId(settings);
     const staff = !isOwnerDevice(settings);
     const role = staffRole(settings);
 
     const dirtyProducts = await db.products.filter((p) => Boolean(p.dirty)).toArray();
     if (dirtyProducts.length && role !== "ajudante") {
-      const { error } = await supabase
-        .from("products")
-        .upsert(dirtyProducts.map((p) => toRemoteProduct(vendorId, p)));
+      const { error } = await upsertOwned(
+        "products",
+        dirtyProducts.map((p) => toRemoteProduct(vendorId, p)),
+      );
       if (error) throw error;
       await db.transaction("rw", db.products, async () => {
         for (const p of dirtyProducts) {
@@ -251,9 +280,10 @@ export async function pushAndPull(): Promise<void> {
 
     const dirtySales = await db.sales.filter((s) => Boolean(s.dirty)).toArray();
     if (dirtySales.length) {
-      const { error } = await supabase
-        .from("sales")
-        .upsert(dirtySales.map((s) => toRemoteSale(vendorId, s)));
+      const { error } = await upsertOwned(
+        "sales",
+        dirtySales.map((s) => toRemoteSale(vendorId, s)),
+      );
       if (error) throw error;
       await db.transaction("rw", db.sales, async () => {
         for (const s of dirtySales) {
@@ -267,9 +297,10 @@ export async function pushAndPull(): Promise<void> {
 
     const dirtyCustomers = await db.customers.filter((c) => Boolean(c.dirty)).toArray();
     if (dirtyCustomers.length) {
-      const { error } = await supabase
-        .from("customers")
-        .upsert(dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)));
+      const { error } = await upsertOwned(
+        "customers",
+        dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)),
+      );
       if (error) throw error;
       await db.transaction("rw", db.customers, async () => {
         for (const c of dirtyCustomers) {
@@ -290,10 +321,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteProducts, error: pErr } = await supabase
-      .from("products")
-      .select("*")
-      .eq("vendor_id", vendorId);
+    const { data: remoteProducts, error: pErr } = await selectOwned("products", vendorId);
     if (pErr) throw pErr;
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
@@ -316,10 +344,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteSales, error: sErr } = await supabase
-      .from("sales")
-      .select("*")
-      .eq("vendor_id", vendorId);
+    const { data: remoteSales, error: sErr } = await selectOwned("sales", vendorId);
     if (sErr) throw sErr;
     if (remoteSales) {
       for (const row of remoteSales as RemoteSale[]) {
@@ -330,10 +355,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteCustomers, error: cErr } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("vendor_id", vendorId);
+    const { data: remoteCustomers, error: cErr } = await selectOwned("customers", vendorId);
     if (cErr) throw cErr;
     if (remoteCustomers) {
       const rows = remoteCustomers as RemoteCustomer[];
@@ -434,10 +456,7 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   if (!supabaseConfigured) {
     return db.sales.toArray();
   }
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .eq("vendor_id", accountVendorId(settings));
+  const { data, error } = await selectOwned("sales", getActiveOwnerId(settings));
   if (error || !data) {
     return db.sales.toArray();
   }
@@ -450,9 +469,24 @@ export function startSalesRealtime(vendorId: string): () => void {
 
 export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
-  const filter = `vendor_id=eq.${vendorId}`;
+  const ownerId = getActiveOwnerId() || vendorId;
+  const filter = `vendor_id=eq.${ownerId}`;
+  const ownerFilter = `owner_id=eq.${ownerId}`;
   const channel = supabase
-    .channel(`account-${vendorId}`)
+    .channel(`account-${ownerId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sales", filter: ownerFilter },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.sales.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteSale | null;
+        if (row?.id) void applyRemoteSaleRow(row);
+      },
+    )
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "sales", filter },
@@ -468,6 +502,19 @@ export function startAccountRealtime(vendorId: string): () => void {
     )
     .on(
       "postgres_changes",
+      { event: "*", schema: "public", table: "products", filter: ownerFilter },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.products.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteProduct | null;
+        if (row?.id) void applyRemoteProductRow(row);
+      },
+    )
+    .on(
+      "postgres_changes",
       { event: "*", schema: "public", table: "products", filter },
       (payload) => {
         if (payload.eventType === "DELETE") {
@@ -477,6 +524,19 @@ export function startAccountRealtime(vendorId: string): () => void {
         }
         const row = payload.new as RemoteProduct | null;
         if (row?.id) void applyRemoteProductRow(row);
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "customers", filter: ownerFilter },
+      (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id) void db.customers.delete(id);
+          return;
+        }
+        const row = payload.new as RemoteCustomer | null;
+        if (row?.id) void applyRemoteCustomerRow(row);
       },
     )
     .on(

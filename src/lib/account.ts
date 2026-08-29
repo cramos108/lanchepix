@@ -2,10 +2,47 @@ import type { Sale, Settings } from "./types";
 
 export type StaffRole = "dono" | "gerente" | "ajudante";
 
+export const LINKED_OWNER_KEY = "linked_owner_id";
+export const ATTENDANT_NAME_LS_KEY = "attendant_name";
+export const PAIR_OWNER_KEY = "pair_owner_id";
+export const PAIR_NAME_KEY = "pair_attendant_name";
+
+function readLs(key: string): string {
+  try {
+    return localStorage.getItem(key)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+/** Linked owner store id, else this device's vendor id. */
+export function getActiveOwnerId(
+  settings?: Pick<Settings, "vendorId" | "pairedOwnerId"> | null,
+): string {
+  return (
+    readLs(LINKED_OWNER_KEY) ||
+    readLs(PAIR_OWNER_KEY) ||
+    settings?.pairedOwnerId ||
+    settings?.vendorId ||
+    ""
+  );
+}
+
+export function getAttendantNameLocal(
+  settings?: Pick<Settings, "attendantName"> | null,
+): string {
+  return (
+    readLs(ATTENDANT_NAME_LS_KEY) ||
+    readLs(PAIR_NAME_KEY) ||
+    settings?.attendantName?.trim() ||
+    ""
+  );
+}
+
 export function accountVendorId(
   settings?: Pick<Settings, "vendorId" | "pairedOwnerId"> | null,
 ): string {
-  return settings?.pairedOwnerId || settings?.vendorId || "";
+  return getActiveOwnerId(settings);
 }
 
 export function staffRole(

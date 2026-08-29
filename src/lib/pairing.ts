@@ -1,11 +1,16 @@
-import type { StaffRole } from "./account";
+import {
+  ATTENDANT_NAME_LS_KEY,
+  LINKED_OWNER_KEY,
+  PAIR_NAME_KEY,
+  PAIR_OWNER_KEY,
+  type StaffRole,
+} from "./account";
 import { db, ensureSettings } from "./db";
 import { nowIso } from "./id";
 import { supabase, supabaseConfigured } from "./supabase";
 import type { Settings } from "./types";
 
-export const PAIR_OWNER_KEY = "pair_owner_id";
-export const PAIR_NAME_KEY = "pair_attendant_name";
+export { PAIR_OWNER_KEY, PAIR_NAME_KEY, LINKED_OWNER_KEY, ATTENDANT_NAME_LS_KEY };
 export const PAIR_HIDE_KEY = "pair_hide_store_totals";
 export const PAIR_ROLE_KEY = "pair_staff_role";
 const PAIR_FALLBACK_KEY = "pair_codes_fallback";
@@ -122,8 +127,10 @@ export function persistPairLocal(
   role: StaffRole,
 ): void {
   try {
+    localStorage.setItem(LINKED_OWNER_KEY, ownerId);
     localStorage.setItem(PAIR_OWNER_KEY, ownerId);
     localStorage.setItem(PAIR_NAME_KEY, attendantName);
+    localStorage.setItem(ATTENDANT_NAME_LS_KEY, attendantName);
     localStorage.setItem(PAIR_HIDE_KEY, hideStoreTotals ? "true" : "false");
     localStorage.setItem(PAIR_ROLE_KEY, role);
   } catch {
@@ -135,8 +142,12 @@ export async function restorePairFromLocal(): Promise<void> {
   const settings = await ensureSettings();
   if (settings.pairedOwnerId) return;
   try {
-    const owner = localStorage.getItem(PAIR_OWNER_KEY);
-    const name = localStorage.getItem(PAIR_NAME_KEY) ?? "";
+    const owner =
+      localStorage.getItem(LINKED_OWNER_KEY) || localStorage.getItem(PAIR_OWNER_KEY);
+    const name =
+      localStorage.getItem(ATTENDANT_NAME_LS_KEY) ||
+      localStorage.getItem(PAIR_NAME_KEY) ||
+      "";
     const hide = localStorage.getItem(PAIR_HIDE_KEY);
     const role = normalizePairRole(localStorage.getItem(PAIR_ROLE_KEY));
     if (!owner) return;
@@ -156,8 +167,10 @@ export async function restorePairFromLocal(): Promise<void> {
 
 export function clearPairLocal(): void {
   try {
+    localStorage.removeItem(LINKED_OWNER_KEY);
     localStorage.removeItem(PAIR_OWNER_KEY);
     localStorage.removeItem(PAIR_NAME_KEY);
+    localStorage.removeItem(ATTENDANT_NAME_LS_KEY);
     localStorage.removeItem(PAIR_HIDE_KEY);
     localStorage.removeItem(PAIR_ROLE_KEY);
   } catch {
@@ -270,8 +283,13 @@ export async function redeemPairingCode(
     updatedAt: nowIso(),
     dirty: false,
   };
-  await db.settings.put(next);
   persistPairLocal(ownerId, name, hideStoreTotals, role);
+  await db.transaction("rw", db.products, db.sales, db.customers, db.settings, async () => {
+    await db.products.clear();
+    await db.sales.clear();
+    await db.customers.clear();
+    await db.settings.put(next);
+  });
   try {
     const { persistActivePlan } = await import("./plan");
     persistActivePlan("negocio");

@@ -22,6 +22,7 @@ import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import {
   accountVendorId,
+  getActiveOwnerId,
   canSeeFinances,
   isAttendantDevice,
   isStaffDevice,
@@ -123,7 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const accountId = accountVendorId(settings);
+    const accountId = getActiveOwnerId(settings) || accountVendorId(settings);
     if (!accountId) return;
     if (!isNegocio(settings) && !isStaffDevice(settings)) return;
     return startSalesRealtime(accountId);
