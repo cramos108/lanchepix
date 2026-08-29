@@ -34,12 +34,23 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const plan = planKey(typeof body.plan === "string" ? body.plan : "pro");
     const selectedPriceId = PRICE_IDS[plan];
+    const customerEmail =
+      typeof body.customerEmail === "string" && body.customerEmail.includes("@")
+        ? body.customerEmail.trim()
+        : undefined;
 
     const stripe = new Stripe(secret);
+    const customer = await stripe.customers.create({
+      ...(customerEmail ? { email: customerEmail } : {}),
+      address: { country: "BR" },
+    });
+
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded_page",
       mode: "subscription",
       locale: "pt-BR",
+      billing_address_collection: "auto",
+      customer: customer.id,
       line_items: [{ price: selectedPriceId, quantity: 1 }],
       return_url: returnUrl(request),
     });
