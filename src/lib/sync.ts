@@ -254,18 +254,14 @@ function remoteErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function linkedOrCurrentUserId(currentUserId?: string | null): string {
+async function fetchProductsByOwnerId(currentUserId?: string | null) {
   let linked: string | null = null;
   try {
     linked = localStorage.getItem("linked_owner_id");
   } catch {
     linked = null;
   }
-  return linked || currentUserId || "";
-}
-
-async function fetchProductsByOwnerId(currentUserId?: string | null) {
-  const activeOwnerId = linkedOrCurrentUserId(currentUserId);
+  const activeOwnerId = linked || currentUserId || "";
   console.log("Fetching products with activeOwnerId:", activeOwnerId);
   const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
   return { data, error, activeOwnerId };
@@ -297,9 +293,13 @@ export async function pushAndPull(): Promise<void> {
 
     const dirtyProducts = await db.products.filter((p) => Boolean(p.dirty)).toArray();
     if (dirtyProducts.length && role !== "ajudante") {
+      const currentUserId = settings.vendorId;
+      if (!currentUserId) {
+        console.error("PRODUCT INSERT BLOCKED: currentUser.id is missing. owner_id was not set.");
+      }
       const { error } = await upsertOwned(
         "products",
-        dirtyProducts.map((p) => toRemoteProduct(activeOwnerId, p)),
+        dirtyProducts.map((p) => toRemoteProduct(currentUserId || activeOwnerId, p)),
       );
       if (error) throw error;
       await db.transaction("rw", db.products, async () => {
@@ -502,19 +502,38 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
   }
 }
 
-/** Desktop/Negócio: persist a product with owner_id = owner's id immediately. */
+/** Desktop/Negócio: persist a product with owner_id = currentUser.id immediately. */
 export async function pushProductImmediate(product: Product): Promise<void> {
   if (!supabaseConfigured) return;
   const settings = await ensureSettings();
-  const activeOwnerId = getActiveOwnerId(settings);
-  if (!activeOwnerId) throw new Error("Não deu pra gravar o produto. Tente de novo.");
+  const currentUser = { id: settings.vendorId };
+  if (!currentUser?.id) {
+    console.error("PRODUCT INSERT BLOCKED: currentUser.id is missing. owner_id was not set.");
+    throw new Error("owner_id ausente.");
+  }
   const payload = {
-    ...toRemoteProduct(activeOwnerId, product),
-    owner_id: activeOwnerId,
-    vendor_id: activeOwnerId,
+    id: product.id,
+    name: product.name,
+    price_cents: product.priceCents,
+    price_mode: product.priceMode ?? "fixed",
+    image_data: product.imageData ?? null,
+    category: product.category,
+    stock: product.stock,
+    active: product.active ?? true,
+    created_at: product.createdAt,
+    updated_at: product.updatedAt,
+    deleted_at: product.deleted ? product.updatedAt : null,
+    vendor_id: currentUser.id,
+    owner_id: currentUser?.id,
   };
-  const { error } = await upsertOwned("products", [payload]);
-  if (error) throw error;
+  const { error } = await supabase.from("products").insert(payload);
+  if (error) {
+    const retry = await supabase.from("products").upsert({
+      ...payload,
+      owner_id: currentUser?.id,
+    });
+    if (retry.error) throw retry.error;
+  }
 }
 
 export async function pushSaleImmediate(sale: Sale): Promise<void> {
@@ -557,13 +576,17 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
 }
 
 export async function refetchOwnerProducts(): Promise<number> {
-  const settings = await ensureSettings();
-  const currentUser = { id: settings.vendorId };
-  const activeOwnerId = localStorage.getItem("linked_owner_id") || currentUser?.id;
-  console.log("Fetching products with activeOwnerId:", activeOwnerId);
-  if (!activeOwnerId) throw new Error("owner_id ausente.");
+  const linkedOwnerId = localStorage.getItem("linked_owner_id");
+  console.log("Fetching products with activeOwnerId:", linkedOwnerId);
+  if (!linkedOwnerId) {
+    console.error("PRODUCT FETCH BLOCKED: linked_owner_id is missing.");
+    throw new Error("owner_id ausente.");
+  }
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("owner_id", localStorage.getItem("linked_owner_id"));
   if (error) {
     console.error("products fetch", error);
     throw new Error(error.message);
