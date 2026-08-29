@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
@@ -73,6 +74,7 @@ type Draft = {
 };
 
 export default function VenderPage() {
+  const router = useRouter();
   const products = useLiveQuery(
     () =>
       db.products
@@ -94,6 +96,7 @@ export default function VenderPage() {
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
 
   const todayPaid = useMemo(
     () => paidInPeriod(sales, isSameLocalDay, settings?.resetDayAt),
@@ -184,12 +187,13 @@ export default function VenderPage() {
   }
 
   async function confirmDraft(withWhatsApp: boolean) {
-    if (!draft) return;
+    if (!draft || registering) return;
     const digits = nationalDigits(phone);
     if (digits && !lgpdOk) {
       toast("Marque o consentimento LGPD para salvar o telefone.", "err");
       return;
     }
+    setRegistering(true);
     let customer;
     try {
       if (digits) {
@@ -206,6 +210,7 @@ export default function VenderPage() {
       if (draft.mode === "paid") {
         setPaidSale(sale);
         toast("Venda paga. Estoque baixado.");
+        setDraft(null);
       } else {
         toast("Pix Confiança registrado. Estoque baixa quando marcar Pago.");
         if (withWhatsApp && digits && settings) {
@@ -222,8 +227,10 @@ export default function VenderPage() {
           );
           window.open(url, "_blank");
         }
+        setDraft(null);
+        setQtyById((m) => ({ ...m, [sale.productId]: 1 }));
+        router.replace("/");
       }
-      setDraft(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (message.startsWith("PLAN_LIMIT_")) {
@@ -231,6 +238,8 @@ export default function VenderPage() {
         return;
       }
       toast(message || "Não deu para registrar a venda.", "err");
+    } finally {
+      setRegistering(false);
     }
   }
 
@@ -451,7 +460,9 @@ export default function VenderPage() {
       <Modal
         open={Boolean(draft)}
         title={draft?.mode === "paid" ? "PIX AGORA" : "PIX CONFIANÇA"}
-        onClose={() => setDraft(null)}
+        onClose={() => {
+          if (!registering) setDraft(null);
+        }}
       >
         {draft ? (
           <div className="flex flex-col gap-4">
@@ -504,21 +515,25 @@ export default function VenderPage() {
             <LgpdConsent checked={lgpdOk} onChange={setLgpdOk} />
             {draft.mode === "pending" ? (
               <div className="grid gap-2">
-                <Button variant="amber" onClick={() => void confirmDraft(false)}>
-                  Registrar Pix Confiança
+                <Button
+                  variant="amber"
+                  disabled={registering}
+                  onClick={() => void confirmDraft(false)}
+                >
+                  {registering ? "Registrando…" : "Registrar Pix Confiança"}
                 </Button>
                 <Button
                   variant="mint"
-                  disabled={!nationalDigits(phone) || !lgpdOk}
+                  disabled={registering || !nationalDigits(phone) || !lgpdOk}
                   onClick={() => void confirmDraft(true)}
                 >
                   <MessageCircle className="h-5 w-5" />
-                  Registrar e cobrar no WhatsApp
+                  {registering ? "Registrando…" : "Registrar e cobrar no WhatsApp"}
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => void confirmDraft(false)}>
-                Gerar QR e baixar estoque
+              <Button disabled={registering} onClick={() => void confirmDraft(false)}>
+                {registering ? "Registrando…" : "Gerar QR e baixar estoque"}
               </Button>
             )}
           </div>

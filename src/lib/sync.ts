@@ -576,9 +576,21 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       vendor_id: activeOwnerId,
       attendant_name: attendantName,
     };
-    const inserted = await supabase.from("sales").insert(payload);
+    const updated = await supabase
+      .from("sales")
+      .update({ ...payload, owner_id: activeOwnerId })
+      .eq("id", sale.id)
+      .select("id");
+    if (!updated.error && (updated.data?.length ?? 0) > 0) return;
+    const inserted = await supabase.from("sales").insert({
+      ...payload,
+      owner_id: activeOwnerId,
+    });
     if (inserted.error) {
-      const retry = await upsertOwned("sales", [payload]);
+      const retry = await supabase.from("sales").upsert({
+        ...payload,
+        owner_id: activeOwnerId,
+      });
       if (retry.error) throw retry.error;
     }
   } catch (err) {
@@ -592,6 +604,23 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     toast(message, "err");
     throw new Error(message);
   }
+}
+
+export async function pushCustomerImmediate(customer: Customer): Promise<void> {
+  if (!supabaseConfigured) return;
+  const settings = await ensureSettings();
+  const activeOwnerId = getActiveOwnerId(settings);
+  if (!activeOwnerId) {
+    console.error("CUSTOMER WRITE BLOCKED: owner_id (ID do chefe) ausente.");
+    return;
+  }
+  const payload = {
+    ...toRemoteCustomer(activeOwnerId, customer),
+    owner_id: activeOwnerId,
+    vendor_id: activeOwnerId,
+  };
+  const { error } = await supabase.from("customers").upsert(payload);
+  if (error) throw error;
 }
 
 export async function refetchOwnerProducts(): Promise<number> {
@@ -622,10 +651,18 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   if (!supabaseConfigured) {
     return db.sales.toArray();
   }
+  const currentUser = { id: settings.vendorId };
+  let linked: string | null = null;
+  try {
+    linked = localStorage.getItem("linked_owner_id");
+  } catch {
+    linked = null;
+  }
+  const ownerId = linked || currentUser?.id || getActiveOwnerId(settings);
   const { data, error } = await supabase
     .from("sales")
     .select("*")
-    .eq("owner_id", getActiveOwnerId(settings));
+    .eq("owner_id", ownerId);
   if (error || !data) {
     return db.sales.toArray();
   }
@@ -706,7 +743,13 @@ function handleCustomerChange(payload: ChangePayload): void {
 
 export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
-  const ownerId = getActiveOwnerId() || vendorId;
+  let linked = "";
+  try {
+    linked = localStorage.getItem("linked_owner_id")?.trim() || "";
+  } catch {
+    linked = "";
+  }
+  const ownerId = linked || getActiveOwnerId() || vendorId;
   const filter = `owner_id=eq.${ownerId}`;
   const channel = supabase
     .channel(`account-${ownerId}`)

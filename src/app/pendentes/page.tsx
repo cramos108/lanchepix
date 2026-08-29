@@ -48,6 +48,7 @@ export default function PendentesPage() {
   const [settleExtra, setSettleExtra] = useState(0);
   const [stampAsk, setStampAsk] = useState<Sale | null>(null);
   const [detail, setDetail] = useState<Sale | null>(null);
+  const [settling, setSettling] = useState(false);
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -55,12 +56,22 @@ export default function PendentesPage() {
   }
 
   async function confirmSettle() {
-    if (!settle) return;
-    const updated = await markSalePaid(settle.id, settleExtra);
-    toast("Marcado como pago. Estoque baixado.");
-    setSettle(null);
-    setPaying(updated ?? settle);
-    if (settle.customerPhone) setStampAsk(settle);
+    if (!settle || settling) return;
+    setSettling(true);
+    try {
+      const updated = await markSalePaid(settle.id, settleExtra);
+      toast("Marcado como pago. Estoque baixado.");
+      setSettle(null);
+      setPaying(updated ?? settle);
+      if (settle.customerPhone) setStampAsk(settle);
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Não deu pra marcar como pago.",
+        "err",
+      );
+    } finally {
+      setSettling(false);
+    }
   }
 
   async function giveStamp(sale: Sale) {
@@ -426,9 +437,13 @@ export default function PendentesPage() {
               onChange={setSettleExtra}
               suggested={settle.priceMode === "suggested"}
             />
-            <Button variant="mint" onClick={() => void confirmSettle()}>
+            <Button
+              variant="mint"
+              disabled={settling}
+              onClick={() => void confirmSettle()}
+            >
               <Check className="h-5 w-5" />
-              Confirmar pago
+              {settling ? "Salvando…" : "Confirmar pago"}
             </Button>
           </div>
         ) : null}

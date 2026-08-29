@@ -157,7 +157,7 @@ export async function markSalePaid(
     }
   });
   scheduleSync();
-  void import("./sync").then((m) => m.pushSaleImmediate(next));
+  await import("./sync").then((m) => m.pushSaleImmediate(next));
   return next;
 }
 
@@ -247,6 +247,11 @@ export async function upsertCustomer(input: {
     };
     await db.customers.put(next);
     scheduleSync();
+    try {
+      await import("./sync").then((m) => m.pushCustomerImmediate(next));
+    } catch (err) {
+      console.error("customers upsert", err);
+    }
     return next;
   }
   const { canAddLoyaltyCard } = await import("./plan");
@@ -266,6 +271,11 @@ export async function upsertCustomer(input: {
   };
   await db.customers.put(created);
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushCustomerImmediate(created));
+  } catch (err) {
+    console.error("customers insert", err);
+  }
   return created;
 }
 
@@ -334,6 +344,11 @@ export async function addStamp(customerId: string): Promise<Customer | undefined
   };
   await db.customers.put(next);
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushCustomerImmediate(next));
+  } catch (err) {
+    console.error("customers stamp", err);
+  }
   return next;
 }
 
