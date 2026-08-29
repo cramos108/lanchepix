@@ -151,13 +151,16 @@ function SettingsForm({ settings }: { settings: Settings }) {
           Salvar nome
         </Button>
         <Button
-          variant="line"
+          variant="alert"
           onClick={async () => {
+            const ok = window.confirm(
+              "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
+            );
+            if (!ok) return;
             await disconnectAttendant();
-            toast("Aparelho desconectado da banca principal", "info");
           }}
         >
-          Desconectar deste negócio
+          Desconectar / Sair da Banca
         </Button>
       </div>
     );
@@ -284,14 +287,17 @@ function SettingsForm({ settings }: { settings: Settings }) {
             <span className="text-white">{settings.attendantName || "sem nome"}</span>.
           </p>
           <Button
-            variant="line"
+            variant="alert"
             className="mt-3 w-full"
             onClick={async () => {
+              const ok = window.confirm(
+                "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
+              );
+              if (!ok) return;
               await disconnectAttendant();
-              toast("Aparelho desconectado da banca principal", "info");
             }}
           >
-            Desconectar deste negócio
+            Desconectar / Sair da Banca
           </Button>
         </section>
       ) : null}
@@ -430,7 +436,20 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <Button variant="line" onClick={() => setJoinOpen(true)}>
           Sou Ajudante / Conectar a uma Banca
         </Button>
-      ) : null}
+      ) : (
+        <Button
+          variant="alert"
+          onClick={async () => {
+            const ok = window.confirm(
+              "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
+            );
+            if (!ok) return;
+            await disconnectAttendant();
+          }}
+        >
+          Desconectar / Sair da Banca
+        </Button>
+      )}
 
       <Button onClick={() => void save()}>Salvar</Button>
 

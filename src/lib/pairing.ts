@@ -3,6 +3,7 @@ import {
   LINKED_OWNER_KEY,
   PAIR_NAME_KEY,
   PAIR_OWNER_KEY,
+  USER_ROLE_KEY,
   type StaffRole,
 } from "./account";
 import { db, ensureSettings } from "./db";
@@ -133,6 +134,7 @@ export function persistPairLocal(
     localStorage.setItem(ATTENDANT_NAME_LS_KEY, attendantName);
     localStorage.setItem(PAIR_HIDE_KEY, hideStoreTotals ? "true" : "false");
     localStorage.setItem(PAIR_ROLE_KEY, role);
+    localStorage.setItem(USER_ROLE_KEY, role);
   } catch {
     /* private mode */
   }
@@ -173,6 +175,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem(ATTENDANT_NAME_LS_KEY);
     localStorage.removeItem(PAIR_HIDE_KEY);
     localStorage.removeItem(PAIR_ROLE_KEY);
+    localStorage.removeItem(USER_ROLE_KEY);
   } catch {
     /* private mode */
   }
@@ -303,14 +306,31 @@ export async function redeemPairingCode(
 
 export async function disconnectAttendant(): Promise<Settings> {
   const settings = await ensureSettings();
+  clearPairLocal();
+  try {
+    const { persistActivePlan } = await import("./plan");
+    persistActivePlan("free");
+  } catch {
+    /* ignore */
+  }
   const next: Settings = {
     ...settings,
     pairedOwnerId: undefined,
     deviceRole: "dono",
+    attendantName: "",
+    hideStoreTotals: true,
+    plan: "free",
     updatedAt: nowIso(),
     dirty: false,
   };
-  await db.settings.put(next);
-  clearPairLocal();
+  await db.transaction("rw", db.products, db.sales, db.customers, db.settings, async () => {
+    await db.products.clear();
+    await db.sales.clear();
+    await db.customers.clear();
+    await db.settings.put(next);
+  });
+  if (typeof window !== "undefined") {
+    window.location.reload();
+  }
   return next;
 }

@@ -4,6 +4,7 @@ export type StaffRole = "dono" | "gerente" | "ajudante";
 
 export const LINKED_OWNER_KEY = "linked_owner_id";
 export const ATTENDANT_NAME_LS_KEY = "attendant_name";
+export const USER_ROLE_KEY = "user_role";
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
 
@@ -15,17 +16,25 @@ function readLs(key: string): string {
   }
 }
 
-/** Linked owner store id, else this device's vendor id. */
+/**
+ * Store id for ALL products/sales/loyalty queries.
+ * `linked_owner_id` always overrides this device's local vendor id.
+ */
 export function getActiveOwnerId(
   settings?: Pick<Settings, "vendorId" | "pairedOwnerId"> | null,
 ): string {
-  return (
-    readLs(LINKED_OWNER_KEY) ||
-    readLs(PAIR_OWNER_KEY) ||
-    settings?.pairedOwnerId ||
-    settings?.vendorId ||
-    ""
-  );
+  const linked = readLs(LINKED_OWNER_KEY);
+  if (linked) return linked;
+  const legacy = readLs(PAIR_OWNER_KEY);
+  if (legacy) {
+    try {
+      localStorage.setItem(LINKED_OWNER_KEY, legacy);
+    } catch {
+      /* private mode */
+    }
+    return legacy;
+  }
+  return settings?.pairedOwnerId || settings?.vendorId || "";
 }
 
 export function getAttendantNameLocal(

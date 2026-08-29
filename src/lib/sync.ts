@@ -157,7 +157,8 @@ function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
-    attendant_name: s.attendantName || getAttendantNameLocal() || null,
+    attendant_name:
+      getAttendantNameLocal() || s.attendantName || "Desconhecido",
     notes: s.notes ?? null,
     created_at: s.createdAt,
     paid_at: s.paidAt ?? null,
@@ -258,6 +259,7 @@ export async function pushAndPull(): Promise<void> {
   try {
     const settings = await ensureSettings();
     const vendorId = getActiveOwnerId(settings);
+    const activeOwnerId = vendorId;
     const staff = !isOwnerDevice(settings);
     const role = staffRole(settings);
 
@@ -265,7 +267,7 @@ export async function pushAndPull(): Promise<void> {
     if (dirtyProducts.length && role !== "ajudante") {
       const { error } = await upsertOwned(
         "products",
-        dirtyProducts.map((p) => toRemoteProduct(vendorId, p)),
+        dirtyProducts.map((p) => toRemoteProduct(activeOwnerId, p)),
       );
       if (error) throw error;
       await db.transaction("rw", db.products, async () => {
@@ -282,7 +284,7 @@ export async function pushAndPull(): Promise<void> {
     if (dirtySales.length) {
       const { error } = await upsertOwned(
         "sales",
-        dirtySales.map((s) => toRemoteSale(vendorId, s)),
+        dirtySales.map((s) => toRemoteSale(activeOwnerId, s)),
       );
       if (error) throw error;
       await db.transaction("rw", db.sales, async () => {
@@ -299,7 +301,7 @@ export async function pushAndPull(): Promise<void> {
     if (dirtyCustomers.length) {
       const { error } = await upsertOwned(
         "customers",
-        dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)),
+        dirtyCustomers.map((c) => toRemoteCustomer(activeOwnerId, c)),
       );
       if (error) throw error;
       await db.transaction("rw", db.customers, async () => {
@@ -321,7 +323,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteProducts, error: pErr } = await selectOwned("products", vendorId);
+    const { data: remoteProducts, error: pErr } = await selectOwned("products", activeOwnerId);
     if (pErr) throw pErr;
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
@@ -344,7 +346,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteSales, error: sErr } = await selectOwned("sales", vendorId);
+    const { data: remoteSales, error: sErr } = await selectOwned("sales", activeOwnerId);
     if (sErr) throw sErr;
     if (remoteSales) {
       for (const row of remoteSales as RemoteSale[]) {
@@ -355,7 +357,7 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteCustomers, error: cErr } = await selectOwned("customers", vendorId);
+    const { data: remoteCustomers, error: cErr } = await selectOwned("customers", activeOwnerId);
     if (cErr) throw cErr;
     if (remoteCustomers) {
       const rows = remoteCustomers as RemoteCustomer[];
@@ -377,7 +379,7 @@ export async function pushAndPull(): Promise<void> {
     const { data: remoteSettings, error: stErr } = await supabase
       .from("settings")
       .select("*")
-      .eq("vendor_id", vendorId)
+      .eq("vendor_id", activeOwnerId)
       .maybeSingle();
     if (stErr) throw stErr;
     if (remoteSettings) {
@@ -463,9 +465,21 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     if (!supabaseConfigured) {
       throw new Error("Supabase não configurado. A venda ficou só neste aparelho.");
     }
-    const ownerId = getActiveOwnerId(await ensureSettings());
-    if (!ownerId) throw new Error("owner_id ausente (aparelho não vinculado).");
-    const payload = toRemoteSale(ownerId, sale);
+    const settings = await ensureSettings();
+    const activeOwnerId = getActiveOwnerId(settings);
+    if (!activeOwnerId) throw new Error("owner_id ausente (aparelho não vinculado).");
+    let attendantName = "Desconhecido";
+    try {
+      attendantName = localStorage.getItem("attendant_name")?.trim() || "Desconhecido";
+    } catch {
+      attendantName = getAttendantNameLocal(settings) || "Desconhecido";
+    }
+    const payload = {
+      ...toRemoteSale(activeOwnerId, sale),
+      owner_id: activeOwnerId,
+      vendor_id: activeOwnerId,
+      attendant_name: attendantName,
+    };
     const inserted = await supabase.from("sales").insert(payload);
     if (inserted.error) {
       const retry = await upsertOwned("sales", [payload]);
