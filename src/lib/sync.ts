@@ -254,17 +254,32 @@ function remoteErrorMessage(error: unknown): string {
   return String(error);
 }
 
-async function fetchProductsByOwnerId(activeOwnerId: string) {
+function linkedOrCurrentUserId(currentUserId?: string | null): string {
+  let linked: string | null = null;
+  try {
+    linked = localStorage.getItem("linked_owner_id");
+  } catch {
+    linked = null;
+  }
+  return linked || currentUserId || "";
+}
+
+async function fetchProductsByOwnerId(currentUserId?: string | null) {
+  const activeOwnerId = linkedOrCurrentUserId(currentUserId);
+  console.log("Fetching products with activeOwnerId:", activeOwnerId);
   const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
-  console.log(
-    "Fetching products for owner_id:",
-    activeOwnerId,
-    "Result:",
-    data,
-    "Error:",
-    error,
-  );
-  return { data, error };
+  return { data, error, activeOwnerId };
+}
+
+async function applyFetchedProducts(rows: RemoteProduct[]): Promise<void> {
+  const keep = new Set(rows.map((r) => r.id));
+  const locals = await db.products.toArray();
+  for (const p of locals) {
+    if (!keep.has(p.id)) await db.products.delete(p.id);
+  }
+  for (const row of rows) {
+    await db.products.put(fromRemoteProduct(row));
+  }
 }
 
 export async function pushAndPull(): Promise<void> {
@@ -340,7 +355,9 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteProducts, error: pErr } = await fetchProductsByOwnerId(activeOwnerId);
+    const { data: remoteProducts, error: pErr } = await fetchProductsByOwnerId(
+      settings.vendorId,
+    );
     if (pErr) {
       console.error("products fetch", pErr);
       throw new Error(remoteErrorMessage(pErr) || pErr.message || "products fetch failed");
@@ -541,32 +558,21 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
 
 export async function refetchOwnerProducts(): Promise<number> {
   const settings = await ensureSettings();
-  const activeOwnerId = getActiveOwnerId(settings);
+  const currentUser = { id: settings.vendorId };
+  const activeOwnerId = localStorage.getItem("linked_owner_id") || currentUser?.id;
+  console.log("Fetching products with activeOwnerId:", activeOwnerId);
   if (!activeOwnerId) throw new Error("owner_id ausente.");
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
   const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
-  console.log(
-    "Fetching products for owner_id:",
-    activeOwnerId,
-    "Result:",
-    data,
-    "Error:",
-    error,
-  );
   if (error) {
     console.error("products fetch", error);
     throw new Error(error.message);
   }
-  const rows = (data ?? []) as RemoteProduct[];
-  const keep = new Set(rows.map((r) => r.id));
-  const locals = await db.products.toArray();
-  for (const p of locals) {
-    if (!keep.has(p.id)) await db.products.delete(p.id);
+  if (data) {
+    await applyFetchedProducts(data as RemoteProduct[]);
+    return data.length;
   }
-  for (const row of rows) {
-    await db.products.put(fromRemoteProduct(row));
-  }
-  return rows.length;
+  return 0;
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
