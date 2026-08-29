@@ -45,12 +45,13 @@ function isNewer(a?: string, b?: string): boolean {
 
 /**
  * sales / customers / settings are owned by vendor_id (device account id).
- * pairing_codes uses owner_id only.
+ * products catalog uses owner_id (same uuid as the owner's account).
+ * pairing_codes also uses owner_id.
  */
 export const OWNERSHIP_COLUMN = "vendor_id" as const;
 
-/** products are fetched and filtered by user_id (owner's account id). */
-export const PRODUCT_OWNER_COLUMN = "user_id" as const;
+/** products are fetched, saved, and filtered by owner_id. */
+export const PRODUCT_OWNER_COLUMN = "owner_id" as const;
 
 function ownershipEq(ownerId: string) {
   return `${OWNERSHIP_COLUMN}=eq.${ownerId}`;
@@ -62,7 +63,7 @@ function productOwnershipEq(ownerId: string) {
 
 type RemoteProduct = {
   id: string;
-  user_id: string;
+  owner_id: string;
   vendor_id: string;
   name: string;
   price_cents: number;
@@ -125,7 +126,7 @@ type RemoteSettings = {
 function toRemoteProduct(ownerId: string, p: Product): RemoteProduct {
   return {
     id: p.id,
-    user_id: ownerId,
+    owner_id: ownerId,
     vendor_id: ownerId,
     name: p.name,
     price_cents: p.priceCents,
@@ -264,13 +265,32 @@ function remoteErrorMessage(error: unknown): string {
   return String(error);
 }
 
-async function fetchProductsByUserId(activeOwnerId: string) {
+function friendlyCatalogError(error: unknown): string {
+  const raw = remoteErrorMessage(error).toLowerCase();
+  if (
+    raw.includes("failed to fetch") ||
+    raw.includes("network") ||
+    raw.includes("offline") ||
+    raw.includes("internet")
+  ) {
+    return "Sem internet. Conecte o celular e toque em Atualizar.";
+  }
+  if (raw.includes("timeout")) {
+    return "A conexão demorou demais. Tente atualizar de novo.";
+  }
+  if (raw.includes("não configurado") || raw.includes("sem conexão com o servidor")) {
+    return "Sem conexão com o servidor. Tente de novo em instantes.";
+  }
+  return "Não deu pra atualizar o catálogo. Confira a internet e tente de novo.";
+}
+
+async function fetchProductsByOwnerId(activeOwnerId: string) {
   const { data, error } = await supabase
     .from("products")
     .select("*")
-    .eq("user_id", activeOwnerId);
+    .eq("owner_id", activeOwnerId);
   console.log(
-    "Fetching products for user_id:",
+    "Fetching products for owner_id:",
     activeOwnerId,
     "Result:",
     data,
@@ -353,8 +373,11 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteProducts, error: pErr } = await fetchProductsByUserId(activeOwnerId);
-    if (pErr) throw pErr;
+    const { data: remoteProducts, error: pErr } = await fetchProductsByOwnerId(activeOwnerId);
+    if (pErr) {
+      console.error("products fetch", pErr);
+      throw new Error(friendlyCatalogError(pErr));
+    }
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
       if (staff) {
@@ -489,15 +512,15 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
   }
 }
 
-/** Desktop/Negócio: persist a product with user_id = owner's id immediately. */
+/** Desktop/Negócio: persist a product with owner_id = owner's id immediately. */
 export async function pushProductImmediate(product: Product): Promise<void> {
   if (!supabaseConfigured) return;
   const settings = await ensureSettings();
   const activeOwnerId = getActiveOwnerId(settings);
-  if (!activeOwnerId) throw new Error("user_id (ID do chefe) ausente.");
+  if (!activeOwnerId) throw new Error("Não deu pra gravar o produto. Tente de novo.");
   const payload = {
     ...toRemoteProduct(activeOwnerId, product),
-    user_id: activeOwnerId,
+    owner_id: activeOwnerId,
     vendor_id: activeOwnerId,
   };
   const { error } = await upsertOwned("products", [payload]);
@@ -545,10 +568,17 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
 export async function refetchOwnerProducts(): Promise<number> {
   const settings = await ensureSettings();
   const activeOwnerId = getActiveOwnerId(settings);
-  if (!activeOwnerId) throw new Error("user_id (ID do chefe) ausente.");
-  if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await fetchProductsByUserId(activeOwnerId);
-  if (error) throw new Error(remoteErrorMessage(error) || "Não deu pra atualizar o catálogo");
+  if (!activeOwnerId) {
+    throw new Error("Não deu pra atualizar o catálogo. Confira a internet e tente de novo.");
+  }
+  if (!supabaseConfigured) {
+    throw new Error("Sem conexão com o servidor. Tente de novo em instantes.");
+  }
+  const { data, error } = await fetchProductsByOwnerId(activeOwnerId);
+  if (error) {
+    console.error("products fetch", error);
+    throw new Error(friendlyCatalogError(error));
+  }
   const rows = (data ?? []) as RemoteProduct[];
   const keep = new Set(rows.map((r) => r.id));
   const locals = await db.products.toArray();

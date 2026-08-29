@@ -4,7 +4,6 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { QRCodeSVG } from "qrcode.react";
 import { Cloud, Copy, ShieldAlert, Trash2 } from "lucide-react";
-import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
@@ -101,7 +100,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [pairCode, setPairCode] = useState("");
   const [pairExpires, setPairExpires] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
   const [pairRole, setPairRole] = useState<StaffRole>("ajudante");
   const [allowHelperTotals, setAllowHelperTotals] = useState(
     settings.hideStoreTotals === false,
@@ -454,11 +452,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         />
       </Field>
 
-      {!isStaffDevice(settings) ? (
-        <Button variant="line" onClick={() => setJoinOpen(true)}>
-          Sou Ajudante / Conectar a uma Banca
-        </Button>
-      ) : (
+      {isStaffDevice(settings) ? (
         <Button
           variant="alert"
           onClick={async () => {
@@ -471,7 +465,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         >
           Desconectar / Sair da Banca
         </Button>
-      )}
+      ) : null}
 
       <Button onClick={() => void save()}>Salvar</Button>
 
@@ -671,7 +665,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
         </div>
       </Modal>
 
-      <PairingJoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
       <DiagnosticIds vendorId={settings.vendorId} />
     </div>
   );
