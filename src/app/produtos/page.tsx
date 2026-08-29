@@ -141,6 +141,7 @@ export default function ProdutosPage() {
       });
       setProductError(null);
       toast(`${t.name} no catálogo`);
+      setOpen(false);
     } catch (err) {
       showProductError(err);
     }
@@ -193,6 +194,7 @@ export default function ProdutosPage() {
       const n = await seedNiche(nicheId);
       setProductError(null);
       toast(`${n} itens de exemplo em ${niche.label}`);
+      setOpen(false);
     } catch (err) {
       showProductError(err);
     }

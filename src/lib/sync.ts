@@ -57,7 +57,7 @@ type RemoteProduct = {
   name: string;
   price_cents: number;
   price_mode: string | null;
-  image_data: string | null;
+  image_data?: string | null;
   category: string;
   stock: number;
   active: boolean;
@@ -114,22 +114,37 @@ type RemoteSettings = {
   updated_at: string;
 };
 
+function withoutEmptyImageData<T extends Record<string, unknown>>(row: T): T {
+  const image = row.image_data;
+  if (image == null || image === "") {
+    const next = { ...row };
+    delete next.image_data;
+    return next;
+  }
+  return row;
+}
+
+function isMissingImageDataError(error: { message?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? "").toLowerCase();
+  return msg.includes("image_data") && (msg.includes("schema cache") || msg.includes("could not find"));
+}
+
 function toRemoteProduct(ownerId: string, p: Product): RemoteProduct {
-  return {
+  return withoutEmptyImageData({
     id: p.id,
     owner_id: ownerId,
     vendor_id: ownerId,
     name: p.name,
     price_cents: p.priceCents,
     price_mode: p.priceMode ?? "fixed",
-    image_data: p.imageData ?? null,
+    image_data: p.imageData || null,
     category: p.category,
     stock: p.stock,
     active: p.active,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     deleted_at: p.deleted ? p.updatedAt : null,
-  };
+  } as RemoteProduct & Record<string, unknown>) as RemoteProduct;
 }
 
 function fromRemoteProduct(r: RemoteProduct): Product {
@@ -503,12 +518,12 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
 }
 
 function productInsertPayload(product: Product, ownerId: string) {
-  return {
+  return withoutEmptyImageData({
     id: product.id,
     name: product.name,
     price_cents: product.priceCents,
     price_mode: product.priceMode ?? "fixed",
-    image_data: product.imageData ?? null,
+    image_data: product.imageData || null,
     category: product.category,
     stock: product.stock,
     active: product.active ?? true,
@@ -517,7 +532,7 @@ function productInsertPayload(product: Product, ownerId: string) {
     deleted_at: product.deleted ? product.updatedAt : null,
     vendor_id: ownerId,
     owner_id: ownerId,
-  };
+  } as Record<string, unknown>);
 }
 
 /** Desktop/Negócio: persist products with owner_id = currentUser.id immediately. */
@@ -534,13 +549,22 @@ export async function pushProductsImmediate(products: Product[]): Promise<void> 
     ...productInsertPayload(p, currentUser.id),
     owner_id: currentUser?.id,
   }));
-  const { error } = await supabase.from("products").insert(payload);
-  if (error) {
-    const retry = await supabase.from("products").upsert(
-      payload.map((row) => ({ ...row, owner_id: currentUser?.id })),
-    );
-    if (retry.error) throw new Error(retry.error.message);
+  const write = async (rows: typeof payload) => {
+    const inserted = await supabase.from("products").insert(rows);
+    if (!inserted.error) return null;
+    const upserted = await supabase.from("products").upsert(rows);
+    return upserted.error;
+  };
+  let error = await write(payload);
+  if (error && isMissingImageDataError(error)) {
+    const stripped = payload.map((row) => {
+      const next = { ...row, owner_id: currentUser?.id };
+      delete next.image_data;
+      return next;
+    });
+    error = await write(stripped);
   }
+  if (error) throw new Error(error.message);
 }
 
 export async function pushProductImmediate(product: Product): Promise<void> {
