@@ -1,4 +1,4 @@
-import { isAttendantDevice } from "./account";
+import { isStaffDevice } from "./account";
 import { db, ensureSettings } from "./db";
 import { nationalDigits } from "./phone";
 import type { Plan, Sale, Settings } from "./types";
@@ -197,7 +197,7 @@ export function effectivePlan(settings?: Pick<Settings, "plan"> | null): Plan {
 export function isPro(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
-  if (isAttendantDevice(settings)) return true;
+  if (isStaffDevice(settings)) return true;
   const plan = effectivePlan(settings);
   return plan === "pro" || plan === "equipe";
 }
@@ -205,7 +205,7 @@ export function isPro(
 export function isEquipe(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
-  if (isAttendantDevice(settings)) return true;
+  if (isStaffDevice(settings)) return true;
   return effectivePlan(settings) === "equipe";
 }
 

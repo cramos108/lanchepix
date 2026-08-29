@@ -1,4 +1,4 @@
-import { accountVendorId, isAttendantDevice } from "./account";
+import { accountVendorId, isOwnerDevice, staffRole } from "./account";
 import { db, ensureSettings } from "./db";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
@@ -230,10 +230,11 @@ export async function pushAndPull(): Promise<void> {
   try {
     const settings = await ensureSettings();
     const vendorId = accountVendorId(settings);
-    const attendant = isAttendantDevice(settings);
+    const staff = !isOwnerDevice(settings);
+    const role = staffRole(settings);
 
     const dirtyProducts = await db.products.filter((p) => Boolean(p.dirty)).toArray();
-    if (dirtyProducts.length && !attendant) {
+    if (dirtyProducts.length && role !== "ajudante") {
       const { error } = await supabase
         .from("products")
         .upsert(dirtyProducts.map((p) => toRemoteProduct(vendorId, p)));
@@ -265,7 +266,7 @@ export async function pushAndPull(): Promise<void> {
     }
 
     const dirtyCustomers = await db.customers.filter((c) => Boolean(c.dirty)).toArray();
-    if (dirtyCustomers.length && !attendant) {
+    if (dirtyCustomers.length && role !== "ajudante") {
       const { error } = await supabase
         .from("customers")
         .upsert(dirtyCustomers.map((c) => toRemoteCustomer(vendorId, c)));
@@ -280,7 +281,7 @@ export async function pushAndPull(): Promise<void> {
       });
     }
 
-    if (settings.dirty && !attendant) {
+    if (settings.dirty && isOwnerDevice(settings)) {
       const { error } = await supabase.from("settings").upsert(toRemoteSettings(settings));
       if (error) throw error;
       const current = await db.settings.get("app");
@@ -342,7 +343,7 @@ export async function pushAndPull(): Promise<void> {
       const local = await db.settings.get("app");
       if (
         local &&
-        (attendant || (!local.dirty && isNewer(remote.updated_at, local.updatedAt)))
+        (staff || (!local.dirty && isNewer(remote.updated_at, local.updatedAt)))
       ) {
         const merged: Settings = {
           ...local,
@@ -353,7 +354,7 @@ export async function pushAndPull(): Promise<void> {
           whatsapp: remote.whatsapp,
           rewardLabel: remote.reward_label,
           stampsRequired: remote.stamps_required,
-          plan: attendant
+          plan: staff
             ? "equipe"
             : remote.plan === "equipe"
               ? "equipe"
@@ -361,7 +362,7 @@ export async function pushAndPull(): Promise<void> {
                 ? "pro"
                 : "free",
           businessType: normalizeBusinessType(remote.business_type),
-          updatedAt: attendant ? local.updatedAt : remote.updated_at,
+          updatedAt: staff ? local.updatedAt : remote.updated_at,
           dirty: false,
           pairedOwnerId: local.pairedOwnerId,
           deviceRole: local.deviceRole,

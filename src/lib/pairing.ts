@@ -1,3 +1,4 @@
+import type { StaffRole } from "./account";
 import { db, ensureSettings } from "./db";
 import { nowIso } from "./id";
 import { supabase, supabaseConfigured } from "./supabase";
@@ -6,6 +7,7 @@ import type { Settings } from "./types";
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
 export const PAIR_HIDE_KEY = "pair_hide_store_totals";
+export const PAIR_ROLE_KEY = "pair_staff_role";
 const PAIR_FALLBACK_KEY = "pair_codes_fallback";
 const PAIR_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -31,7 +33,14 @@ type FallbackEntry = {
   store_name: string;
   expires_at: string;
   hide_store_totals: boolean;
+  role: StaffRole;
 };
+
+function normalizePairRole(value?: string | null): StaffRole {
+  if (value === "gerente") return "gerente";
+  if (value === "dono" || value === "owner") return "dono";
+  return "ajudante";
+}
 
 function randomCode(): string {
   return String(100000 + Math.floor(Math.random() * 900000));
@@ -41,6 +50,7 @@ function parseMetadata(raw?: string | null): {
   store_name?: string;
   expires_at?: string;
   hide_store_totals?: boolean;
+  role?: StaffRole;
 } {
   if (!raw) return {};
   try {
@@ -48,8 +58,10 @@ function parseMetadata(raw?: string | null): {
       store_name?: string;
       expires_at?: string;
       hide_store_totals?: boolean;
+      role?: string;
     };
-    return value && typeof value === "object" ? value : {};
+    if (!value || typeof value !== "object") return {};
+    return { ...value, role: normalizePairRole(value.role) };
   } catch {
     return {};
   }
@@ -80,6 +92,7 @@ function saveLocalFallback(
   storeName: string,
   expiresAt: string,
   hideStoreTotals: boolean,
+  role: StaffRole,
 ): void {
   const map = readFallbackMap();
   map[code] = {
@@ -87,6 +100,7 @@ function saveLocalFallback(
     store_name: storeName,
     expires_at: expiresAt,
     hide_store_totals: hideStoreTotals,
+    role,
   };
   writeFallbackMap(map);
 }
@@ -105,11 +119,13 @@ export function persistPairLocal(
   ownerId: string,
   attendantName: string,
   hideStoreTotals: boolean,
+  role: StaffRole,
 ): void {
   try {
     localStorage.setItem(PAIR_OWNER_KEY, ownerId);
     localStorage.setItem(PAIR_NAME_KEY, attendantName);
     localStorage.setItem(PAIR_HIDE_KEY, hideStoreTotals ? "true" : "false");
+    localStorage.setItem(PAIR_ROLE_KEY, role);
   } catch {
     /* private mode */
   }
@@ -122,12 +138,13 @@ export async function restorePairFromLocal(): Promise<void> {
     const owner = localStorage.getItem(PAIR_OWNER_KEY);
     const name = localStorage.getItem(PAIR_NAME_KEY) ?? "";
     const hide = localStorage.getItem(PAIR_HIDE_KEY);
+    const role = normalizePairRole(localStorage.getItem(PAIR_ROLE_KEY));
     if (!owner) return;
     await db.settings.put({
       ...settings,
       pairedOwnerId: owner,
       attendantName: name || settings.attendantName,
-      deviceRole: "attendant",
+      deviceRole: role === "gerente" ? "gerente" : "ajudante",
       hideStoreTotals: hide !== "false",
       plan: "equipe",
       dirty: false,
@@ -142,12 +159,15 @@ export function clearPairLocal(): void {
     localStorage.removeItem(PAIR_OWNER_KEY);
     localStorage.removeItem(PAIR_NAME_KEY);
     localStorage.removeItem(PAIR_HIDE_KEY);
+    localStorage.removeItem(PAIR_ROLE_KEY);
   } catch {
     /* private mode */
   }
 }
 
-export async function createPairingCode(): Promise<{
+export async function createPairingCode(
+  role: StaffRole = "ajudante",
+): Promise<{
   code: string;
   expiresAt: string;
   url: string;
@@ -158,10 +178,12 @@ export async function createPairingCode(): Promise<{
   const ownerId = settings.vendorId;
   const storeName = settings.storeName || "Meu negócio";
   const hideStoreTotals = settings.hideStoreTotals !== false;
+  const assignedRole: StaffRole = role === "gerente" ? "gerente" : "ajudante";
   const metadata = JSON.stringify({
     store_name: storeName,
     expires_at: expiresAt,
     hide_store_totals: hideStoreTotals,
+    role: assignedRole,
   });
 
   try {
@@ -174,10 +196,10 @@ export async function createPairingCode(): Promise<{
     }
   } catch (err) {
     console.error("Pairing code insert failed, using local fallback:", err);
-    saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals);
+    saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals, assignedRole);
   }
 
-  saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals);
+  saveLocalFallback(code, ownerId, storeName, expiresAt, hideStoreTotals, assignedRole);
   return { code, expiresAt, url: inviteUrl(code) };
 }
 
@@ -194,6 +216,7 @@ export async function redeemPairingCode(
   let storeName = "";
   let expiresAt = "";
   let hideStoreTotals = true;
+  let role: StaffRole = "ajudante";
 
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
@@ -217,6 +240,7 @@ export async function redeemPairingCode(
     storeName = extra.store_name ?? "";
     expiresAt = extra.expires_at ?? "";
     hideStoreTotals = extra.hide_store_totals !== false;
+    role = extra.role === "gerente" ? "gerente" : "ajudante";
   } catch (err) {
     console.error("Pairing code select failed, trying local fallback:", err);
     const local = lookupLocalFallback(code);
@@ -227,6 +251,7 @@ export async function redeemPairingCode(
     storeName = local.store_name;
     expiresAt = local.expires_at;
     hideStoreTotals = local.hide_store_totals !== false;
+    role = local.role === "gerente" ? "gerente" : "ajudante";
   }
 
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -238,7 +263,7 @@ export async function redeemPairingCode(
     ...settings,
     pairedOwnerId: ownerId,
     attendantName: name,
-    deviceRole: "attendant",
+    deviceRole: role,
     hideStoreTotals,
     plan: "equipe",
     storeName: storeName || settings.storeName,
@@ -246,7 +271,7 @@ export async function redeemPairingCode(
     dirty: false,
   };
   await db.settings.put(next);
-  persistPairLocal(ownerId, name, hideStoreTotals);
+  persistPairLocal(ownerId, name, hideStoreTotals, role);
   try {
     const { persistActivePlan } = await import("./plan");
     persistActivePlan("negocio");
@@ -263,7 +288,7 @@ export async function disconnectAttendant(): Promise<Settings> {
   const next: Settings = {
     ...settings,
     pairedOwnerId: undefined,
-    deviceRole: "owner",
+    deviceRole: "dono",
     updatedAt: nowIso(),
     dirty: false,
   };

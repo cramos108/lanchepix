@@ -27,7 +27,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { scheduleSync } from "@/lib/sync";
-import { helperHidesStoreTotals, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
+import { canSeeFinances, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
 import { openPairingJoinModal } from "@/lib/pairing";
 import {
   FREE_LOYALTY_LIMIT,
@@ -111,7 +111,7 @@ export default function VenderPage() {
     [sales, settings?.resetYearAt],
   );
   const scopedSales = visibleSalesForDevice(sales, settings);
-  const hideStore = helperHidesStoreTotals(settings);
+  const hideStore = !canSeeFinances(settings);
   const pendingSales = scopedSales.filter((s) => s.status === "pending");
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
@@ -227,13 +227,17 @@ export default function VenderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {!isAttendantDevice(settings) ? (
+      {!isStaffDevice(settings) ? (
         <Button variant="line" className="w-full text-sm" onClick={openPairingJoinModal}>
           Sou Ajudante / Conectar a uma Banca
         </Button>
       ) : (
         <p className="text-center text-xs font-extrabold uppercase tracking-wide text-mint">
-          Ajudante: {settings?.attendantName || "conectado"}
+          {isStaffDevice(settings)
+            ? `${settings?.deviceRole === "gerente" ? "Gerente" : "Ajudante"}: ${
+                settings?.attendantName || "conectado"
+              }`
+            : ""}
         </p>
       )}
 

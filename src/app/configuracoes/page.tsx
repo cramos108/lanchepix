@@ -8,7 +8,17 @@ import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
-import { isAttendantDevice } from "@/lib/account";
+import {
+  canEditBilling,
+  canPairDevices,
+  isAttendantDevice,
+  isManagerDevice,
+  isOwnerDevice,
+  isStaffDevice,
+  staffRole,
+  staffRoleLabel,
+  type StaffRole,
+} from "@/lib/account";
 import {
   cycleDevPlan,
   effectivePlan,
@@ -71,6 +81,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [pairExpires, setPairExpires] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [pairRole, setPairRole] = useState<StaffRole>("ajudante");
   const [allowHelperTotals, setAllowHelperTotals] = useState(
     settings.hideStoreTotals === false,
   );
@@ -118,11 +129,11 @@ function SettingsForm({ settings }: { settings: Settings }) {
       <div className="flex flex-col gap-4">
         <section className="rounded-3xl border-2 border-mint bg-surface p-4">
           <p className="text-xs font-extrabold uppercase tracking-widest text-mint">
-            Aparelho de ajudante
+            {staffRoleLabel(staffRole(settings))}
           </p>
-          <p className="mt-1 text-lg font-black">{settings.attendantName || "Ajudante"}</p>
+          <p className="mt-1 text-lg font-black">{settings.attendantName || "Equipe"}</p>
           <p className="text-sm font-bold text-muted">
-            Conectado à banca. Ajustes da conta e cobrança ficam só com o dono.
+            Conectado à banca. Pix, cobrança e totais da loja ficam só com o dono.
           </p>
         </section>
         <Field label="Seu nome neste aparelho">
@@ -154,6 +165,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {canEditBilling(settings) ? (
       <section className="rounded-3xl border-2 border-sun bg-surface p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -180,6 +192,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
               : "Pix Confiança ilimitado e até 100 cartões fidelidade. Catálogo e QR Pix continuam grátis."}
         </p>
       </section>
+      ) : (
+        <p className="text-sm font-bold text-muted">
+          Perfil {staffRoleLabel(staffRole(settings))}: catálogo e conexão de
+          aparelhos liberados. Totais, Pix e planos só o dono vê.
+        </p>
+      )}
 
       <Field label="Tipo de negócio">
         <div className="flex flex-col gap-2">
@@ -207,6 +225,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="Banca da Maria"
         />
       </Field>
+      {canEditBilling(settings) ? (
+      <>
       <Field
         label="Chave Pix"
         hint={
@@ -240,6 +260,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="SAO PAULO"
         />
       </Field>
+      </>
+      ) : null}
       <Field
         label="WhatsApp de Contato"
         hint="Para cobranças e recados. Vale para lanches, capinhas, roupa, utilidades…"
@@ -274,13 +296,36 @@ function SettingsForm({ settings }: { settings: Settings }) {
         </section>
       ) : null}
 
-      {isNegocio(settings) && !isAttendantDevice(settings) ? (
+      {canPairDevices(settings) && (isNegocio(settings) || isManagerDevice(settings)) ? (
         <section className="rounded-3xl border-2 border-sun bg-surface p-4">
           <h2 className="text-lg font-black">Conectar Novo Aparelho / Ajudante</h2>
           <p className="mt-1 text-sm font-bold text-muted">
             Gere um código de 6 dígitos (válido por 24 horas) ou um QR. O ajudante
             entra sem login da conta principal.
           </p>
+          {isOwnerDevice(settings) ? (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(["ajudante", "gerente"] as const).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setPairRole(role)}
+                className={`min-h-12 rounded-2xl border-2 text-sm font-extrabold uppercase ${
+                  pairRole === role
+                    ? "border-sun bg-sun text-sunink"
+                    : "border-line bg-surface2 text-white"
+                }`}
+              >
+                {role === "gerente" ? "Gerente" : "Ajudante"}
+              </button>
+            ))}
+          </div>
+          ) : (
+            <p className="mt-2 text-xs font-bold text-muted">
+              Gerente só pode conectar novos aparelhos como Ajudante.
+            </p>
+          )}
+          {isOwnerDevice(settings) ? (
           <label className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-line bg-surface2 p-3">
             <input
               type="checkbox"
@@ -291,10 +336,11 @@ function SettingsForm({ settings }: { settings: Settings }) {
             <span className="text-sm font-bold leading-snug">
               Permitir que ajudantes vejam o total geral da banca
               <span className="mt-1 block text-xs font-bold text-muted">
-                Padrão: desligado. Com isso off, o ajudante só vê as próprias vendas.
+                Não se aplica a Gerente (sem acesso a totais da loja).
               </span>
             </span>
           </label>
+          ) : null}
           <Button
             className="mt-3 w-full"
             disabled={pairBusy}
@@ -302,7 +348,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
               setPairBusy(true);
               try {
                 await saveSettings({ hideStoreTotals: !allowHelperTotals });
-                const created = await createPairingCode();
+                const created = await createPairingCode(
+                  isOwnerDevice(settings) ? pairRole : "ajudante",
+                );
                 setPairCode(created.code);
                 setPairExpires(created.expiresAt);
                 toast("Código de conexão gerado");
@@ -378,9 +426,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
         />
       </Field>
 
-      {!isAttendantDevice(settings) ? (
+      {!isStaffDevice(settings) ? (
         <Button variant="line" onClick={() => setJoinOpen(true)}>
-          Conectar como Ajudante / Segunda Banca
+          Sou Ajudante / Conectar a uma Banca
         </Button>
       ) : null}
 
@@ -459,6 +507,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
         </>
       ) : null}
 
+      {canEditBilling(settings) ? (
+      <>
       <div className="h-px bg-line" />
       <h2 className="text-lg font-black">Gerenciar dados e saldo</h2>
       <p className="text-sm font-bold text-muted">
@@ -508,6 +558,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <ShieldAlert className="h-5 w-5" />
         Excluir Minha Conta e Todos os Dados
       </Button>
+      </>
+      ) : null}
 
       <Modal
         open={Boolean(wipe)}

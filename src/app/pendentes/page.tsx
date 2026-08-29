@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
-import { helperHidesStoreTotals, visibleSalesForDevice } from "@/lib/account";
+import { canSeeFinances, visibleSalesForDevice } from "@/lib/account";
 import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
@@ -98,8 +98,8 @@ export default function PendentesPage() {
   const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
   const helpers = attendantPerformance(scoped);
   const pro = isPro(settings);
-  const hideStore = helperHidesStoreTotals(settings);
-  const showReports = isNegocio(settings) && !hideStore;
+  const hideStore = !canSeeFinances(settings);
+  const showReports = isNegocio(settings) && canSeeFinances(settings);
 
   async function downloadReport() {
     if (!pro) {

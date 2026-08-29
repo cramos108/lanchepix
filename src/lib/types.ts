@@ -99,7 +99,7 @@ export type Settings = {
   businessType?: BusinessType;
   attendantName?: string;
   pairedOwnerId?: string;
-  deviceRole?: "owner" | "attendant";
+  deviceRole?: "dono" | "gerente" | "ajudante" | "owner" | "attendant";
   /** When true, helpers cannot see store-wide totals (default). */
   hideStoreTotals?: boolean;
   resetDayAt?: string;

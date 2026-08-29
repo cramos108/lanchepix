@@ -17,6 +17,7 @@ import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { scheduleSync } from "@/lib/sync";
 import { compressProductImage } from "@/lib/productImage";
+import { canEditCatalog } from "@/lib/account";
 import { toast } from "@/lib/toast";
 import type { Product } from "@/lib/types";
 
@@ -41,6 +42,7 @@ export default function ProdutosPage() {
     [],
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const canEdit = canEditCatalog(settings);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [nicheId, setNicheId] = useState(defaultNiche().id);
@@ -183,12 +185,14 @@ export default function ProdutosPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {canEdit ? (
       <div className="flex gap-2">
         <Button className="flex-1" onClick={startCreate}>
           <Plus className="h-5 w-5" />
           Novo produto
         </Button>
       </div>
+      ) : null}
 
       {products && products.length > 0 ? (
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
@@ -214,7 +218,7 @@ export default function ProdutosPage() {
           title="Catálogo vazio"
           text="Escolha o nicho e cadastre lanches, capinhas, meias, sabonetes…"
           action={
-            <Button onClick={startCreate}>Começar pelo nicho</Button>
+            canEdit ? <Button onClick={startCreate}>Começar pelo nicho</Button> : undefined
           }
         />
       ) : null}
@@ -248,6 +252,7 @@ export default function ProdutosPage() {
               Estoque: {p.stock} un.
             </p>
             <div className="mt-auto flex flex-col gap-2 pt-2">
+              {canEdit ? (
               <Button
                 variant="line"
                 className="min-h-11 w-full text-xs"
@@ -256,6 +261,7 @@ export default function ProdutosPage() {
                 <Pencil className="h-4 w-4" />
                 Editar
               </Button>
+              ) : null}
               <Button
                 variant="sun"
                 className="min-h-11 w-full px-2 text-xs leading-tight"
@@ -264,6 +270,7 @@ export default function ProdutosPage() {
                 <Printer className="h-4 w-4" />
                 Imprimir QR
               </Button>
+              {canEdit ? (
               <Button
                 variant="alert"
                 className="min-h-11 w-full text-xs"
@@ -272,6 +279,7 @@ export default function ProdutosPage() {
                 <Trash2 className="h-4 w-4" />
                 Excluir
               </Button>
+              ) : null}
             </div>
           </li>
         ))}
