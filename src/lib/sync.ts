@@ -137,7 +137,7 @@ function toRemoteProduct(ownerId: string, p: Product): RemoteProduct {
     name: p.name,
     price_cents: p.priceCents,
     price_mode: p.priceMode ?? "fixed",
-    image_data: p.imageData || null,
+    image_data: p.image_data || p.imageData || null,
     category: p.category,
     stock: p.stock,
     active: p.active,
@@ -523,7 +523,7 @@ function productInsertPayload(product: Product, ownerId: string) {
     name: product.name,
     price_cents: product.priceCents,
     price_mode: product.priceMode ?? "fixed",
-    image_data: product.imageData || null,
+    image_data: product.image_data || product.imageData || null,
     category: product.category,
     stock: product.stock,
     active: product.active ?? true,
@@ -558,9 +558,9 @@ export async function pushProductsImmediate(products: Product[]): Promise<void> 
   let error = await write(payload);
   if (error && isMissingImageDataError(error)) {
     const stripped = payload.map((row) => {
-      const next = { ...row, owner_id: currentUser?.id };
+      const next: Record<string, unknown> = { ...row, owner_id: currentUser?.id };
       delete next.image_data;
-      return next;
+      return { ...next, owner_id: currentUser?.id ?? "" };
     });
     error = await write(stripped);
   }

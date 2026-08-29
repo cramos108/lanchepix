@@ -11,6 +11,7 @@ export type Product = {
   priceCents: number;
   priceMode?: PriceMode;
   imageData?: string;
+  image_data?: string | null;
   category: Category | string;
   stock: number;
   active: boolean;
