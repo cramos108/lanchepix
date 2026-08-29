@@ -34,6 +34,11 @@ export async function saveProduct(
   };
   await db.products.put(row);
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushProductImmediate(row));
+  } catch (err) {
+    console.error("products upsert", err);
+  }
   return row;
 }
 

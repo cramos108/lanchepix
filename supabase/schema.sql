@@ -77,6 +77,8 @@ alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;
 alter table public.sales add column if not exists price_mode text;
 alter table public.sales add column if not exists attendant_name text;
+-- Store tables are owned by vendor_id (device account id). There is no Auth user_id.
+-- pairing_codes uses owner_id only. Do not mix the two.
 alter table public.products add column if not exists owner_id uuid;
 alter table public.sales add column if not exists owner_id uuid;
 alter table public.customers add column if not exists owner_id uuid;

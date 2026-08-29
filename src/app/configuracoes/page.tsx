@@ -9,6 +9,7 @@ import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
 import {
+  LINKED_OWNER_KEY,
   canEditBilling,
   canPairDevices,
   isAttendantDevice,
@@ -59,6 +60,26 @@ export default function ConfiguracoesPage() {
   }
 
   return <SettingsForm key={settings.vendorId} settings={settings} />;
+}
+
+function DiagnosticIds({ vendorId }: { vendorId?: string }) {
+  const linked = useSyncExternalStore(
+    () => () => undefined,
+    () => {
+      try {
+        return localStorage.getItem(LINKED_OWNER_KEY)?.trim() || "Nenhum";
+      } catch {
+        return "Nenhum";
+      }
+    },
+    () => "Nenhum",
+  );
+  return (
+    <div className="mt-6 space-y-0.5 break-all text-[11px] leading-relaxed text-muted/80">
+      <p>Meu ID: {vendorId || "Deslogado"}</p>
+      <p>ID do Chefe (Linked): {linked}</p>
+    </div>
+  );
 }
 
 function SettingsForm({ settings }: { settings: Settings }) {
@@ -162,6 +183,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
         >
           Desconectar / Sair da Banca
         </Button>
+        <DiagnosticIds vendorId={settings.vendorId} />
       </div>
     );
   }
@@ -482,9 +504,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
         Carregar catálogo de exemplo
       </Button>
 
-      <p className="break-all text-xs text-muted">
-        ID deste aparelho (vendor): {settings.vendorId}
-      </p>
       <p className="text-sm text-muted">
         Os dados ficam neste celular (IndexedDB) e sobem para o Supabase quando houver
         internet. Instale o app na tela inicial para usar como PWA.
@@ -653,6 +672,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       </Modal>
 
       <PairingJoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <DiagnosticIds vendorId={settings.vendorId} />
     </div>
   );
 }
