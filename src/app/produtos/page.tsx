@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Camera, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { ProductSticker } from "@/components/ProductSticker";
@@ -30,6 +31,7 @@ const emptyForm = {
 };
 
 export default function ProdutosPage() {
+  const router = useRouter();
   const products = useLiveQuery(
     () =>
       db.products
@@ -51,6 +53,13 @@ export default function ProdutosPage() {
   const [needPixKey, setNeedPixKey] = useState(false);
   const [filter, setFilter] = useState("Todos");
   const [productError, setProductError] = useState<string | null>(null);
+
+  function returnToCatalog() {
+    setOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
+    router.replace("/produtos");
+  }
 
   function showProductError(err: unknown) {
     const message =
@@ -141,7 +150,7 @@ export default function ProdutosPage() {
       });
       setProductError(null);
       toast(`${t.name} no catálogo`);
-      setOpen(false);
+      returnToCatalog();
     } catch (err) {
       showProductError(err);
     }
@@ -172,7 +181,7 @@ export default function ProdutosPage() {
       });
       setProductError(null);
       toast(editing ? "Produto atualizado" : "Produto cadastrado");
-      setOpen(false);
+      returnToCatalog();
     } catch (err) {
       showProductError(err);
     }
@@ -194,7 +203,7 @@ export default function ProdutosPage() {
       const n = await seedNiche(nicheId);
       setProductError(null);
       toast(`${n} itens de exemplo em ${niche.label}`);
-      setOpen(false);
+      returnToCatalog();
     } catch (err) {
       showProductError(err);
     }
