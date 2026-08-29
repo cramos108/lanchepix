@@ -44,18 +44,11 @@ function isNewer(a?: string, b?: string): boolean {
 }
 
 /**
- * sales / customers / settings are owned by vendor_id (device account id).
- * products catalog uses owner_id (same uuid as the owner's account).
+ * products, sales, and customers are owned by owner_id (account id).
+ * settings still uses vendor_id as its primary key.
  * pairing_codes also uses owner_id.
  */
-export const OWNERSHIP_COLUMN = "vendor_id" as const;
-
-/** products are fetched, saved, and filtered by owner_id. */
-export const PRODUCT_OWNER_COLUMN = "owner_id" as const;
-
-function ownershipEq(ownerId: string) {
-  return `${OWNERSHIP_COLUMN}=eq.${ownerId}`;
-}
+export const OWNERSHIP_COLUMN = "owner_id" as const;
 
 type RemoteProduct = {
   id: string;
@@ -75,6 +68,7 @@ type RemoteProduct = {
 
 type RemoteSale = {
   id: string;
+  owner_id: string;
   vendor_id: string;
   product_id: string | null;
   product_name: string;
@@ -95,6 +89,7 @@ type RemoteSale = {
 
 type RemoteCustomer = {
   id: string;
+  owner_id: string;
   vendor_id: string;
   phone: string;
   name: string;
@@ -154,10 +149,11 @@ function fromRemoteProduct(r: RemoteProduct): Product {
   };
 }
 
-function toRemoteSale(vendorId: string, s: Sale): RemoteSale {
+function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
   return {
     id: s.id,
-    [OWNERSHIP_COLUMN]: vendorId,
+    owner_id: ownerId,
+    vendor_id: ownerId,
     product_id: s.productId || null,
     product_name: s.productName,
     quantity: s.quantity,
@@ -199,10 +195,11 @@ function fromRemoteSale(r: RemoteSale): Sale {
   };
 }
 
-function toRemoteCustomer(vendorId: string, c: Customer): RemoteCustomer {
+function toRemoteCustomer(ownerId: string, c: Customer): RemoteCustomer {
   return {
     id: c.id,
-    [OWNERSHIP_COLUMN]: vendorId,
+    owner_id: ownerId,
+    vendor_id: ownerId,
     phone: c.phone,
     name: c.name,
     stamps: c.stamps,
@@ -229,7 +226,7 @@ function fromRemoteCustomer(r: RemoteCustomer): Customer {
 
 function toRemoteSettings(s: Settings): RemoteSettings {
   return {
-    [OWNERSHIP_COLUMN]: s.vendorId,
+    vendor_id: s.vendorId,
     store_name: s.storeName,
     pix_key: s.pixKey,
     merchant_name: s.merchantName,
@@ -245,10 +242,6 @@ function toRemoteSettings(s: Settings): RemoteSettings {
 
 async function upsertOwned(table: string, rows: object[]) {
   return supabase.from(table).upsert(rows);
-}
-
-async function selectOwned(table: string, ownerId: string) {
-  return supabase.from(table).select("*").eq(OWNERSHIP_COLUMN, ownerId);
 }
 
 function remoteErrorMessage(error: unknown): string {
@@ -373,7 +366,10 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteSales, error: sErr } = await selectOwned("sales", activeOwnerId);
+    const { data: remoteSales, error: sErr } = await supabase
+      .from("sales")
+      .select("*")
+      .eq("owner_id", activeOwnerId);
     if (sErr) throw sErr;
     if (remoteSales) {
       for (const row of remoteSales as RemoteSale[]) {
@@ -384,7 +380,10 @@ export async function pushAndPull(): Promise<void> {
       }
     }
 
-    const { data: remoteCustomers, error: cErr } = await selectOwned("customers", activeOwnerId);
+    const { data: remoteCustomers, error: cErr } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("owner_id", activeOwnerId);
     if (cErr) throw cErr;
     if (remoteCustomers) {
       const rows = remoteCustomers as RemoteCustomer[];
@@ -406,7 +405,7 @@ export async function pushAndPull(): Promise<void> {
     const { data: remoteSettings, error: stErr } = await supabase
       .from("settings")
       .select("*")
-      .eq(OWNERSHIP_COLUMN, activeOwnerId)
+      .eq("vendor_id", activeOwnerId)
       .maybeSingle();
     if (stErr) throw stErr;
     if (remoteSettings) {
@@ -509,7 +508,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const settings = await ensureSettings();
     const activeOwnerId = getActiveOwnerId(settings);
-    if (!activeOwnerId) throw new Error("vendor_id (ID do chefe) ausente.");
+    if (!activeOwnerId) throw new Error("owner_id (ID do chefe) ausente.");
     let attendantName = "Desconhecido";
     try {
       attendantName = localStorage.getItem("attendant_name")?.trim() || "Desconhecido";
@@ -518,7 +517,8 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const payload = {
       ...toRemoteSale(activeOwnerId, sale),
-      [OWNERSHIP_COLUMN]: activeOwnerId,
+      owner_id: activeOwnerId,
+      vendor_id: activeOwnerId,
       attendant_name: attendantName,
     };
     const inserted = await supabase.from("sales").insert(payload);
@@ -574,7 +574,10 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   if (!supabaseConfigured) {
     return db.sales.toArray();
   }
-  const { data, error } = await selectOwned("sales", getActiveOwnerId(settings));
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("owner_id", getActiveOwnerId(settings));
   if (error || !data) {
     return db.sales.toArray();
   }
@@ -656,8 +659,7 @@ function handleCustomerChange(payload: ChangePayload): void {
 export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
   const ownerId = getActiveOwnerId() || vendorId;
-  const filter = ownershipEq(ownerId);
-  const productFilter = `owner_id=eq.${ownerId}`;
+  const filter = `owner_id=eq.${ownerId}`;
   const channel = supabase
     .channel(`account-${ownerId}`)
     .on(
@@ -677,17 +679,17 @@ export function startAccountRealtime(vendorId: string): () => void {
     )
     .on(
       "postgres_changes",
-      { event: "INSERT", schema: "public", table: "products", filter: productFilter },
+      { event: "INSERT", schema: "public", table: "products", filter },
       (payload) => handleProductChange(payload),
     )
     .on(
       "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "products", filter: productFilter },
+      { event: "UPDATE", schema: "public", table: "products", filter },
       (payload) => handleProductChange(payload),
     )
     .on(
       "postgres_changes",
-      { event: "DELETE", schema: "public", table: "products", filter: productFilter },
+      { event: "DELETE", schema: "public", table: "products", filter },
       (payload) => handleProductChange(payload),
     )
     .on(
@@ -703,9 +705,11 @@ export function startAccountRealtime(vendorId: string): () => void {
 
 export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
   if (!supabaseConfigured || !vendorId) return;
-  await supabase.from("sales").delete().eq(OWNERSHIP_COLUMN, vendorId);
-  await supabase.from("products").delete().eq(PRODUCT_OWNER_COLUMN, vendorId);
-  await supabase.from("products").delete().eq(OWNERSHIP_COLUMN, vendorId);
-  await supabase.from("customers").delete().eq(OWNERSHIP_COLUMN, vendorId);
-  await supabase.from("settings").delete().eq(OWNERSHIP_COLUMN, vendorId);
+  await supabase.from("sales").delete().eq("owner_id", vendorId);
+  await supabase.from("sales").delete().eq("vendor_id", vendorId);
+  await supabase.from("products").delete().eq("owner_id", vendorId);
+  await supabase.from("products").delete().eq("vendor_id", vendorId);
+  await supabase.from("customers").delete().eq("owner_id", vendorId);
+  await supabase.from("customers").delete().eq("vendor_id", vendorId);
+  await supabase.from("settings").delete().eq("vendor_id", vendorId);
 }

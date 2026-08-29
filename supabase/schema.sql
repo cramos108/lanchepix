@@ -77,13 +77,17 @@ alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;
 alter table public.sales add column if not exists price_mode text;
 alter table public.sales add column if not exists attendant_name text;
--- Store tables (sales/customers/settings) are owned by vendor_id.
--- products catalog is fetched/written by owner_id. pairing_codes also uses owner_id.
+-- products, sales, and customers are fetched/written by owner_id.
+-- settings uses vendor_id as its primary key. pairing_codes also uses owner_id.
 alter table public.products add column if not exists owner_id uuid;
 alter table public.sales add column if not exists owner_id uuid;
 alter table public.customers add column if not exists owner_id uuid;
 update public.products set owner_id = vendor_id where owner_id is null;
+update public.sales set owner_id = vendor_id where owner_id is null;
+update public.customers set owner_id = vendor_id where owner_id is null;
 create index if not exists products_owner_id_idx on public.products (owner_id, updated_at desc);
+create index if not exists sales_owner_id_idx on public.sales (owner_id, updated_at desc);
+create index if not exists customers_owner_id_idx on public.customers (owner_id);
 
 -- ---------------------------------------------------------------------------
 -- Índices
