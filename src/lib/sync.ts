@@ -424,24 +424,15 @@ export async function pushAndPull(): Promise<void> {
   }
 }
 
-export async function applyRemoteSaleRow(row: RemoteSale): Promise<void> {
+export async function applyRemoteSaleRow(row: RemoteSale, force = false): Promise<void> {
   const local = await db.sales.get(row.id);
-  if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
+  if (force || !local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
     await db.sales.put(fromRemoteSale(row));
   }
 }
 
 export async function applyRemoteProductRow(row: RemoteProduct): Promise<void> {
-  const settings = await db.settings.get("app");
-  const staff = Boolean(settings && !isOwnerDevice(settings));
-  if (staff) {
-    await db.products.put(fromRemoteProduct(row));
-    return;
-  }
-  const local = await db.products.get(row.id);
-  if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
-    await db.products.put(fromRemoteProduct(row));
-  }
+  await db.products.put(fromRemoteProduct(row));
 }
 
 export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void> {
@@ -449,6 +440,14 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
   if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
     await db.customers.put(fromRemoteCustomer(row));
   }
+}
+
+export async function pushSaleImmediate(sale: Sale): Promise<void> {
+  if (!supabaseConfigured) return;
+  const ownerId = getActiveOwnerId(await ensureSettings());
+  if (!ownerId) return;
+  const { error } = await upsertOwned("sales", [toRemoteSale(ownerId, sale)]);
+  if (error) console.error("pushSaleImmediate", error);
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
@@ -467,92 +466,95 @@ export function startSalesRealtime(vendorId: string): () => void {
   return startAccountRealtime(vendorId);
 }
 
+type ChangePayload = {
+  eventType?: string;
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+};
+
+function handleProductChange(payload: ChangePayload): void {
+  const event = payload.eventType;
+  if (event === "DELETE") {
+    const id = payload.old?.id as string | undefined;
+    if (id) void db.products.delete(id);
+    return;
+  }
+  const row = payload.new as RemoteProduct | undefined;
+  if (!row?.id) return;
+  if (event === "UPDATE" || event === "INSERT") {
+    void applyRemoteProductRow(row);
+  }
+}
+
+function handleSaleChange(payload: ChangePayload): void {
+  const event = payload.eventType;
+  if (event === "DELETE") {
+    const id = payload.old?.id as string | undefined;
+    if (id) void db.sales.delete(id);
+    return;
+  }
+  const row = payload.new as RemoteSale | undefined;
+  if (!row?.id) return;
+  if (event === "INSERT" || event === "UPDATE") {
+    void applyRemoteSaleRow(row, true);
+  }
+}
+
+function handleCustomerChange(payload: ChangePayload): void {
+  const event = payload.eventType;
+  if (event === "DELETE") {
+    const id = payload.old?.id as string | undefined;
+    if (id) void db.customers.delete(id);
+    return;
+  }
+  const row = payload.new as RemoteCustomer | undefined;
+  if (row?.id) void applyRemoteCustomerRow(row);
+}
+
 export function startAccountRealtime(vendorId: string): () => void {
   if (!supabaseConfigured || !vendorId) return () => undefined;
   const ownerId = getActiveOwnerId() || vendorId;
-  const filter = `vendor_id=eq.${ownerId}`;
-  const ownerFilter = `owner_id=eq.${ownerId}`;
-  const channel = supabase
-    .channel(`account-${ownerId}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "sales", filter: ownerFilter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.sales.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteSale | null;
-        if (row?.id) void applyRemoteSaleRow(row);
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "sales", filter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.sales.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteSale | null;
-        if (row?.id) void applyRemoteSaleRow(row);
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "products", filter: ownerFilter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.products.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteProduct | null;
-        if (row?.id) void applyRemoteProductRow(row);
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "products", filter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.products.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteProduct | null;
-        if (row?.id) void applyRemoteProductRow(row);
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "customers", filter: ownerFilter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.customers.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteCustomer | null;
-        if (row?.id) void applyRemoteCustomerRow(row);
-      },
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "customers", filter },
-      (payload) => {
-        if (payload.eventType === "DELETE") {
-          const id = (payload.old as { id?: string } | null)?.id;
-          if (id) void db.customers.delete(id);
-          return;
-        }
-        const row = payload.new as RemoteCustomer | null;
-        if (row?.id) void applyRemoteCustomerRow(row);
-      },
-    )
-    .subscribe();
+  const filters = [`vendor_id=eq.${ownerId}`, `owner_id=eq.${ownerId}`];
+  let channel = supabase.channel(`account-${ownerId}`);
+  for (const filter of filters) {
+    channel = channel
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "sales", filter },
+        (payload) => handleSaleChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sales", filter },
+        (payload) => handleSaleChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "sales", filter },
+        (payload) => handleSaleChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "products", filter },
+        (payload) => handleProductChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "products", filter },
+        (payload) => handleProductChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "products", filter },
+        (payload) => handleProductChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "customers", filter },
+        (payload) => handleCustomerChange(payload),
+      );
+  }
+  channel.subscribe();
   return () => {
     void supabase.removeChannel(channel);
   };

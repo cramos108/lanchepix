@@ -104,6 +104,7 @@ export async function createSale(input: {
     }
   });
   scheduleSync();
+  void import("./sync").then((m) => m.pushSaleImmediate(sale));
   return sale;
 }
 
@@ -139,6 +140,7 @@ export async function markSalePaid(
     }
   });
   scheduleSync();
+  void import("./sync").then((m) => m.pushSaleImmediate(next));
   return next;
 }
 

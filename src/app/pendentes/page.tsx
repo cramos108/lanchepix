@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
-import { canSeeFinances, visibleSalesForDevice } from "@/lib/account";
+import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
 import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
@@ -374,6 +374,8 @@ export default function PendentesPage() {
                 Gorjeta / extra: <Money cents={detail.extraCents ?? 0} />
               </p>
             ) : null}
+            {isAttendantDevice(settings) ? null : (
+              <>
             <Button
               variant="amber"
               onClick={async () => {
@@ -399,6 +401,8 @@ export default function PendentesPage() {
             >
               Excluir venda
             </Button>
+              </>
+            )}
             <Button variant="ghost" onClick={() => setDetail(null)}>
               Fechar
             </Button>

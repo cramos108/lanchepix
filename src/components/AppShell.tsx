@@ -34,7 +34,6 @@ import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
 import {
-  isNegocio,
   openUpgradeModal,
   planBadge,
   subscribeDevPlan,
@@ -126,7 +125,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const accountId = getActiveOwnerId(settings) || accountVendorId(settings);
     if (!accountId) return;
-    if (!isNegocio(settings) && !isStaffDevice(settings)) return;
     return startSalesRealtime(accountId);
   }, [settings, settings?.vendorId, settings?.plan, settings?.pairedOwnerId, devPlanTick]);
 
