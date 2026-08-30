@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, FileDown, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
@@ -40,7 +40,10 @@ export default function PendentesPage() {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const scoped = visibleSalesForDevice(allSales, settings);
   const sales = scoped.filter((s) => s.status === "pending");
-  const history = scoped.filter((s) => s.status === "paid");
+  const paidHistory = scoped.filter((s) => s.status === "paid");
+  const history = scoped
+    .filter((s) => s.status === "pending" || s.status === "paid")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const [tab, setTab] = useState<"open" | "history" | "reports">("open");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [paying, setPaying] = useState<Sale | null>(null);
@@ -107,11 +110,16 @@ export default function PendentesPage() {
   }
 
   const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
-  const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
+  const historyCents = paidHistory.reduce((sum, s) => sum + s.totalCents, 0);
   const helpers = attendantPerformance(scoped);
   const pro = isPro(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = isNegocio(settings) && canSeeFinances(settings);
+
+  useEffect(() => {
+    if (tab !== "history") return;
+    void refetchOwnerSales().catch(() => undefined);
+  }, [tab]);
 
   async function refreshHistory() {
     setHistoryBusy(true);
@@ -277,8 +285,8 @@ export default function PendentesPage() {
           {history.length === 0 ? (
             <li>
               <EmptyState
-                title="Sem vendas pagas"
-                text="PIX AGORA e Pix Confiança pagos aparecem aqui. Dá para desfazer."
+                title="Sem vendas"
+                text="PIX AGORA, Pix Confiança em aberto e pagos aparecem aqui."
               />
             </li>
           ) : (
@@ -297,8 +305,16 @@ export default function PendentesPage() {
                       <p className="text-sm font-bold text-muted">
                         {formatDateTime(sale.paidAt ?? sale.createdAt)}
                       </p>
-                      <p className="text-xs font-extrabold uppercase text-mint">
-                        {sale.paidAt === sale.createdAt ? "PIX AGORA" : "PIX CONFIANÇA"}
+                      <p
+                        className={`text-xs font-extrabold uppercase ${
+                          sale.status === "pending" ? "text-amber" : "text-mint"
+                        }`}
+                      >
+                        {sale.status === "pending"
+                          ? "PIX CONFIANÇA · ABERTO"
+                          : sale.paidAt === sale.createdAt
+                            ? "PIX AGORA"
+                            : "PIX CONFIANÇA · PAGO"}
                       </p>
                       {sale.attendantName ? (
                         <p className="text-xs font-bold text-muted">
@@ -391,7 +407,7 @@ export default function PendentesPage() {
 
       <Modal
         open={Boolean(detail)}
-        title="Venda paga"
+        title={detail?.status === "pending" ? "Pix Confiança" : "Venda"}
         onClose={() => setDetail(null)}
       >
         {detail ? (

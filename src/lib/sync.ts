@@ -686,11 +686,13 @@ function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: st
 
 async function querySalesByOwnerId(ownerId: string) {
   console.log("Fetching sales with owner_id:", ownerId);
-  return supabase
+  const result = await supabase
     .from("sales")
     .select("*")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
+  console.log("Sales fetch result count:", result.data?.length ?? 0, "error:", result.error);
+  return result;
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
