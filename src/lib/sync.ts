@@ -555,6 +555,18 @@ export async function pushProductImmediate(product: Product): Promise<void> {
   await pushProductsImmediate([product]);
 }
 
+function resolveSaleOwnerId(
+  settings?: { vendorId: string; pairedOwnerId?: string } | null,
+): string {
+  let linked = "";
+  try {
+    linked = localStorage.getItem("linked_owner_id")?.trim() || "";
+  } catch {
+    linked = "";
+  }
+  return linked || getActiveOwnerId(settings) || settings?.vendorId || "";
+}
+
 export async function pushSaleImmediate(sale: Sale): Promise<void> {
   const { toast } = await import("./toast");
   try {
@@ -562,7 +574,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       throw new Error("Supabase não configurado. A venda ficou só neste aparelho.");
     }
     const settings = await ensureSettings();
-    const activeOwnerId = getActiveOwnerId(settings);
+    const activeOwnerId = resolveSaleOwnerId(settings);
     if (!activeOwnerId) throw new Error("owner_id (ID do chefe) ausente.");
     let attendantName = "Desconhecido";
     try {
@@ -571,10 +583,24 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       attendantName = getAttendantNameLocal(settings) || "Desconhecido";
     }
     const payload = {
-      ...toRemoteSale(activeOwnerId, sale),
+      id: sale.id,
       owner_id: activeOwnerId,
       vendor_id: activeOwnerId,
+      product_id: sale.productId || null,
+      product_name: sale.productName,
+      quantity: sale.quantity,
+      unit_price_cents: sale.unitPriceCents,
+      total_cents: sale.totalCents,
+      extra_cents: sale.extraCents ?? 0,
+      price_mode: sale.priceMode ?? "fixed",
+      status: sale.status,
+      customer_phone: sale.customerPhone ?? null,
+      customer_name: sale.customerName ?? null,
       attendant_name: attendantName,
+      notes: sale.notes ?? null,
+      created_at: sale.createdAt,
+      paid_at: sale.paidAt ?? null,
+      updated_at: sale.updatedAt,
     };
     const updated = await supabase
       .from("sales")
@@ -652,21 +678,35 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
     return db.sales.toArray();
   }
   const currentUser = { id: settings.vendorId };
-  let linked: string | null = null;
-  try {
-    linked = localStorage.getItem("linked_owner_id");
-  } catch {
-    linked = null;
-  }
-  const ownerId = linked || currentUser?.id || getActiveOwnerId(settings);
+  const ownerId = resolveSaleOwnerId(settings) || currentUser?.id;
   const { data, error } = await supabase
     .from("sales")
     .select("*")
-    .eq("owner_id", ownerId);
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
   if (error || !data) {
     return db.sales.toArray();
   }
   return (data as RemoteSale[]).map(fromRemoteSale);
+}
+
+export async function refetchOwnerSales(): Promise<number> {
+  const settings = await ensureSettings();
+  const currentUser = { id: settings.vendorId };
+  const ownerId = resolveSaleOwnerId(settings) || currentUser?.id;
+  if (!ownerId) throw new Error("owner_id ausente.");
+  if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as RemoteSale[];
+  for (const row of rows) {
+    await applyRemoteSaleRow(row, true);
+  }
+  return rows.length;
 }
 
 export function startSalesRealtime(vendorId: string): () => void {

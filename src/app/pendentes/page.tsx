@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, FileDown, MessageCircle, Star, X } from "lucide-react";
+import { Check, FileDown, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
@@ -22,7 +22,7 @@ import {
   upsertCustomer,
 } from "@/lib/repo";
 import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
-import { fetchVendorSalesFromSupabase, pushAndPull } from "@/lib/sync";
+import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import type { Sale } from "@/lib/types";
@@ -49,6 +49,7 @@ export default function PendentesPage() {
   const [stampAsk, setStampAsk] = useState<Sale | null>(null);
   const [detail, setDetail] = useState<Sale | null>(null);
   const [settling, setSettling] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -111,6 +112,21 @@ export default function PendentesPage() {
   const pro = isPro(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = isNegocio(settings) && canSeeFinances(settings);
+
+  async function refreshHistory() {
+    setHistoryBusy(true);
+    try {
+      const n = await refetchOwnerSales();
+      toast(n ? `Histórico atualizado · ${n} vendas` : "Nenhuma venda no servidor");
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Não deu pra atualizar o histórico.",
+        "err",
+      );
+    } finally {
+      setHistoryBusy(false);
+    }
+  }
 
   async function downloadReport() {
     if (!pro) {
@@ -237,6 +253,15 @@ export default function PendentesPage() {
                 <Money cents={historyCents} />
               </p>
             )}
+            <Button
+              className="mt-3 w-full"
+              variant="line"
+              disabled={historyBusy}
+              onClick={() => void refreshHistory()}
+            >
+              <RefreshCw className="h-5 w-5" />
+              {historyBusy ? "Atualizando…" : "Atualizar Histórico"}
+            </Button>
             {hideStore ? null : (
             <Button
               className="mt-3 w-full"
