@@ -672,35 +672,49 @@ export async function refetchOwnerProducts(): Promise<number> {
   return 0;
 }
 
+function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {
+  const currentUser = { id: settings.vendorId };
+  if (isOwnerDevice(settings)) return currentUser?.id || "";
+  let linked = "";
+  try {
+    linked = localStorage.getItem("linked_owner_id")?.trim() || "";
+  } catch {
+    linked = "";
+  }
+  return linked || currentUser?.id || "";
+}
+
+async function querySalesByOwnerId(ownerId: string) {
+  console.log("Fetching sales with owner_id:", ownerId);
+  return supabase
+    .from("sales")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
+}
+
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
   const settings = await ensureSettings();
   if (!supabaseConfigured) {
     return db.sales.toArray();
   }
   const currentUser = { id: settings.vendorId };
-  const ownerId = resolveSaleOwnerId(settings) || currentUser?.id;
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("created_at", { ascending: false });
-  if (error || !data) {
+  const ownerId = desktopOrLinkedOwnerId(settings) || currentUser?.id;
+  const { data, error } = await querySalesByOwnerId(ownerId);
+  if (error) {
+    console.error("sales fetch", error);
     return db.sales.toArray();
   }
-  return (data as RemoteSale[]).map(fromRemoteSale);
+  return ((data ?? []) as RemoteSale[]).map(fromRemoteSale);
 }
 
 export async function refetchOwnerSales(): Promise<number> {
   const settings = await ensureSettings();
   const currentUser = { id: settings.vendorId };
-  const ownerId = resolveSaleOwnerId(settings) || currentUser?.id;
+  const ownerId = desktopOrLinkedOwnerId(settings) || currentUser?.id;
   if (!ownerId) throw new Error("owner_id ausente.");
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await querySalesByOwnerId(ownerId);
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as RemoteSale[];
   for (const row of rows) {

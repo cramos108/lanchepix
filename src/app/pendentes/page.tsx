@@ -117,7 +117,7 @@ export default function PendentesPage() {
     setHistoryBusy(true);
     try {
       const n = await refetchOwnerSales();
-      toast(n ? `Histórico atualizado · ${n} vendas` : "Nenhuma venda no servidor");
+      toast(n > 0 ? `Histórico atualizado · ${n} vendas` : "Histórico atualizado");
     } catch (err) {
       toast(
         err instanceof Error ? err.message : "Não deu pra atualizar o histórico.",
