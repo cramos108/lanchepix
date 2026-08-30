@@ -575,7 +575,22 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const settings = await ensureSettings();
     const activeOwnerId = resolveSaleOwnerId(settings);
-    if (!activeOwnerId) throw new Error("owner_id (ID do chefe) ausente.");
+    let linkedOwnerId: string | null = null;
+    try {
+      linkedOwnerId = localStorage.getItem("linked_owner_id");
+    } catch {
+      linkedOwnerId = null;
+    }
+    const ownerId = linkedOwnerId || activeOwnerId;
+    if (!ownerId) {
+      console.error(
+        "SALE INSERT BLOCKED: owner_id is missing. linked_owner_id=",
+        linkedOwnerId,
+        "activeOwnerId=",
+        activeOwnerId,
+      );
+      throw new Error("owner_id (ID do chefe) ausente.");
+    }
     let attendantName = "Desconhecido";
     try {
       attendantName = localStorage.getItem("attendant_name")?.trim() || "Desconhecido";
@@ -584,8 +599,8 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const payload = {
       id: sale.id,
-      owner_id: activeOwnerId,
-      vendor_id: activeOwnerId,
+      owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
+      vendor_id: ownerId,
       product_id: sale.productId || null,
       product_name: sale.productName,
       quantity: sale.quantity,
@@ -602,20 +617,25 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       paid_at: sale.paidAt ?? null,
       updated_at: sale.updatedAt,
     };
+    if (!payload.owner_id) {
+      console.error("SALE INSERT BLOCKED: payload.owner_id is null/undefined.");
+      throw new Error("owner_id (ID do chefe) ausente.");
+    }
+    console.log("Inserting sale with owner_id:", payload.owner_id);
     const updated = await supabase
       .from("sales")
-      .update({ ...payload, owner_id: activeOwnerId })
+      .update({ ...payload, owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId })
       .eq("id", sale.id)
       .select("id");
     if (!updated.error && (updated.data?.length ?? 0) > 0) return;
     const inserted = await supabase.from("sales").insert({
       ...payload,
-      owner_id: activeOwnerId,
+      owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
     });
     if (inserted.error) {
       const retry = await supabase.from("sales").upsert({
         ...payload,
-        owner_id: activeOwnerId,
+        owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
       });
       if (retry.error) throw retry.error;
     }
