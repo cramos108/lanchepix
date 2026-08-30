@@ -121,7 +121,6 @@ function isSchemaCacheError(error: { message?: string } | null | undefined): boo
 
 function productCorePayload(product: Product, ownerId: string): Record<string, unknown> {
   return {
-    id: product.id,
     name: product.name,
     price_cents: product.priceCents,
     category: product.category,
@@ -139,14 +138,33 @@ function productInsertPayload(product: Product, ownerId: string): Record<string,
   }
   const image = product.image_data || product.imageData;
   if (image) row.image_data = image;
-  if (product.createdAt) row.created_at = product.createdAt;
-  if (product.updatedAt) row.updated_at = product.updatedAt;
-  if (product.deleted) row.deleted_at = product.updatedAt;
+  delete row.id;
   return row;
 }
 
 function toRemoteProduct(ownerId: string, p: Product): RemoteProduct {
-  return productInsertPayload(p, ownerId) as unknown as RemoteProduct;
+  return {
+    id: p.id,
+    ...productInsertPayload(p, ownerId),
+  } as unknown as RemoteProduct;
+}
+
+async function adoptRemoteProductId(localId: string, remoteId: string): Promise<void> {
+  if (!remoteId || remoteId === localId) {
+    const row = await db.products.get(localId);
+    if (row) await db.products.put({ ...row, dirty: false });
+    return;
+  }
+  const local = await db.products.get(localId);
+  if (!local) return;
+  await db.transaction("rw", db.products, db.sales, async () => {
+    await db.products.delete(localId);
+    await db.products.put({ ...local, id: remoteId, dirty: false });
+    const linked = await db.sales.where("productId").equals(localId).toArray();
+    for (const sale of linked) {
+      await db.sales.put({ ...sale, productId: remoteId });
+    }
+  });
 }
 
 function fromRemoteProduct(r: RemoteProduct): Product {
@@ -521,7 +539,12 @@ export async function applyRemoteCustomerRow(row: RemoteCustomer): Promise<void>
 
 /** Desktop/Negócio: persist products with owner_id = currentUser.id immediately. */
 export async function pushProductsImmediate(products: Product[]): Promise<void> {
-  if (!products.length) return;
+  for (const product of products) {
+    await pushProductImmediate(product);
+  }
+}
+
+export async function pushProductImmediate(product: Product): Promise<void> {
   if (!supabaseConfigured) return;
   const settings = await ensureSettings();
   const currentUser = { id: settings.vendorId };
@@ -530,29 +553,41 @@ export async function pushProductsImmediate(products: Product[]): Promise<void> 
     throw new Error("currentUser.id ausente: owner_id não foi definido.");
   }
   const ownerId = currentUser.id;
-  const payload = products.map((p) => ({
-    ...productInsertPayload(p, ownerId),
+  const fields: Record<string, unknown> = {
+    ...productInsertPayload(product, ownerId),
     owner_id: currentUser?.id,
-  }));
-  const core = products.map((p) => ({
-    ...productCorePayload(p, ownerId),
-    owner_id: currentUser?.id,
-  }));
-  const write = async (rows: Record<string, unknown>[]) => {
-    const inserted = await supabase.from("products").insert(rows);
-    if (!inserted.error) return null;
-    const upserted = await supabase.from("products").upsert(rows);
-    return upserted.error;
   };
-  let error = await write(payload);
-  if (error && isSchemaCacheError(error)) {
-    error = await write(core);
-  }
-  if (error) throw new Error(error.message);
-}
+  delete fields.id;
+  const core: Record<string, unknown> = {
+    ...productCorePayload(product, ownerId),
+    owner_id: currentUser?.id,
+  };
+  delete core.id;
 
-export async function pushProductImmediate(product: Product): Promise<void> {
-  await pushProductsImmediate([product]);
+  const updated = await supabase
+    .from("products")
+    .update(fields)
+    .eq("id", product.id)
+    .select("id");
+  if (!updated.error && (updated.data?.length ?? 0) > 0) return;
+  if (updated.error && isSchemaCacheError(updated.error)) {
+    const coreUpdated = await supabase
+      .from("products")
+      .update(core)
+      .eq("id", product.id)
+      .select("id");
+    if (!coreUpdated.error && (coreUpdated.data?.length ?? 0) > 0) return;
+  }
+
+  let inserted = await supabase.from("products").insert(fields).select("id");
+  if (inserted.error && isSchemaCacheError(inserted.error)) {
+    inserted = await supabase.from("products").insert(core).select("id");
+  }
+  if (inserted.error) throw new Error(inserted.error.message);
+  const remoteId = inserted.data?.[0]?.id;
+  if (typeof remoteId === "string") {
+    await adoptRemoteProductId(product.id, remoteId);
+  }
 }
 
 function resolveSaleOwnerId(
