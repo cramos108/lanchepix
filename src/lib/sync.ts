@@ -308,18 +308,13 @@ async function fetchProductsByOwnerId(currentUserId?: string | null) {
 async function applyFetchedProducts(rows: RemoteProduct[]): Promise<void> {
   const byId = new Map<string, RemoteProduct>();
   for (const row of rows) {
-    if (row?.id) byId.set(row.id, row);
+    if (!row?.id || row.deleted_at) continue;
+    byId.set(row.id, row);
   }
-  const unique = [...byId.values()];
-  const keep = new Set(unique.map((r) => r.id));
+  const unique = [...byId.values()].map(fromRemoteProduct);
   await db.transaction("rw", db.products, async () => {
-    const locals = await db.products.toArray();
-    for (const p of locals) {
-      if (!keep.has(p.id) && !p.dirty) await db.products.delete(p.id);
-    }
-    for (const row of unique) {
-      await db.products.put(fromRemoteProduct(row));
-    }
+    await db.products.clear();
+    if (unique.length) await db.products.bulkPut(unique);
   });
   await backupCatalog();
 }
@@ -623,7 +618,8 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     } catch {
       linkedOwnerId = null;
     }
-    const ownerId = linkedOwnerId || activeOwnerId;
+    const ownerId =
+      (linkedOwnerId && linkedOwnerId.trim()) || activeOwnerId || "";
     if (!ownerId) {
       console.error(
         "SALE INSERT BLOCKED: owner_id is missing. linked_owner_id=",
@@ -641,7 +637,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const payload = {
       id: sale.id,
-      owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
+      owner_id: ownerId,
       vendor_id: ownerId,
       product_id: sale.productId || null,
       product_name: sale.productName,
@@ -669,18 +665,18 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     }
     const updated = await supabase
       .from("sales")
-      .update({ ...payload, owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId })
+      .update({ ...payload, owner_id: ownerId })
       .eq("id", sale.id)
       .select("id");
     if (!updated.error && (updated.data?.length ?? 0) > 0) return;
     const inserted = await supabase.from("sales").insert({
       ...payload,
-      owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
+      owner_id: ownerId,
     });
     if (inserted.error) {
       const retry = await supabase.from("sales").upsert({
         ...payload,
-        owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId,
+        owner_id: ownerId,
       });
       if (retry.error) throw retry.error;
     }
@@ -758,32 +754,13 @@ function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: st
 
 async function querySalesByOwnerId(ownerId: string) {
   console.log("Fetching sales with owner_id:", ownerId);
-  const byOwner = await supabase
+  const result = await supabase
     .from("sales")
     .select("*")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
-  if (byOwner.error) {
-    console.error("sales fetch", byOwner.error);
-    return byOwner;
-  }
-  const byVendor = await supabase
-    .from("sales")
-    .select("*")
-    .eq("vendor_id", ownerId)
-    .order("created_at", { ascending: false });
-  const merged = new Map<string, RemoteSale>();
-  for (const row of (byOwner.data ?? []) as RemoteSale[]) {
-    if (row?.id) merged.set(row.id, row);
-  }
-  if (!byVendor.error) {
-    for (const row of (byVendor.data ?? []) as RemoteSale[]) {
-      if (row?.id && !merged.has(row.id)) merged.set(row.id, row);
-    }
-  }
-  const data = [...merged.values()];
-  console.log("Sales fetch result count:", data.length, "error:", byOwner.error);
-  return { data, error: null };
+  console.log("Sales fetch result count:", result.data?.length ?? 0, "error:", result.error);
+  return result;
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
@@ -810,17 +787,15 @@ export async function refetchOwnerSales(): Promise<number> {
   const { data, error } = await querySalesByOwnerId(ownerId);
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as RemoteSale[];
-  const keep = new Set(rows.map((r) => r.id));
+  const incoming = rows.filter((r) => r?.id).map(fromRemoteSale);
+  const keep = new Set(incoming.map((s) => s.id));
   await db.transaction("rw", db.sales, async () => {
-    const locals = await db.sales.toArray();
-    for (const s of locals) {
-      if (!s.dirty && !keep.has(s.id)) await db.sales.delete(s.id);
-    }
-    for (const row of rows) {
-      await db.sales.put(fromRemoteSale(row));
-    }
+    const dirty = (await db.sales.toArray()).filter((s) => s.dirty && !keep.has(s.id));
+    await db.sales.clear();
+    if (incoming.length) await db.sales.bulkPut(incoming);
+    if (dirty.length) await db.sales.bulkPut(dirty);
   });
-  return rows.length;
+  return incoming.length;
 }
 
 export function startSalesRealtime(vendorId: string): () => void {
