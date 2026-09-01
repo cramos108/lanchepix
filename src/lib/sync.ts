@@ -5,11 +5,14 @@ import {
   staffRole,
 } from "./account";
 import { db, ensureSettings } from "./db";
+import { backupCatalog, isOfflineError } from "./persist";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let running = false;
+let productFetchLock: Promise<number> | null = null;
+let liveRealtime: { ownerId: string; stop: () => void } | null = null;
 let lastError: string | null = null;
 let lastSyncAt: string | null = null;
 
@@ -303,14 +306,22 @@ async function fetchProductsByOwnerId(currentUserId?: string | null) {
 }
 
 async function applyFetchedProducts(rows: RemoteProduct[]): Promise<void> {
-  const keep = new Set(rows.map((r) => r.id));
-  const locals = await db.products.toArray();
-  for (const p of locals) {
-    if (!keep.has(p.id)) await db.products.delete(p.id);
-  }
+  const byId = new Map<string, RemoteProduct>();
   for (const row of rows) {
-    await db.products.put(fromRemoteProduct(row));
+    if (row?.id) byId.set(row.id, row);
   }
+  const unique = [...byId.values()];
+  const keep = new Set(unique.map((r) => r.id));
+  await db.transaction("rw", db.products, async () => {
+    const locals = await db.products.toArray();
+    for (const p of locals) {
+      if (!keep.has(p.id) && !p.dirty) await db.products.delete(p.id);
+    }
+    for (const row of unique) {
+      await db.products.put(fromRemoteProduct(row));
+    }
+  });
+  await backupCatalog();
 }
 
 export async function pushAndPull(): Promise<void> {
@@ -404,14 +415,7 @@ export async function pushAndPull(): Promise<void> {
     if (remoteProducts) {
       const rows = remoteProducts as RemoteProduct[];
       if (staff) {
-        const keep = new Set(rows.map((r) => r.id));
-        const locals = await db.products.toArray();
-        for (const p of locals) {
-          if (!keep.has(p.id)) await db.products.delete(p.id);
-        }
-        for (const row of rows) {
-          await db.products.put(fromRemoteProduct(row));
-        }
+        await applyFetchedProducts(rows);
       } else {
         for (const row of rows) {
           const local = await db.products.get(row.id);
@@ -419,13 +423,11 @@ export async function pushAndPull(): Promise<void> {
             await db.products.put(fromRemoteProduct(row));
           }
         }
+        await backupCatalog();
       }
     }
 
-    const { data: remoteSales, error: sErr } = await supabase
-      .from("sales")
-      .select("*")
-      .eq("owner_id", activeOwnerId);
+    const { data: remoteSales, error: sErr } = await querySalesByOwnerId(activeOwnerId);
     if (sErr) throw sErr;
     if (remoteSales) {
       for (const row of remoteSales as RemoteSale[]) {
@@ -516,6 +518,7 @@ export async function applyRemoteSaleRow(row: RemoteSale, force = false): Promis
 }
 
 export async function applyRemoteProductRow(row: RemoteProduct): Promise<void> {
+  if (!row?.id) return;
   await db.products.put(fromRemoteProduct(row));
 }
 
@@ -661,6 +664,9 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       throw new Error("owner_id (ID do chefe) ausente.");
     }
     console.log("Inserting sale with owner_id:", payload.owner_id);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new Error("OFFLINE_QUEUED");
+    }
     const updated = await supabase
       .from("sales")
       .update({ ...payload, owner_id: localStorage.getItem("linked_owner_id") || activeOwnerId })
@@ -686,6 +692,9 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
           ? err.message
           : String(err);
     console.error("sales insert", err);
+    if (isOfflineError(err) || message === "OFFLINE_QUEUED") {
+      throw new Error("OFFLINE_QUEUED");
+    }
     toast(message, "err");
     throw new Error(message);
   }
@@ -709,26 +718,30 @@ export async function pushCustomerImmediate(customer: Customer): Promise<void> {
 }
 
 export async function refetchOwnerProducts(): Promise<number> {
-  const linkedOwnerId = localStorage.getItem("linked_owner_id");
-  console.log("Fetching products with activeOwnerId:", linkedOwnerId);
-  if (!linkedOwnerId) {
-    console.error("PRODUCT FETCH BLOCKED: linked_owner_id is missing.");
-    throw new Error("owner_id ausente.");
-  }
-  if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("owner_id", localStorage.getItem("linked_owner_id"));
-  if (error) {
-    console.error("products fetch", error);
-    throw new Error(error.message);
-  }
-  if (data) {
-    await applyFetchedProducts(data as RemoteProduct[]);
-    return data.length;
-  }
-  return 0;
+  if (productFetchLock) return productFetchLock;
+  productFetchLock = (async () => {
+    const linkedOwnerId = localStorage.getItem("linked_owner_id");
+    console.log("Fetching products with activeOwnerId:", linkedOwnerId);
+    if (!linkedOwnerId) {
+      console.error("PRODUCT FETCH BLOCKED: linked_owner_id is missing.");
+      throw new Error("owner_id ausente.");
+    }
+    if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("owner_id", localStorage.getItem("linked_owner_id"));
+    if (error) {
+      console.error("products fetch", error);
+      throw new Error(error.message);
+    }
+    const rows = (data ?? []) as RemoteProduct[];
+    await applyFetchedProducts(rows);
+    return rows.length;
+  })().finally(() => {
+    productFetchLock = null;
+  });
+  return productFetchLock;
 }
 
 function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {
@@ -745,13 +758,32 @@ function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: st
 
 async function querySalesByOwnerId(ownerId: string) {
   console.log("Fetching sales with owner_id:", ownerId);
-  const result = await supabase
+  const byOwner = await supabase
     .from("sales")
     .select("*")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
-  console.log("Sales fetch result count:", result.data?.length ?? 0, "error:", result.error);
-  return result;
+  if (byOwner.error) {
+    console.error("sales fetch", byOwner.error);
+    return byOwner;
+  }
+  const byVendor = await supabase
+    .from("sales")
+    .select("*")
+    .eq("vendor_id", ownerId)
+    .order("created_at", { ascending: false });
+  const merged = new Map<string, RemoteSale>();
+  for (const row of (byOwner.data ?? []) as RemoteSale[]) {
+    if (row?.id) merged.set(row.id, row);
+  }
+  if (!byVendor.error) {
+    for (const row of (byVendor.data ?? []) as RemoteSale[]) {
+      if (row?.id && !merged.has(row.id)) merged.set(row.id, row);
+    }
+  }
+  const data = [...merged.values()];
+  console.log("Sales fetch result count:", data.length, "error:", byOwner.error);
+  return { data, error: null };
 }
 
 export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
@@ -778,9 +810,16 @@ export async function refetchOwnerSales(): Promise<number> {
   const { data, error } = await querySalesByOwnerId(ownerId);
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as RemoteSale[];
-  for (const row of rows) {
-    await applyRemoteSaleRow(row, true);
-  }
+  const keep = new Set(rows.map((r) => r.id));
+  await db.transaction("rw", db.sales, async () => {
+    const locals = await db.sales.toArray();
+    for (const s of locals) {
+      if (!s.dirty && !keep.has(s.id)) await db.sales.delete(s.id);
+    }
+    for (const row of rows) {
+      await db.sales.put(fromRemoteSale(row));
+    }
+  });
   return rows.length;
 }
 
@@ -865,6 +904,13 @@ export function startAccountRealtime(vendorId: string): () => void {
     linked = "";
   }
   const ownerId = linked || getActiveOwnerId() || vendorId;
+  if (liveRealtime?.ownerId === ownerId) {
+    return liveRealtime.stop;
+  }
+  if (liveRealtime) {
+    liveRealtime.stop();
+    liveRealtime = null;
+  }
   const filter = `owner_id=eq.${ownerId}`;
   const channel = supabase
     .channel(`account-${ownerId}`)
@@ -904,9 +950,12 @@ export function startAccountRealtime(vendorId: string): () => void {
       (payload) => handleCustomerChange(payload),
     );
   channel.subscribe();
-  return () => {
+  const stop = () => {
+    if (liveRealtime?.stop === stop) liveRealtime = null;
     void supabase.removeChannel(channel);
   };
+  liveRealtime = { ownerId, stop };
+  return stop;
 }
 
 export async function deleteRemoteVendorData(vendorId: string): Promise<void> {

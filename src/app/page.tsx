@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -26,6 +26,7 @@ import {
 import { maskPhoneInput, nationalDigits } from "@/lib/phone";
 import { buyerConfirmPixMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
+import { loadCartQty, saveCartQty } from "@/lib/persist";
 import { refetchOwnerProducts } from "@/lib/sync";
 import { canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
 import {
@@ -86,7 +87,7 @@ export default function VenderPage() {
   const customerCount = useLiveQuery(() => db.customers.count(), []) ?? 0;
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const [category, setCategory] = useState<string>("Todos");
-  const [qtyById, setQtyById] = useState<Record<string, number>>({});
+  const [qtyById, setQtyById] = useState<Record<string, number>>(() => loadCartQty());
   const [draft, setDraft] = useState<Draft | null>(null);
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -96,6 +97,10 @@ export default function VenderPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+
+  useEffect(() => {
+    saveCartQty(qtyById);
+  }, [qtyById]);
 
   const todayPaid = useMemo(
     () => paidInPeriod(sales, isSameLocalDay, settings?.resetDayAt),

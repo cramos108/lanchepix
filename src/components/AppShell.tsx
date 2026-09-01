@@ -119,7 +119,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void ensureSettings()
       .then(() => restorePairFromLocal())
-      .then(() => scheduleSync());
+      .then(async () => {
+        const { restoreCatalogBackupIfEmpty } = await import("@/lib/persist");
+        await restoreCatalogBackupIfEmpty();
+        scheduleSync();
+      });
   }, []);
 
   useEffect(() => {
@@ -134,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const onOnline = () => {
       setOnline(true);
       scheduleSync();
+      void import("@/lib/sync").then((m) => m.pushAndPull());
     };
     const onOffline = () => setOnline(false);
     window.addEventListener("online", onOnline);

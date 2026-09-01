@@ -33,6 +33,7 @@ export async function saveProduct(
     deleted: false,
   };
   await db.products.put(row);
+  void import("./persist").then((m) => m.backupCatalog());
   scheduleSync();
   try {
     await import("./sync").then((m) => m.pushProductImmediate(row));
@@ -119,6 +120,11 @@ export async function createSale(input: {
   try {
     await import("./sync").then((m) => m.pushSaleImmediate(sale));
   } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      scheduleSync();
+      return sale;
+    }
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(message);
   }
@@ -157,7 +163,16 @@ export async function markSalePaid(
     }
   });
   scheduleSync();
-  await import("./sync").then((m) => m.pushSaleImmediate(next));
+  try {
+    await import("./sync").then((m) => m.pushSaleImmediate(next));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      scheduleSync();
+      return next;
+    }
+    throw err;
+  }
   return next;
 }
 
