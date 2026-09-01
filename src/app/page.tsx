@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { Copy, MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { LgpdConsent } from "@/components/LgpdConsent";
 import { Money, Price } from "@/components/Money";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
-import { PixQr } from "@/components/PixQr";
+import { QRCodeSVG } from "qrcode.react";
 import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
@@ -24,8 +24,7 @@ import {
   periodCut,
 } from "@/lib/id";
 import { maskPhoneInput, nationalDigits } from "@/lib/phone";
-import { buildPixPayload } from "@/lib/pix";
-import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { buyerConfirmPixMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { refetchOwnerProducts } from "@/lib/sync";
 import { canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
@@ -243,21 +242,17 @@ export default function VenderPage() {
     }
   }
 
-  let pixPayload = "";
-  let pixError = "";
-  if (paidSale && settings?.pixKey) {
-    try {
-      pixPayload = buildPixPayload({
-        pixKey: settings.pixKey,
-        merchantName: settings.merchantName || settings.storeName,
-        merchantCity: settings.merchantCity,
-        amountCents: paidSale.totalCents,
-        description: paidSale.productName,
-      });
-    } catch (e) {
-      pixError = e instanceof Error ? e.message : "Erro ao gerar Pix";
-    }
-  }
+  const checkoutWaUrl =
+    paidSale && settings
+      ? waLink(
+          settings.whatsapp,
+          buyerConfirmPixMessage({
+            productName: paidSale.productName,
+            quantity: paidSale.quantity,
+            totalCents: paidSale.totalCents,
+          }),
+        )
+      : "";
 
   return (
     <div className="flex flex-col gap-4">
@@ -553,30 +548,56 @@ export default function VenderPage() {
                 <Price cents={paidSale.totalCents} />
               </span>
             </p>
-            {pixPayload ? (
-              <PixQr payload={pixPayload} size={220} label="Aponte a câmera do banco" />
+            {checkoutWaUrl ? (
+              <div className="flex flex-col items-center gap-3">
+                <p className="text-center text-sm font-extrabold uppercase tracking-widest text-sun">
+                  Aponte a câmera para o WhatsApp
+                </p>
+                <div className="rounded-3xl bg-white p-4 shadow-[0_0_0_4px_#ffe500]">
+                  <QRCodeSVG
+                    value={checkoutWaUrl}
+                    size={220}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
+                    level="M"
+                    includeMargin={false}
+                  />
+                </div>
+              </div>
+            ) : null}
+            {settings.pixKey ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(settings.pixKey);
+                    toast("Chave Pix copiada");
+                  } catch {
+                    toast("Não deu para copiar a chave Pix.", "err");
+                  }
+                }}
+                className="w-full rounded-2xl border-2 border-sun bg-sun/10 px-4 py-3 text-left"
+              >
+                <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-sun">
+                  <Copy className="h-4 w-4" />
+                  Chave Pix (copie no banco)
+                </p>
+                <p className="mt-1 break-all text-lg font-black">{settings.pixKey}</p>
+              </button>
             ) : (
-              <p className="text-alert">{pixError || "Chave Pix ausente."}</p>
+              <p className="text-sm font-bold text-alert">
+                Cadastre a chave Pix em Configurações para o cliente copiar.
+              </p>
             )}
-            {paidSale.customerPhone ? (
+            {checkoutWaUrl ? (
               <a
-                href={waLink(
-                  paidSale.customerPhone,
-                  paymentReminderMessage({
-                    storeName: settings.storeName,
-                    customerName: paidSale.customerName,
-                    productName: paidSale.productName,
-                    quantity: paidSale.quantity,
-                    totalCents: paidSale.totalCents,
-                    pixKey: settings.pixKey,
-                  }),
-                )}
+                href={checkoutWaUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
               >
                 <MessageCircle className="h-5 w-5" />
-                Enviar no WhatsApp
+                Abrir WhatsApp
               </a>
             ) : null}
             <Button variant="ghost" onClick={() => setPaidSale(null)}>

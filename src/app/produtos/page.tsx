@@ -328,23 +328,18 @@ export default function ProdutosPage() {
             void submit();
           }}
         >
-          <Field label="Selecionar categoria / nicho">
-            <div className="flex flex-col gap-2">
+          <Field label="Categoria / nicho">
+            <select
+              className={inputClass}
+              value={nicheId}
+              onChange={(e) => selectNiche(e.target.value)}
+            >
               {NICHES.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => selectNiche(n.id)}
-                  className={`min-h-12 rounded-2xl border-2 px-3 text-left text-sm font-extrabold ${
-                    nicheId === n.id
-                      ? "border-sun bg-sun text-sunink"
-                      : "border-line bg-surface text-white"
-                  }`}
-                >
+                <option key={n.id} value={n.id}>
                   {n.label}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </Field>
 
           {!editing ? (

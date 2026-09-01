@@ -10,6 +10,23 @@ export function waLink(phone: string | undefined, message: string): string {
   return `https://wa.me/?text=${text}`;
 }
 
+/** Buyer-to-seller text so the customer opens WhatsApp already speaking. */
+export function buyerConfirmPixMessage(opts: {
+  productName: string;
+  quantity?: number;
+  totalCents: number;
+}): string {
+  const item =
+    (opts.quantity ?? 1) > 1
+      ? `${opts.productName} (x${opts.quantity})`
+      : opts.productName;
+  return (
+    `Fala irmão! Aqui é o cliente. Passando para confirmar meu Pix da Confiança ` +
+    `referente ao produto ${item} no valor de ${formatBRL(opts.totalCents)}. ` +
+    `Segue o comprovante!`
+  );
+}
+
 export function paymentReminderMessage(opts: {
   storeName: string;
   customerName?: string;

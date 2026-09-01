@@ -349,9 +349,13 @@ export async function pushAndPull(): Promise<void> {
 
     const dirtySales = await db.sales.filter((s) => Boolean(s.dirty)).toArray();
     if (dirtySales.length) {
+      const saleOwnerId = resolveSaleOwnerId(settings) || activeOwnerId;
       const { error } = await upsertOwned(
         "sales",
-        dirtySales.map((s) => toRemoteSale(activeOwnerId, s)),
+        dirtySales.map((s) => ({
+          ...toRemoteSale(saleOwnerId, s),
+          owner_id: saleOwnerId,
+        })),
       );
       if (error) throw error;
       await db.transaction("rw", db.sales, async () => {
