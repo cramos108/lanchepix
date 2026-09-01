@@ -114,6 +114,7 @@ type RemoteSettings = {
   stamps_required: number;
   plan: Settings["plan"] | null;
   business_type: string | null;
+  allow_helper_edit_prices?: boolean | null;
   updated_at: string;
 };
 
@@ -274,6 +275,7 @@ function toRemoteSettings(s: Settings): RemoteSettings {
     stamps_required: s.stampsRequired,
     plan: s.plan ?? "free",
     business_type: normalizeBusinessType(s.businessType),
+    allow_helper_edit_prices: s.allowHelperEditPrices === true,
     updated_at: s.updatedAt,
   };
 }
@@ -491,6 +493,7 @@ export async function pushAndPull(): Promise<void> {
           deviceRole: local.deviceRole,
           attendantName: local.attendantName,
           hideStoreTotals: local.hideStoreTotals,
+          allowHelperEditPrices: remote.allow_helper_edit_prices === true,
         };
         await db.settings.put(merged);
       }
@@ -546,7 +549,7 @@ export async function pushProductsImmediate(products: Product[]): Promise<void> 
   }
 }
 
-export async function pushProductImmediate(product: Product): Promise<void> {
+export async function pushProductImmediate(product: Product): Promise<string | undefined> {
   if (!supabaseConfigured) return;
   const settings = await ensureSettings();
   const currentUser = { id: settings.vendorId };
@@ -571,14 +574,14 @@ export async function pushProductImmediate(product: Product): Promise<void> {
     .update(fields)
     .eq("id", product.id)
     .select("id");
-  if (!updated.error && (updated.data?.length ?? 0) > 0) return;
+  if (!updated.error && (updated.data?.length ?? 0) > 0) return product.id;
   if (updated.error && isSchemaCacheError(updated.error)) {
     const coreUpdated = await supabase
       .from("products")
       .update(core)
       .eq("id", product.id)
       .select("id");
-    if (!coreUpdated.error && (coreUpdated.data?.length ?? 0) > 0) return;
+    if (!coreUpdated.error && (coreUpdated.data?.length ?? 0) > 0) return product.id;
   }
 
   let inserted = await supabase.from("products").insert(fields).select("id");
@@ -588,8 +591,11 @@ export async function pushProductImmediate(product: Product): Promise<void> {
   if (inserted.error) throw new Error(inserted.error.message);
   const remoteId = inserted.data?.[0]?.id;
   if (typeof remoteId === "string") {
-    await adoptRemoteProductId(product.id, remoteId);
+    const local = await db.products.get(product.id);
+    if (local) await adoptRemoteProductId(product.id, remoteId);
+    return remoteId;
   }
+  return product.id;
 }
 
 function resolveSaleOwnerId(

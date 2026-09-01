@@ -102,6 +102,14 @@ export function canEditCatalog(
   return role === "dono" || role === "gerente";
 }
 
+export function canEditPrices(
+  settings?: Pick<Settings, "deviceRole" | "pairedOwnerId" | "allowHelperEditPrices"> | null,
+): boolean {
+  const role = staffRole(settings);
+  if (role === "dono" || role === "gerente") return true;
+  return settings?.allowHelperEditPrices === true;
+}
+
 export function canPairDevices(
   settings?: Pick<Settings, "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {

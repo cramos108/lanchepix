@@ -28,7 +28,8 @@ import { buyerConfirmPixMessage, paymentReminderMessage, waLink } from "@/lib/wh
 import { toast } from "@/lib/toast";
 import { loadCartQty, saveCartQty } from "@/lib/persist";
 import { refetchOwnerProducts } from "@/lib/sync";
-import { canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
+import { canEditPrices, canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
+import { uniqueById } from "@/lib/unique";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
@@ -80,7 +81,9 @@ export default function VenderPage() {
       db.products
         .filter((p) => p.active && !p.deleted)
         .toArray()
-        .then((rows) => rows.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))),
+        .then((rows) =>
+          uniqueById(rows).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+        ),
     [],
   );
   const sales = useLiveQuery(() => db.sales.toArray(), []);
@@ -487,6 +490,7 @@ export default function VenderPage() {
               extraCents={extraCents}
               onChange={setExtraCents}
               suggested={draft.product.priceMode === "suggested"}
+              locked={!canEditPrices(settings)}
             />
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-extrabold uppercase tracking-widest text-sun">

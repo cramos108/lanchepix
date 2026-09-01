@@ -103,6 +103,8 @@ export type Settings = {
   deviceRole?: "dono" | "gerente" | "ajudante" | "owner" | "attendant";
   /** When true, helpers cannot see store-wide totals (default). */
   hideStoreTotals?: boolean;
+  /** When true, Ajudante can change prices in catalog/cart (default false). */
+  allowHelperEditPrices?: boolean;
   resetDayAt?: string;
   resetWeekAt?: string;
   resetMonthAt?: string;

@@ -104,6 +104,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [allowHelperTotals, setAllowHelperTotals] = useState(
     settings.hideStoreTotals === false,
   );
+  const [allowHelperEditPrices, setAllowHelperEditPrices] = useState(
+    settings.allowHelperEditPrices === true,
+  );
   const activePlan = useSyncExternalStore(
     subscribeDevPlan,
     () => effectivePlan(settings),
@@ -137,6 +140,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       businessType,
       attendantName: attendantName.trim(),
       hideStoreTotals: !allowHelperTotals,
+      allowHelperEditPrices,
     });
     toast("Configurações salvas");
   }
@@ -223,22 +227,17 @@ function SettingsForm({ settings }: { settings: Settings }) {
       )}
 
       <Field label="Tipo de negócio">
-        <div className="flex flex-col gap-2">
+        <select
+          className={inputClass}
+          value={businessType}
+          onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+        >
           {BUSINESS_TYPES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setBusinessType(t.id)}
-              className={`min-h-12 rounded-2xl border-2 px-3 text-left text-sm font-extrabold ${
-                businessType === t.id
-                  ? "border-sun bg-sun text-sunink"
-                  : "border-line bg-surface text-white"
-              }`}
-            >
+            <option key={t.id} value={t.id}>
               {t.label}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
       </Field>
       <Field label="Nome do Negócio / Banca">
         <input
@@ -352,6 +351,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
             </p>
           )}
           {isOwnerDevice(settings) ? (
+          <>
           <label className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-line bg-surface2 p-3">
             <input
               type="checkbox"
@@ -366,6 +366,21 @@ function SettingsForm({ settings }: { settings: Settings }) {
               </span>
             </span>
           </label>
+          <label className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-line bg-surface2 p-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-6 w-6 shrink-0 accent-sun"
+              checked={allowHelperEditPrices}
+              onChange={(e) => setAllowHelperEditPrices(e.target.checked)}
+            />
+            <span className="text-sm font-bold leading-snug">
+              Permitir que o Ajudante edite preços
+              <span className="mt-1 block text-xs font-bold text-muted">
+                Desligado: o Ajudante não altera preço no catálogo nem no carrinho.
+              </span>
+            </span>
+          </label>
+          </>
           ) : null}
           <Button
             className="mt-3 w-full"
@@ -373,7 +388,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
             onClick={async () => {
               setPairBusy(true);
               try {
-                await saveSettings({ hideStoreTotals: !allowHelperTotals });
+                await saveSettings({
+                  hideStoreTotals: !allowHelperTotals,
+                  allowHelperEditPrices,
+                });
                 const created = await createPairingCode(
                   isOwnerDevice(settings) ? pairRole : "ajudante",
                 );

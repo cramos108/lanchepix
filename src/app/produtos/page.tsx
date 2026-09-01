@@ -17,8 +17,9 @@ import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
-import { canEditCatalog } from "@/lib/account";
+import { canEditCatalog, canEditPrices } from "@/lib/account";
 import { toast } from "@/lib/toast";
+import { uniqueById } from "@/lib/unique";
 import type { Product } from "@/lib/types";
 
 const emptyForm = {
@@ -38,12 +39,13 @@ export default function ProdutosPage() {
         .filter((p) => !p.deleted)
         .toArray()
         .then((rows) =>
-          rows.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+          uniqueById(rows).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
         ),
     [],
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const canEdit = canEditCatalog(settings);
+  const pricesUnlocked = canEditPrices(settings);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [nicheId, setNicheId] = useState(defaultNiche().id);
@@ -53,6 +55,7 @@ export default function ProdutosPage() {
   const [needPixKey, setNeedPixKey] = useState(false);
   const [filter, setFilter] = useState("Todos");
   const [productError, setProductError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   function returnToCatalog() {
     setOpen(false);
@@ -138,6 +141,8 @@ export default function ProdutosPage() {
   }
 
   async function addTemplateNow(t: CatalogTemplate) {
+    if (saving) return;
+    setSaving(true);
     try {
       await saveProduct({
         id: newId(),
@@ -153,10 +158,13 @@ export default function ProdutosPage() {
       returnToCatalog();
     } catch (err) {
       showProductError(err);
+    } finally {
+      setSaving(false);
     }
   }
 
   async function submit() {
+    if (saving) return;
     const name = form.name.trim();
     const priceCents = parseBRLToCents(form.price);
     const stock = Number.parseInt(form.stock, 10);
@@ -168,6 +176,7 @@ export default function ProdutosPage() {
       toast("Informe um preço válido.", "err");
       return;
     }
+    setSaving(true);
     try {
       await saveProduct({
         id: editing?.id ?? newId(),
@@ -184,6 +193,8 @@ export default function ProdutosPage() {
       returnToCatalog();
     } catch (err) {
       showProductError(err);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -199,6 +210,8 @@ export default function ProdutosPage() {
   }
 
   async function seedThisNiche() {
+    if (saving) return;
+    setSaving(true);
     try {
       const n = await seedNiche(nicheId);
       setProductError(null);
@@ -206,6 +219,8 @@ export default function ProdutosPage() {
       returnToCatalog();
     } catch (err) {
       showProductError(err);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -352,8 +367,8 @@ export default function ProdutosPage() {
                   <button
                     key={t.name}
                     type="button"
+                    disabled={saving}
                     onClick={() => void addTemplateNow(t)}
-                    onDoubleClick={() => void addTemplateNow(t)}
                     className="rounded-2xl border-2 border-line bg-surface2 px-3 py-3 text-left"
                   >
                     <span className="block text-sm font-black leading-tight">{t.name}</span>
@@ -367,6 +382,7 @@ export default function ProdutosPage() {
                 type="button"
                 variant="line"
                 className="mt-2 min-h-12 w-full text-sm"
+                disabled={saving}
                 onClick={() => void seedThisNiche()}
               >
                 Incluir os {niche.templates.length} exemplos
@@ -437,23 +453,25 @@ export default function ProdutosPage() {
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
+              disabled={!pricesUnlocked}
               onClick={() => setForm((f) => ({ ...f, priceMode: "fixed" }))}
               className={`min-h-14 rounded-2xl border-2 px-3 text-sm font-extrabold ${
                 form.priceMode === "fixed"
                   ? "border-sun bg-sun text-sunink"
                   : "border-line bg-surface text-white"
-              }`}
+              } ${pricesUnlocked ? "" : "opacity-50"}`}
             >
               Preço fixado
             </button>
             <button
               type="button"
+              disabled={!pricesUnlocked}
               onClick={() => setForm((f) => ({ ...f, priceMode: "suggested" }))}
               className={`min-h-14 rounded-2xl border-2 px-3 text-sm font-extrabold ${
                 form.priceMode === "suggested"
                   ? "border-sun bg-sun text-sunink"
                   : "border-line bg-surface text-white"
-              }`}
+              } ${pricesUnlocked ? "" : "opacity-50"}`}
             >
               Contribuição sugerida
             </button>
@@ -467,6 +485,7 @@ export default function ProdutosPage() {
               inputMode="decimal"
               placeholder="8,50"
               value={form.price}
+              disabled={!pricesUnlocked}
               onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
             />
           </Field>
@@ -495,7 +514,9 @@ export default function ProdutosPage() {
               onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
             />
           </Field>
-          <Button type="submit">Salvar</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando…" : "Salvar"}
+          </Button>
         </form>
       </Modal>
 

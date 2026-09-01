@@ -9,11 +9,13 @@ export function AmountAdjuster({
   extraCents,
   onChange,
   suggested,
+  locked,
 }: {
   baseCents: number;
   extraCents: number;
   onChange: (extraCents: number) => void;
   suggested?: boolean;
+  locked?: boolean;
 }) {
   const total = Math.max(0, baseCents + extraCents);
   return (
@@ -32,8 +34,11 @@ export function AmountAdjuster({
           <button
             key={n}
             type="button"
+            disabled={locked}
             onClick={() => onChange(extraCents + n)}
-            className="min-h-12 rounded-2xl border-2 border-sun bg-sun/15 text-sm font-black text-sun"
+            className={`min-h-12 rounded-2xl border-2 border-sun bg-sun/15 text-sm font-black text-sun ${
+              locked ? "opacity-50" : ""
+            }`}
           >
             +R$ {n / 100}
           </button>
@@ -47,6 +52,7 @@ export function AmountAdjuster({
           className={inputClass}
           inputMode="decimal"
           value={centsToInput(total)}
+          disabled={locked}
           onChange={(e) => onChange(parseBRLToCents(e.target.value) - baseCents)}
         />
       </label>

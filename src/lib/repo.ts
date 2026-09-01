@@ -32,12 +32,35 @@ export async function saveProduct(
     dirty: true,
     deleted: false,
   };
-  await db.products.put(row);
-  void import("./persist").then((m) => m.backupCatalog());
-  scheduleSync();
+  const sync = await import("./sync");
   try {
-    await import("./sync").then((m) => m.pushProductImmediate(row));
+    if (existing) {
+      await db.products.put(row);
+      await sync.pushProductImmediate(row);
+      void import("./persist").then((m) => m.backupCatalog());
+      scheduleSync();
+      return row;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      const remoteId = await sync.pushProductImmediate(row);
+      const saved: Product = {
+        ...row,
+        id: remoteId || row.id,
+        dirty: false,
+      };
+      await db.products.put(saved);
+      void import("./persist").then((m) => m.backupCatalog());
+      scheduleSync();
+      return saved;
+    }
   } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (!existing && isOfflineError(err)) {
+      await db.products.put(row);
+      void import("./persist").then((m) => m.backupCatalog());
+      scheduleSync();
+      return row;
+    }
     const message =
       err && typeof err === "object" && "message" in err
         ? String((err as { message: unknown }).message ?? "").trim()
@@ -47,6 +70,9 @@ export async function saveProduct(
     console.error("products insert", err);
     throw new Error(message || "Não deu pra gravar o produto.");
   }
+  await db.products.put(row);
+  void import("./persist").then((m) => m.backupCatalog());
+  scheduleSync();
   return row;
 }
 
