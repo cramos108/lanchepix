@@ -139,7 +139,7 @@ export default function VenderPage() {
     "Todos",
     ...[...new Set((products ?? []).map((p) => p.category))],
   ];
-  const visible = (products ?? []).filter(
+  const visible = uniqueById(products).filter(
     (p) => category === "Todos" || p.category === category,
   );
 

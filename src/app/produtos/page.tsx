@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -56,6 +56,7 @@ export default function ProdutosPage() {
   const [filter, setFilter] = useState("Todos");
   const [productError, setProductError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   function returnToCatalog() {
     setOpen(false);
@@ -81,7 +82,7 @@ export default function ProdutosPage() {
     const cats = [...new Set((products ?? []).map((p) => p.category))];
     return ["Todos", ...cats];
   }, [products]);
-  const visible = (products ?? []).filter(
+  const visible = uniqueById(products).filter(
     (p) => filter === "Todos" || p.category === filter,
   );
 
@@ -141,7 +142,8 @@ export default function ProdutosPage() {
   }
 
   async function addTemplateNow(t: CatalogTemplate) {
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       await saveProduct({
@@ -159,12 +161,13 @@ export default function ProdutosPage() {
     } catch (err) {
       showProductError(err);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   async function submit() {
-    if (saving) return;
+    if (savingRef.current) return;
     const name = form.name.trim();
     const priceCents = parseBRLToCents(form.price);
     const stock = Number.parseInt(form.stock, 10);
@@ -176,6 +179,7 @@ export default function ProdutosPage() {
       toast("Informe um preço válido.", "err");
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       await saveProduct({
@@ -194,6 +198,7 @@ export default function ProdutosPage() {
     } catch (err) {
       showProductError(err);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -210,7 +215,8 @@ export default function ProdutosPage() {
   }
 
   async function seedThisNiche() {
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const n = await seedNiche(nicheId);
@@ -220,6 +226,7 @@ export default function ProdutosPage() {
     } catch (err) {
       showProductError(err);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
