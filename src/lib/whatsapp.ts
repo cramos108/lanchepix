@@ -1,10 +1,10 @@
 import { formatBRL } from "./money";
-import { toWhatsAppNumber } from "./phone";
+import { cleanWhatsAppNumber } from "./phone";
 
 export function waLink(phone: string | undefined, message: string): string {
   const text = encodeURIComponent(message);
   if (phone) {
-    const n = toWhatsAppNumber(phone);
+    const n = cleanWhatsAppNumber(phone);
     if (n) return `https://wa.me/${n}?text=${text}`;
   }
   return `https://wa.me/?text=${text}`;
@@ -15,15 +15,18 @@ export function buyerConfirmPixMessage(opts: {
   productName: string;
   quantity?: number;
   totalCents: number;
+  pixKey?: string;
+  sellerName?: string;
 }): string {
   const item =
     (opts.quantity ?? 1) > 1
       ? `${opts.productName} (x${opts.quantity})`
       : opts.productName;
+  const chave = opts.pixKey?.trim() || "";
+  const vendedor = opts.sellerName?.trim() || "a banca";
   return (
-    `Fala irmão! Aqui é o cliente. Passando para confirmar meu Pix da Confiança ` +
-    `referente ao produto ${item} no valor de ${formatBRL(opts.totalCents)}. ` +
-    `Segue o comprovante!`
+    `Olá! Realizei o pagamento via Pix da Confiança no valor de ${formatBRL(opts.totalCents)} ` +
+    `para o produto ${item}. Chave Pix: ${chave}. Vendedor: ${vendedor}.`
   );
 }
 

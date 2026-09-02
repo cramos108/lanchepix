@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Copy, MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
@@ -23,12 +22,19 @@ import {
   isSameLocalYear,
   periodCut,
 } from "@/lib/id";
-import { maskPhoneInput, nationalDigits } from "@/lib/phone";
+import { maskPhoneInput, nationalDigits, toWhatsAppNumber } from "@/lib/phone";
 import { buyerConfirmPixMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { loadCartQty, saveCartQty } from "@/lib/persist";
 import { refetchOwnerProducts } from "@/lib/sync";
-import { canEditPrices, canSeeFinances, isAttendantDevice, isStaffDevice, visibleSalesForDevice } from "@/lib/account";
+import {
+  canEditPrices,
+  canSeeFinances,
+  getAttendantNameLocal,
+  isAttendantDevice,
+  isStaffDevice,
+  visibleSalesForDevice,
+} from "@/lib/account";
 import { uniqueById, sellableCatalogProducts } from "@/lib/unique";
 import {
   FREE_LOYALTY_LIMIT,
@@ -75,7 +81,6 @@ type Draft = {
 };
 
 export default function VenderPage() {
-  const router = useRouter();
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
@@ -216,7 +221,7 @@ export default function VenderPage() {
         toast("Pix Confiança registrado. Estoque baixa quando marcar Pago.");
         if (withWhatsApp && digits && settings) {
           const url = waLink(
-            digits,
+            toWhatsAppNumber(digits),
             paymentReminderMessage({
               storeName: settings.storeName,
               customerName: customer?.name || customerName,
@@ -228,6 +233,7 @@ export default function VenderPage() {
           );
           window.open(url, "_blank");
         }
+        setPaidSale(sale);
         setDraft(null);
         setPhone("");
         setCustomerName("");
@@ -235,7 +241,6 @@ export default function VenderPage() {
         setExtraCents(0);
         setQtyById({});
         saveCartQty({});
-        router.replace("/");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
@@ -249,14 +254,21 @@ export default function VenderPage() {
     }
   }
 
+  const checkoutSeller =
+    getAttendantNameLocal(settings) ||
+    settings?.attendantName?.trim() ||
+    settings?.storeName ||
+    "Dono";
   const checkoutWaUrl =
-    paidSale && settings
+    paidSale && settings?.whatsapp
       ? waLink(
           settings.whatsapp,
           buyerConfirmPixMessage({
             productName: paidSale.productName,
             quantity: paidSale.quantity,
             totalCents: paidSale.totalCents,
+            pixKey: settings.pixKey,
+            sellerName: checkoutSeller,
           }),
         )
       : "";
@@ -605,9 +617,13 @@ export default function VenderPage() {
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
               >
                 <MessageCircle className="h-5 w-5" />
-                Abrir WhatsApp
+                Enviar Comprovante no WhatsApp
               </a>
-            ) : null}
+            ) : (
+              <p className="text-center text-sm font-bold text-muted">
+                Cadastre o WhatsApp com código do país em Configurações para enviar o comprovante.
+              </p>
+            )}
             <Button variant="ghost" onClick={() => setPaidSale(null)}>
               Fechar
             </Button>

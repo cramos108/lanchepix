@@ -7,7 +7,7 @@ import { LgpdConsent } from "@/components/LgpdConsent";
 import { StampCard } from "@/components/StampCard";
 import { Button, EmptyState, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { formatBrPhone, maskPhoneInput, nationalDigits } from "@/lib/phone";
+import { formatBrPhone, maskPhoneInput, nationalDigits, toWhatsAppNumber } from "@/lib/phone";
 import {
   FREE_LOYALTY_LIMIT,
   canAddLoyaltyCard,
@@ -95,7 +95,7 @@ export default function FidelidadePage() {
     if (notify) {
       window.open(
         waLink(
-          next.phone,
+          toWhatsAppNumber(next.phone),
           loyaltyStampMessage({
             storeName: settings.storeName,
             customerName: next.name,
@@ -117,7 +117,7 @@ export default function FidelidadePage() {
     if (notify) {
       window.open(
         waLink(
-          next.phone,
+          toWhatsAppNumber(next.phone),
           loyaltyRewardMessage({
             storeName: settings.storeName,
             customerName: next.name,

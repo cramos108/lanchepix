@@ -23,12 +23,30 @@ export function formatBrPhone(phone: string): string {
   return digits;
 }
 
-/** Número no formato wa.me: 55 + DDD + número. */
+/** Número no formato wa.me: 55 + DDD + número (cliente BR). */
 export function toWhatsAppNumber(phone: string): string {
   const national = nationalDigits(phone);
   if (national.length === 10 || national.length === 11) return `55${national}`;
   const digits = digitsOnly(phone);
   return digits;
+}
+
+/** WhatsApp da banca: dígitos com código do país (ex: 5511… ou 1352…). */
+export function cleanWhatsAppNumber(phone: string): string {
+  const digits = digitsOnly(phone).slice(0, 15);
+  if (!digits) return "";
+  if (digits.length >= 12) return digits;
+  if (digits.length === 11 && digits.startsWith("1")) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
+
+/** Input livre com código do país — sem máscara (XX) XXXXX-XXXX. */
+export function maskWhatsAppContactInput(value: string): string {
+  const plus = value.trim().startsWith("+") || value.startsWith("+");
+  const digits = digitsOnly(value).slice(0, 15);
+  if (!digits) return plus ? "+" : "";
+  return plus ? `+${digits}` : digits;
 }
 
 export function isLikelyBrMobile(phone: string): boolean {

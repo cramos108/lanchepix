@@ -36,7 +36,7 @@ import {
   inviteUrl,
 } from "@/lib/pairing";
 import { detectPixKeyType } from "@/lib/pix";
-import { maskPhoneInput } from "@/lib/phone";
+import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { getSyncState, pushAndPull, subscribeSync } from "@/lib/sync";
@@ -86,7 +86,9 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [pixKey, setPixKey] = useState(settings.pixKey);
   const [merchantName, setMerchantName] = useState(settings.merchantName);
   const [merchantCity, setMerchantCity] = useState(settings.merchantCity);
-  const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
+  const [whatsapp, setWhatsapp] = useState(
+    maskWhatsAppContactInput(settings.whatsapp || ""),
+  );
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
   const [attendantName, setAttendantName] = useState(settings.attendantName ?? "");
   const [businessType, setBusinessType] = useState<BusinessType>(
@@ -135,7 +137,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       pixKey: pixKey.trim(),
       merchantName: merchantName.trim().slice(0, 25),
       merchantCity: merchantCity.trim().slice(0, 15),
-      whatsapp: whatsapp.trim(),
+      whatsapp: digitsOnly(whatsapp),
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
       businessType,
       attendantName: attendantName.trim(),
@@ -286,14 +288,15 @@ function SettingsForm({ settings }: { settings: Settings }) {
       ) : null}
       <Field
         label="WhatsApp de Contato"
-        hint="Para cobranças e recados. Vale para lanches, capinhas, roupa, utilidades…"
+        hint="Com código do país, só números. Brasil: 5511999999999 · EUA: 13525550199"
       >
         <input
           className={inputClass}
           inputMode="tel"
+          autoComplete="tel"
           value={whatsapp}
-          onChange={(e) => setWhatsapp(maskPhoneInput(e.target.value))}
-          placeholder="(11) 99999-9999"
+          onChange={(e) => setWhatsapp(maskWhatsAppContactInput(e.target.value))}
+          placeholder="5511999999999"
         />
       </Field>
       {isAttendantDevice(settings) ? (

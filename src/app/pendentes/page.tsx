@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, FileDown, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
-import { Button, EmptyState, Modal } from "@/components/ui";
+import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
 import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
-import { formatBrPhone } from "@/lib/phone";
+import { formatBrPhone, toWhatsAppNumber } from "@/lib/phone";
 import { buildPixPayload } from "@/lib/pix";
-import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
+import { canSeeFinances, getAttendantNameLocal, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
 import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
@@ -24,7 +24,7 @@ import {
 import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { buyerConfirmPixMessage, loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import type { Sale } from "@/lib/types";
 
 export default function PendentesPage() {
@@ -40,7 +40,6 @@ export default function PendentesPage() {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const scoped = visibleSalesForDevice(allSales, settings);
   const sales = scoped.filter((s) => s.status === "pending");
-  const paidHistory = scoped.filter((s) => s.status === "paid");
   const history = scoped
     .filter((s) => s.status === "pending" || s.status === "paid")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -53,6 +52,7 @@ export default function PendentesPage() {
   const [detail, setDetail] = useState<Sale | null>(null);
   const [settling, setSettling] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
+  const [helperFilter, setHelperFilter] = useState("");
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -110,12 +110,29 @@ export default function PendentesPage() {
     }
   }
 
-  const pendingCents = (sales ?? []).reduce((sum, s) => sum + s.totalCents, 0);
-  const historyCents = paidHistory.reduce((sum, s) => sum + s.totalCents, 0);
+  const helperNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const sale of scoped) {
+      const name = sellerNameFromSale(sale);
+      if (name) names.add(name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [scoped]);
+  const matchHelper = (sale: Sale) =>
+    !helperFilter || sellerNameFromSale(sale) === helperFilter;
+  const filteredPending = sales.filter(matchHelper);
+  const filteredHistory = history.filter(matchHelper);
+  const pendingCents = sales.reduce((sum, s) => sum + s.totalCents, 0);
+  const pendingFilteredCents = filteredPending.reduce((sum, s) => sum + s.totalCents, 0);
+  const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
+  const historyFilteredCents = filteredHistory.reduce((sum, s) => sum + s.totalCents, 0);
   const helpers = attendantPerformance(scoped);
   const pro = isPro(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = isNegocio(settings) && canSeeFinances(settings);
+  const showHelperFilter = canSeeFinances(settings);
+  const tabTotalGeral = tab === "open" ? pendingCents : historyCents;
+  const tabTotalAjudante = tab === "open" ? pendingFilteredCents : historyFilteredCents;
 
   useEffect(() => {
     void refetchOwnerSales().catch(() => undefined);
@@ -213,6 +230,49 @@ export default function PendentesPage() {
         ) : null}
       </div>
 
+      {showHelperFilter && tab !== "reports" ? (
+        <section className="rounded-3xl border-2 border-line bg-surface p-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
+              Filtrar por ajudante
+            </span>
+            <select
+              className={inputClass}
+              value={helperFilter}
+              onChange={(e) => setHelperFilter(e.target.value)}
+            >
+              <option value="">Todos os Ajudantes</option>
+              {helperNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border-2 border-sun/70 bg-ink px-3 py-3">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
+                Total Geral
+              </p>
+              <p className="text-xl font-black tabular-nums">
+                <Money cents={tabTotalGeral} />
+              </p>
+            </div>
+            <div className="rounded-2xl border-2 border-mint/70 bg-ink px-3 py-3">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-mint">
+                Total por Ajudante
+              </p>
+              <p className="text-xl font-black tabular-nums">
+                <Money cents={helperFilter ? tabTotalAjudante : tabTotalGeral} />
+              </p>
+              <p className="text-[11px] font-bold text-muted">
+                {helperFilter || "Todos os Ajudantes"}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {tab === "reports" && showReports ? (
         <section className="flex flex-col gap-3">
           <div>
@@ -253,16 +313,8 @@ export default function PendentesPage() {
       {tab === "history" ? (
         <ul className="flex flex-col gap-3">
           <li className="rounded-3xl border-2 border-sun/70 bg-surface px-4 py-3">
-            <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
-              Total no histórico
-            </p>
-            {hideStore ? null : (
-              <p className="text-2xl font-black tabular-nums">
-                <Money cents={historyCents} />
-              </p>
-            )}
             <Button
-              className="mt-3 w-full"
+              className="w-full"
               variant="line"
               disabled={historyBusy}
               onClick={() => void refreshHistory()}
@@ -282,7 +334,7 @@ export default function PendentesPage() {
             </Button>
             )}
           </li>
-          {history.length === 0 ? (
+          {filteredHistory.length === 0 ? (
             <li>
               <EmptyState
                 title="Sem vendas"
@@ -290,7 +342,7 @@ export default function PendentesPage() {
               />
             </li>
           ) : (
-            history.map((sale) => (
+            filteredHistory.map((sale) => (
               <li key={sale.id}>
                 <button
                   type="button"
@@ -333,7 +385,7 @@ export default function PendentesPage() {
         </ul>
       ) : null}
 
-      {tab === "open" && sales.length === 0 ? (
+      {tab === "open" && filteredPending.length === 0 ? (
         <EmptyState
           title="Nada no Pix Confiança"
           text="Quando alguém levar e pagar depois, a venda aparece aqui."
@@ -353,7 +405,7 @@ export default function PendentesPage() {
             {historyBusy ? "Atualizando…" : "Atualizar Histórico"}
           </Button>
         </li>
-        {sales.map((sale) => (
+        {filteredPending.map((sale) => (
           <li key={sale.id} className="rounded-3xl border-2 border-amber bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -399,7 +451,7 @@ export default function PendentesPage() {
             {settings ? (
               <a
                 href={waLink(
-                  sale.customerPhone,
+                  toWhatsAppNumber(sale.customerPhone ?? ""),
                   paymentReminderMessage({
                     storeName: settings.storeName,
                     customerName: sale.customerName,
@@ -524,6 +576,29 @@ export default function PendentesPage() {
             {pixPayload ? (
               <PixQr payload={pixPayload} size={200} label="Se ainda precisar do QR" />
             ) : null}
+            {settings.whatsapp ? (
+              <a
+                href={waLink(
+                  settings.whatsapp,
+                  buyerConfirmPixMessage({
+                    productName: paying.productName,
+                    quantity: paying.quantity,
+                    totalCents: paying.totalCents,
+                    pixKey: settings.pixKey,
+                    sellerName:
+                      sellerNameFromSale(paying) ||
+                      getAttendantNameLocal(settings) ||
+                      settings.storeName,
+                  }),
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Enviar Comprovante no WhatsApp
+              </a>
+            ) : null}
             <Button variant="ghost" onClick={() => setPaying(null)}>
               Fechar
             </Button>
@@ -549,7 +624,7 @@ export default function PendentesPage() {
                 if (customer && settings) {
                   window.open(
                     waLink(
-                      customer.phone,
+                      toWhatsAppNumber(customer.phone),
                       loyaltyStampMessage({
                         storeName: settings.storeName,
                         customerName: customer.name,
