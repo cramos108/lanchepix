@@ -31,6 +31,7 @@ export async function saveProduct(
     updatedAt: now,
     dirty: true,
     deleted: false,
+    active: true,
   };
   const sync = await import("./sync");
   try {

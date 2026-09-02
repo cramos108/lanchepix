@@ -18,3 +18,18 @@ export function uniqueCatalogProducts<
     ).values(),
   );
 }
+
+/** Same sellable list for Vender and Catálogo: not deleted, unique by id then name|price|category. */
+export function sellableCatalogProducts<
+  T extends {
+    id: string;
+    name: string;
+    priceCents: number;
+    category: string;
+    deleted?: boolean;
+  },
+>(items: T[] | undefined | null): T[] {
+  return uniqueCatalogProducts((items ?? []).filter((p) => !p.deleted)).sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+}

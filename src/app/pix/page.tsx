@@ -8,17 +8,14 @@ import { QRCodeSVG } from "qrcode.react";
 import { PixQr } from "@/components/PixQr";
 import { Button, EmptyState } from "@/components/ui";
 import { db } from "@/lib/db";
+import { sellableCatalogProducts } from "@/lib/unique";
 import { formatBRL } from "@/lib/money";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 
 export default function PixPage() {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const products = useLiveQuery(
-    () =>
-      db.products
-        .filter((p) => p.active && !p.deleted)
-        .toArray()
-        .then((rows) => rows.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))),
+    () => db.products.toArray().then(sellableCatalogProducts),
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");

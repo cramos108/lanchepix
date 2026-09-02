@@ -129,7 +129,7 @@ function productCorePayload(product: Product, ownerId: string): Record<string, u
     price_cents: product.priceCents,
     category: product.category,
     stock: product.stock,
-    active: product.active ?? true,
+    active: true,
     owner_id: ownerId,
     vendor_id: ownerId,
   };
@@ -180,7 +180,7 @@ function fromRemoteProduct(r: RemoteProduct): Product {
     imageData: r.image_data ?? undefined,
     category: r.category,
     stock: r.stock,
-    active: r.active,
+    active: true,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     deleted: Boolean(r.deleted_at),

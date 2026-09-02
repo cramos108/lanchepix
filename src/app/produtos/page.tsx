@@ -19,7 +19,7 @@ import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices } from "@/lib/account";
 import { toast } from "@/lib/toast";
-import { uniqueCatalogProducts } from "@/lib/unique";
+import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
 import type { Product } from "@/lib/types";
 
 const emptyForm = {
@@ -34,15 +34,7 @@ const emptyForm = {
 export default function ProdutosPage() {
   const router = useRouter();
   const products = useLiveQuery(
-    () =>
-      db.products
-        .filter((p) => !p.deleted)
-        .toArray()
-        .then((rows) =>
-          uniqueCatalogProducts(
-            Array.from(new Map(rows.map((item) => [item.id, item])).values()),
-          ).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-        ),
+    () => db.products.toArray().then(sellableCatalogProducts),
     [],
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
@@ -195,7 +187,7 @@ export default function ProdutosPage() {
         imageData: form.imageData,
         category: form.category,
         stock: Number.isFinite(stock) ? stock : 0,
-        active: editing?.active ?? true,
+        active: true,
       });
       setProductError(null);
       toast(editing ? "Produto atualizado" : "Produto cadastrado");
