@@ -122,6 +122,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then(async () => {
         const { restorePaidPlanIfNeeded } = await import("@/lib/plan");
         await restorePaidPlanIfNeeded();
+        const { refetchOwnerProducts } = await import("@/lib/sync");
+        try {
+          await refetchOwnerProducts();
+        } catch {
+          /* offline or unpaired helper */
+        }
         scheduleSync();
       });
   }, []);

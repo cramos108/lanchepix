@@ -298,12 +298,15 @@ function remoteErrorMessage(error: unknown): string {
 async function fetchProductsByOwnerId(currentUserId?: string | null) {
   let linked: string | null = null;
   try {
-    linked = localStorage.getItem("linked_owner_id");
+    linked = localStorage.getItem(LINKED_OWNER_KEY);
   } catch {
     linked = null;
   }
-  const activeOwnerId = linked || currentUserId || "";
-  console.log("Fetching products with activeOwnerId:", activeOwnerId);
+  const settings = await ensureSettings();
+  const activeOwnerId = isOwnerDevice(settings)
+    ? settings.vendorId || currentUserId || ""
+    : linked || currentUserId || "";
+  console.log("Fetching products with owner_id:", activeOwnerId);
   const { data, error } = await supabase.from("products").select("*").eq("owner_id", activeOwnerId);
   return { data, error, activeOwnerId };
 }
@@ -411,18 +414,7 @@ export async function pushAndPull(): Promise<void> {
       throw new Error(remoteErrorMessage(pErr) || pErr.message || "products fetch failed");
     }
     if (remoteProducts) {
-      const rows = remoteProducts as RemoteProduct[];
-      if (staff) {
-        await applyFetchedProducts(rows);
-      } else {
-        for (const row of rows) {
-          const local = await db.products.get(row.id);
-          if (!local || (!local.dirty && isNewer(row.updated_at, local.updatedAt))) {
-            await db.products.put(fromRemoteProduct(row));
-          }
-        }
-        await backupCatalog();
-      }
+      await applyFetchedProducts(remoteProducts as RemoteProduct[]);
     }
 
     const { data: remoteSales, error: sErr } = await querySalesByOwnerId(activeOwnerId);
@@ -744,17 +736,26 @@ export async function pushCustomerImmediate(customer: Customer): Promise<void> {
 export async function refetchOwnerProducts(): Promise<number> {
   if (productFetchLock) return productFetchLock;
   productFetchLock = (async () => {
-    const linkedOwnerId = localStorage.getItem("linked_owner_id");
-    console.log("Fetching products with activeOwnerId:", linkedOwnerId);
-    if (!linkedOwnerId) {
-      console.error("PRODUCT FETCH BLOCKED: linked_owner_id is missing.");
+    const settings = await ensureSettings();
+    let linkedOwnerId = "";
+    try {
+      linkedOwnerId = localStorage.getItem(LINKED_OWNER_KEY)?.trim() || "";
+    } catch {
+      linkedOwnerId = "";
+    }
+    const ownerId = isOwnerDevice(settings)
+      ? settings.vendorId
+      : linkedOwnerId || settings.vendorId;
+    console.log("Fetching products with owner_id:", ownerId);
+    if (!ownerId) {
+      console.error("PRODUCT FETCH BLOCKED: owner_id is missing.");
       throw new Error("owner_id ausente.");
     }
     if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .eq("owner_id", localStorage.getItem("linked_owner_id"));
+      .eq("owner_id", ownerId);
     if (error) {
       console.error("products fetch", error);
       throw new Error(error.message);
@@ -963,11 +964,17 @@ export function startAccountRealtime(vendorId: string): () => void {
 
 export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
   if (!supabaseConfigured || !vendorId) return;
-  await supabase.from("sales").delete().eq("owner_id", vendorId);
-  await supabase.from("sales").delete().eq("vendor_id", vendorId);
-  await supabase.from("products").delete().eq("owner_id", vendorId);
-  await supabase.from("products").delete().eq("vendor_id", vendorId);
+  await deleteRemoteOwnerCatalogAndOrders(vendorId);
   await supabase.from("customers").delete().eq("owner_id", vendorId);
   await supabase.from("customers").delete().eq("vendor_id", vendorId);
   await supabase.from("settings").delete().eq("vendor_id", vendorId);
+}
+
+/** Hard wipe of catalog and orders for this owner in Supabase. */
+export async function deleteRemoteOwnerCatalogAndOrders(ownerId: string): Promise<void> {
+  if (!supabaseConfigured || !ownerId) return;
+  await supabase.from("sales").delete().eq("owner_id", ownerId);
+  await supabase.from("sales").delete().eq("vendor_id", ownerId);
+  await supabase.from("products").delete().eq("owner_id", ownerId);
+  await supabase.from("products").delete().eq("vendor_id", ownerId);
 }

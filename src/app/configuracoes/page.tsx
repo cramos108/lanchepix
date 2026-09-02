@@ -594,6 +594,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
             "Apagar TODOS os dados deste celular? Produtos, Pix Confiança e cartões somem daqui.",
           );
           if (!ok) return;
+          try {
+            const { deleteRemoteOwnerCatalogAndOrders } = await import("@/lib/sync");
+            await deleteRemoteOwnerCatalogAndOrders(settings.vendorId);
+          } catch {
+            /* offline */
+          }
           await db.products.clear();
           await db.sales.clear();
           await db.customers.clear();
@@ -635,7 +641,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
                 ? "Tem certeza que deseja zerar apenas as vendas do MÊS? As vendas do ano serão mantidas."
                 : wipe === "year"
                   ? "Tem certeza que deseja zerar apenas as vendas do ANO? Hoje, semana e mês serão mantidos."
-                  : "Apaga TODAS as vendas (pagas e Pix Confiança) e zera o painel. Produtos e cartões ficam."}
+                  : "Apaga TODAS as vendas e o catálogo neste aparelho e no servidor (owner_id). Cartões locais ficam."}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="ghost" onClick={() => setWipe(null)}>
@@ -650,7 +656,16 @@ function SettingsForm({ settings }: { settings: Settings }) {
               if (wipe === "month") await saveSettings({ resetMonthAt: now });
               if (wipe === "year") await saveSettings({ resetYearAt: now });
               if (wipe === "all") {
+                try {
+                  const { deleteRemoteOwnerCatalogAndOrders } = await import("@/lib/sync");
+                  await deleteRemoteOwnerCatalogAndOrders(settings.vendorId);
+                } catch {
+                  /* offline */
+                }
+                await db.products.clear();
                 await db.sales.clear();
+                const { clearCatalogBackup } = await import("@/lib/persist");
+                clearCatalogBackup();
                 await saveSettings({
                   resetDayAt: now,
                   resetWeekAt: now,
