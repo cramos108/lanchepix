@@ -22,7 +22,7 @@ import {
   upsertCustomer,
 } from "@/lib/repo";
 import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
-import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales } from "@/lib/sync";
+import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import type { Sale } from "@/lib/types";
@@ -316,9 +316,9 @@ export default function PendentesPage() {
                             ? "PIX AGORA"
                             : "PIX CONFIANÇA · PAGO"}
                       </p>
-                      {sale.attendantName ? (
-                        <p className="text-xs font-bold text-muted">
-                          Ajudante: {sale.attendantName}
+                      {sellerNameFromSale(sale) ? (
+                        <p className="text-xs font-bold text-mint">
+                          Vendido por: {sellerNameFromSale(sale)}
                         </p>
                       ) : null}
                     </div>
@@ -369,6 +369,11 @@ export default function PendentesPage() {
                 ) : (
                   <p className="text-sm text-muted">Sem telefone</p>
                 )}
+                {sellerNameFromSale(sale) ? (
+                  <p className="text-xs font-bold text-mint">
+                    Vendido por: {sellerNameFromSale(sale)}
+                  </p>
+                ) : null}
               </div>
               <p className="text-2xl font-black text-sun">
                 <Price cents={sale.totalCents} />
@@ -433,6 +438,11 @@ export default function PendentesPage() {
             <p className="text-sm font-bold text-muted">
               {formatDateTime(detail.paidAt ?? detail.createdAt)}
             </p>
+            {sellerNameFromSale(detail) ? (
+              <p className="text-sm font-bold text-mint">
+                Vendido por: {sellerNameFromSale(detail)}
+              </p>
+            ) : null}
             {(detail.extraCents ?? 0) !== 0 ? (
               <p className="text-sm font-extrabold text-mint">
                 Gorjeta / extra: <Money cents={detail.extraCents ?? 0} />

@@ -6,7 +6,7 @@ import {
   staffRole,
 } from "./account";
 import { db, ensureSettings } from "./db";
-import { backupCatalog, isOfflineError } from "./persist";
+import { backupCatalog, clearCatalogBackup, isOfflineError } from "./persist";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
 
@@ -190,9 +190,22 @@ function fromRemoteProduct(r: RemoteProduct): Product {
 }
 
 function saleHelperNote(s: Sale): string | null {
-  const helper = getAttendantNameLocal() || s.attendantName || "";
-  const bits = [s.notes?.trim(), helper ? `Ajudante: ${helper}` : ""].filter(Boolean);
+  const helper = (getAttendantNameLocal() || s.attendantName || "").trim();
+  const bits = [
+    s.notes?.trim().replace(/^(Vendido por|Ajudante):\s*.+$/i, "").trim(),
+    helper ? `Vendido por: ${helper}` : "",
+  ].filter(Boolean);
   return bits.length ? bits.join(" · ") : null;
+}
+
+export function sellerNameFromSale(sale: {
+  attendantName?: string;
+  notes?: string;
+}): string {
+  const named = sale.attendantName?.trim();
+  if (named) return named;
+  const fromNotes = sale.notes?.match(/(?:Vendido por|Ajudante):\s*(.+?)(?:\s·|$)/i);
+  return fromNotes?.[1]?.trim() || "";
 }
 
 function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
@@ -231,7 +244,8 @@ function fromRemoteSale(r: RemoteSale): Sale {
     customerName: r.customer_name ?? undefined,
     attendantName:
       r.attendant_name ??
-      (r.notes?.match(/Ajudante:\s*(.+?)(?:\s·|$)/)?.[1]?.trim() || undefined),
+      (r.notes?.match(/(?:Vendido por|Ajudante):\s*(.+?)(?:\s·|$)/i)?.[1]?.trim() ||
+        undefined),
     notes: r.notes ?? undefined,
     createdAt: r.created_at,
     paidAt: r.paid_at ?? undefined,
@@ -322,11 +336,14 @@ async function applyFetchedProducts(rows: RemoteProduct[]): Promise<void> {
     if (!row?.id || row.deleted_at) continue;
     byId.set(row.id, row);
   }
-  const unique = [...byId.values()].map(fromRemoteProduct);
+  const unique = Array.from(new Map([...byId.values()].map((item) => [item.id, item])).values()).map(
+    fromRemoteProduct,
+  );
   await db.transaction("rw", db.products, async () => {
     await db.products.clear();
     if (unique.length) await db.products.bulkPut(unique);
   });
+  clearCatalogBackup();
   await backupCatalog();
 }
 
