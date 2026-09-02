@@ -64,6 +64,7 @@ export default function PendentesPage() {
     setSettling(true);
     try {
       const updated = await markSalePaid(settle.id, settleExtra);
+      await refetchOwnerSales().catch(() => undefined);
       toast("Marcado como pago. Estoque baixado.");
       setSettle(null);
       setPaying(updated ?? settle);
@@ -117,7 +118,6 @@ export default function PendentesPage() {
   const showReports = isNegocio(settings) && canSeeFinances(settings);
 
   useEffect(() => {
-    if (tab !== "history") return;
     void refetchOwnerSales().catch(() => undefined);
   }, [tab]);
 
@@ -342,6 +342,17 @@ export default function PendentesPage() {
 
       {tab === "open" ? (
       <ul className="flex flex-col gap-3">
+        <li>
+          <Button
+            variant="line"
+            className="w-full"
+            disabled={historyBusy}
+            onClick={() => void refreshHistory()}
+          >
+            <RefreshCw className="h-5 w-5" />
+            {historyBusy ? "Atualizando…" : "Atualizar Histórico"}
+          </Button>
+        </li>
         {sales.map((sale) => (
           <li key={sale.id} className="rounded-3xl border-2 border-amber bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
@@ -372,6 +383,7 @@ export default function PendentesPage() {
                 variant="alert"
                 onClick={async () => {
                   await cancelSale(sale.id);
+                  await refetchOwnerSales().catch(() => undefined);
                   toast("Venda cancelada");
                 }}
               >

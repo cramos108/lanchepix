@@ -361,7 +361,10 @@ export async function pushAndPull(): Promise<void> {
 
     const dirtySales = await db.sales.filter((s) => Boolean(s.dirty)).toArray();
     if (dirtySales.length) {
-      const saleOwnerId = resolveSaleOwnerId(settings) || activeOwnerId;
+      const saleOwnerId = isOwnerDevice(settings)
+        ? settings.vendorId
+        : chefeOwnerIdForSales(settings);
+      if (!saleOwnerId) throw new Error("owner_id (ID do Chefe) ausente.");
       const { error } = await upsertOwned(
         "sales",
         dirtySales.map((s) => ({
@@ -591,16 +594,25 @@ export async function pushProductImmediate(product: Product): Promise<string | u
   return product.id;
 }
 
-function resolveSaleOwnerId(
-  settings?: { vendorId: string; pairedOwnerId?: string } | null,
+function chefeOwnerIdForSales(
+  settings?: Pick<Settings, "vendorId" | "pairedOwnerId" | "deviceRole"> | null,
 ): string {
   let linked = "";
   try {
-    linked = localStorage.getItem("linked_owner_id")?.trim() || "";
+    linked = localStorage.getItem(LINKED_OWNER_KEY)?.trim() || "";
   } catch {
     linked = "";
   }
-  return linked || getActiveOwnerId(settings) || settings?.vendorId || "";
+  if (!isOwnerDevice(settings)) {
+    return linked || settings?.pairedOwnerId || "";
+  }
+  return settings?.vendorId || "";
+}
+
+function resolveSaleOwnerId(
+  settings?: Pick<Settings, "vendorId" | "pairedOwnerId" | "deviceRole"> | null,
+): string {
+  return chefeOwnerIdForSales(settings) || getActiveOwnerId(settings) || "";
 }
 
 export async function pushSaleImmediate(sale: Sale): Promise<void> {
@@ -610,25 +622,26 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       throw new Error("Supabase não configurado. A venda ficou só neste aparelho.");
     }
     const settings = await ensureSettings();
-    const activeOwnerId = resolveSaleOwnerId(settings);
-    let linkedOwnerId: string | null = null;
-    try {
-      linkedOwnerId = localStorage.getItem(LINKED_OWNER_KEY);
-    } catch {
-      linkedOwnerId = null;
-    }
-    const ownerId =
-      (typeof linkedOwnerId === "string" && linkedOwnerId.trim()) ||
-      activeOwnerId ||
-      "";
-    if (!ownerId) {
+    const linkedChefeId = (() => {
+      try {
+        return localStorage.getItem(LINKED_OWNER_KEY)?.trim() || "";
+      } catch {
+        return "";
+      }
+    })();
+    const ownerId = isOwnerDevice(settings)
+      ? settings.vendorId
+      : linkedChefeId || settings.pairedOwnerId || "";
+    if (!ownerId || (!isOwnerDevice(settings) && ownerId === settings.vendorId)) {
       console.error(
-        "SALE INSERT BLOCKED: owner_id is missing. linked_owner_id=",
-        linkedOwnerId,
-        "activeOwnerId=",
-        activeOwnerId,
+        "SALE INSERT BLOCKED: Ajudante owner_id must be the Chefe id. linked=",
+        linkedChefeId,
+        "paired=",
+        settings.pairedOwnerId,
+        "localVendor=",
+        settings.vendorId,
       );
-      throw new Error("owner_id (ID do chefe) ausente.");
+      throw new Error("owner_id (ID do Chefe) ausente. Emparelhe o aparelho de novo.");
     }
     let attendantName = "Desconhecido";
     try {
@@ -798,7 +811,9 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
     return db.sales.toArray();
   }
   const currentUser = { id: settings.vendorId };
-  const ownerId = desktopOrLinkedOwnerId(settings) || currentUser?.id;
+  const ownerId = isOwnerDevice(settings)
+    ? currentUser.id
+    : chefeOwnerIdForSales(settings) || currentUser.id;
   const { data, error } = await querySalesByOwnerId(ownerId);
   if (error) {
     console.error("sales fetch", error);
@@ -810,10 +825,17 @@ export async function fetchVendorSalesFromSupabase(): Promise<Sale[]> {
 export async function refetchOwnerSales(): Promise<number> {
   const settings = await ensureSettings();
   const currentUser = { id: settings.vendorId };
-  const ownerId = desktopOrLinkedOwnerId(settings) || currentUser?.id;
+  const ownerId = isOwnerDevice(settings)
+    ? currentUser.id
+    : chefeOwnerIdForSales(settings);
   if (!ownerId) throw new Error("owner_id ausente.");
   if (!supabaseConfigured) throw new Error("Sem conexão com o servidor.");
-  const { data, error } = await querySalesByOwnerId(ownerId);
+  console.log("ATUALIZAR HISTÓRICO owner_id=", ownerId);
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as RemoteSale[];
   const incoming = rows.filter((r) => r?.id).map(fromRemoteSale);

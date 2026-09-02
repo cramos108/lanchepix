@@ -226,6 +226,16 @@ export async function unpaySale(id: string): Promise<Sale | undefined> {
     }
   });
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushSaleImmediate(next));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      scheduleSync();
+      return next;
+    }
+    throw err;
+  }
   return next;
 }
 
@@ -237,8 +247,9 @@ export async function cancelSale(id: string): Promise<void> {
   const sale = await db.sales.get(id);
   if (!sale || sale.status === "cancelled") return;
   const now = nowIso();
+  const next = { ...sale, status: "cancelled" as const, updatedAt: now, dirty: true };
   await db.transaction("rw", db.sales, db.products, async () => {
-    await db.sales.put({ ...sale, status: "cancelled", updatedAt: now, dirty: true });
+    await db.sales.put(next);
     if (sale.status === "paid") {
       const product = await db.products.get(sale.productId);
       if (product) {
@@ -252,6 +263,16 @@ export async function cancelSale(id: string): Promise<void> {
     }
   });
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushSaleImmediate(next));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      scheduleSync();
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function attachCustomerToSale(
