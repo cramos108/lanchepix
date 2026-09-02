@@ -235,8 +235,13 @@ export default function VenderPage() {
           window.open(url, "_blank");
         }
         setDraft(null);
-        setQtyById((m) => ({ ...m, [sale.productId]: 1 }));
-        router.replace("/");
+        setPhone("");
+        setCustomerName("");
+        setLgpdOk(false);
+        setExtraCents(0);
+        setQtyById({});
+        saveCartQty({});
+        router.replace("/pendentes");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";

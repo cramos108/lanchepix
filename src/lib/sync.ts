@@ -2,6 +2,7 @@ import {
   getActiveOwnerId,
   getAttendantNameLocal,
   isOwnerDevice,
+  LINKED_OWNER_KEY,
   staffRole,
 } from "./account";
 import { db, ensureSettings } from "./db";
@@ -620,12 +621,14 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     const activeOwnerId = resolveSaleOwnerId(settings);
     let linkedOwnerId: string | null = null;
     try {
-      linkedOwnerId = localStorage.getItem("linked_owner_id");
+      linkedOwnerId = localStorage.getItem(LINKED_OWNER_KEY);
     } catch {
       linkedOwnerId = null;
     }
     const ownerId =
-      (linkedOwnerId && linkedOwnerId.trim()) || activeOwnerId || "";
+      (typeof linkedOwnerId === "string" && linkedOwnerId.trim()) ||
+      activeOwnerId ||
+      "";
     if (!ownerId) {
       console.error(
         "SALE INSERT BLOCKED: owner_id is missing. linked_owner_id=",
@@ -669,21 +672,40 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       throw new Error("OFFLINE_QUEUED");
     }
+    const writePayload = { ...payload, owner_id: ownerId };
+    if (sale.status === "pending") {
+      const inserted = await supabase.from("sales").insert(writePayload);
+      if (!inserted.error) return;
+      const stripped = {
+        id: sale.id,
+        owner_id: ownerId,
+        vendor_id: ownerId,
+        product_id: null,
+        product_name: sale.productName,
+        quantity: sale.quantity,
+        unit_price_cents: sale.unitPriceCents,
+        total_cents: sale.totalCents,
+        status: sale.status,
+        customer_phone: sale.customerPhone ?? null,
+        customer_name: sale.customerName ?? null,
+        attendant_name: attendantName,
+        created_at: sale.createdAt,
+        paid_at: null,
+        updated_at: sale.updatedAt,
+      };
+      const retry = await supabase.from("sales").upsert(stripped);
+      if (retry.error) throw retry.error;
+      return;
+    }
     const updated = await supabase
       .from("sales")
-      .update({ ...payload, owner_id: ownerId })
+      .update(writePayload)
       .eq("id", sale.id)
       .select("id");
     if (!updated.error && (updated.data?.length ?? 0) > 0) return;
-    const inserted = await supabase.from("sales").insert({
-      ...payload,
-      owner_id: ownerId,
-    });
+    const inserted = await supabase.from("sales").insert(writePayload);
     if (inserted.error) {
-      const retry = await supabase.from("sales").upsert({
-        ...payload,
-        owner_id: ownerId,
-      });
+      const retry = await supabase.from("sales").upsert(writePayload);
       if (retry.error) throw retry.error;
     }
   } catch (err) {
