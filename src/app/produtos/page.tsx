@@ -19,7 +19,7 @@ import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices } from "@/lib/account";
 import { toast } from "@/lib/toast";
-import { uniqueById } from "@/lib/unique";
+import { uniqueCatalogProducts } from "@/lib/unique";
 import type { Product } from "@/lib/types";
 
 const emptyForm = {
@@ -39,7 +39,9 @@ export default function ProdutosPage() {
         .filter((p) => !p.deleted)
         .toArray()
         .then((rows) =>
-          uniqueById(rows).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+          uniqueCatalogProducts(
+            Array.from(new Map(rows.map((item) => [item.id, item])).values()),
+          ).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
         ),
     [],
   );
@@ -78,11 +80,14 @@ export default function ProdutosPage() {
   }
 
   const niche = NICHES.find((n) => n.id === nicheId) ?? defaultNiche();
+  const catalogProducts = uniqueCatalogProducts(
+    Array.from(new Map((products ?? []).map((item) => [item.id, item])).values()),
+  );
   const chips = useMemo(() => {
-    const cats = [...new Set((products ?? []).map((p) => p.category))];
+    const cats = [...new Set(catalogProducts.map((p) => p.category))];
     return ["Todos", ...cats];
-  }, [products]);
-  const visible = uniqueById(products).filter(
+  }, [catalogProducts]);
+  const visible = catalogProducts.filter(
     (p) => filter === "Todos" || p.category === filter,
   );
 
