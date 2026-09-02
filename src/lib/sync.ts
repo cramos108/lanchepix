@@ -79,7 +79,6 @@ type RemoteSale = {
   quantity: number;
   unit_price_cents: number;
   total_cents: number;
-  extra_cents?: number | null;
   price_mode?: string | null;
   status: Sale["status"];
   customer_phone: string | null;
@@ -218,7 +217,6 @@ function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
     quantity: s.quantity,
     unit_price_cents: s.unitPriceCents,
     total_cents: s.totalCents,
-    extra_cents: s.extraCents ?? 0,
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
@@ -237,7 +235,7 @@ function fromRemoteSale(r: RemoteSale): Sale {
     quantity: r.quantity,
     unitPriceCents: r.unit_price_cents,
     totalCents: r.total_cents,
-    extraCents: r.extra_cents ?? 0,
+    extraCents: 0,
     priceMode: r.price_mode === "suggested" ? "suggested" : "fixed",
     status: r.status,
     customerPhone: r.customer_phone ?? undefined,
@@ -680,7 +678,6 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       quantity: sale.quantity,
       unit_price_cents: sale.unitPriceCents,
       total_cents: sale.totalCents,
-      extra_cents: sale.extraCents ?? 0,
       status: sale.status,
       customer_phone: sale.customerPhone ?? null,
       customer_name: sale.customerName ?? null,
@@ -1013,6 +1010,18 @@ export async function deleteRemoteVendorData(vendorId: string): Promise<void> {
 }
 
 /** Hard wipe of catalog and orders for this owner in Supabase. */
+export async function deleteRemoteSale(saleId: string): Promise<void> {
+  if (!supabaseConfigured || !saleId) return;
+  const { error } = await supabase.from("sales").delete().eq("id", saleId);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteRemoteProduct(productId: string): Promise<void> {
+  if (!supabaseConfigured || !productId) return;
+  const { error } = await supabase.from("products").delete().eq("id", productId);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteRemoteOwnerCatalogAndOrders(ownerId: string): Promise<void> {
   if (!supabaseConfigured || !ownerId) return;
   await supabase.from("sales").delete().eq("owner_id", ownerId);

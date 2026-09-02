@@ -79,7 +79,14 @@ export async function saveProduct(
 export async function removeProduct(id: string): Promise<void> {
   const existing = await db.products.get(id);
   if (!existing) return;
-  await touch("products", { ...existing, active: false, deleted: true });
+  try {
+    await import("./sync").then((m) => m.deleteRemoteProduct(id));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (!isOfflineError(err)) throw err;
+  }
+  await db.products.delete(id);
+  void import("./persist").then((m) => m.backupCatalog());
 }
 
 export async function createSale(input: {
@@ -247,9 +254,16 @@ export async function cancelSale(id: string): Promise<void> {
   const sale = await db.sales.get(id);
   if (!sale || sale.status === "cancelled") return;
   const now = nowIso();
-  const next = { ...sale, status: "cancelled" as const, updatedAt: now, dirty: true };
+  try {
+    await import("./sync").then((m) => m.deleteRemoteSale(id));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (!isOfflineError(err) && !(err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      throw err;
+    }
+  }
   await db.transaction("rw", db.sales, db.products, async () => {
-    await db.sales.put(next);
+    await db.sales.delete(id);
     if (sale.status === "paid") {
       const product = await db.products.get(sale.productId);
       if (product) {
@@ -262,17 +276,6 @@ export async function cancelSale(id: string): Promise<void> {
       }
     }
   });
-  scheduleSync();
-  try {
-    await import("./sync").then((m) => m.pushSaleImmediate(next));
-  } catch (err) {
-    const { isOfflineError } = await import("./persist");
-    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
-      scheduleSync();
-      return;
-    }
-    throw err;
-  }
 }
 
 export async function attachCustomerToSale(
