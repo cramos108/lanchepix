@@ -58,7 +58,10 @@ export function staffRole(
   settings?: Pick<Settings, "deviceRole" | "pairedOwnerId"> | null,
 ): StaffRole {
   const fromLs =
-    readLs(USER_ROLE_KEY) || readLs("pair_staff_role") || readLs("device_role");
+    readLs(USER_ROLE_KEY) ||
+    readLs("pair_staff_role") ||
+    readLs("device_role") ||
+    readLs("staff_role");
   const role = settings?.deviceRole || fromLs;
   if (role === "gerente" || fromLs === "gerente") return "gerente";
   if (role === "ajudante" || role === "attendant") return "ajudante";
@@ -152,13 +155,25 @@ export function saleSellerName(sale: {
   return fromNotes?.[1]?.trim() || "";
 }
 
+export function getLocalDeviceId(
+  settings?: Pick<Settings, "vendorId"> | null,
+): string {
+  return readLs("device_id") || settings?.vendorId || "";
+}
+
 export function visibleSalesForDevice(
   sales: Sale[] | undefined,
   settings?: Settings | null,
 ): Sale[] {
   const list = sales ?? [];
-  if (staffRole(settings) !== "ajudante") return list;
-  const name = settings?.attendantName?.trim() ?? "";
-  if (!name) return [];
-  return list.filter((s) => saleSellerName(s) === name);
+  const role = staffRole(settings);
+  if (role === "dono" || role === "gerente") return list;
+  const name =
+    getAttendantNameLocal(settings) || settings?.attendantName?.trim() || "";
+  const deviceId = getLocalDeviceId(settings);
+  return list.filter((s) => {
+    if (name && saleSellerName(s) === name) return true;
+    if (deviceId && (s.notes ?? "").includes(`device:${deviceId}`)) return true;
+    return false;
+  });
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { QRCodeSVG } from "qrcode.react";
 import { Cloud, Copy, ShieldAlert, Trash2 } from "lucide-react";
+import { HelperSessionView } from "@/components/HelperSessionView";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
 import { nowIso } from "@/lib/id";
@@ -32,7 +33,6 @@ import {
 } from "@/lib/plan";
 import {
   createPairingCode,
-  disconnectAttendant,
   inviteUrl,
 } from "@/lib/pairing";
 import { detectPixKeyType } from "@/lib/pix";
@@ -160,45 +160,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
   const sync = getSyncState();
 
-  if (isAttendantDevice(settings)) {
-    return (
-      <div className="flex flex-col gap-4">
-        <section className="rounded-3xl border-2 border-mint bg-surface p-4">
-          <p className="text-xs font-extrabold uppercase tracking-widest text-mint">
-            {staffRoleLabel(staffRole(settings))}
-          </p>
-          <p className="mt-1 text-lg font-black">{settings.attendantName || "Equipe"}</p>
-          <p className="text-sm font-bold text-muted">
-            Conectado à banca. Pix, cobrança e totais da loja ficam só com o dono.
-          </p>
-        </section>
-        <Field label="Seu nome neste aparelho">
-          <input
-            className={inputClass}
-            value={attendantName}
-            onChange={(e) => setAttendantName(e.target.value)}
-          />
-        </Field>
-        <Button
-          onClick={async () => {
-            await saveSettings({ attendantName: attendantName.trim() });
-          }}
-        >
-          Salvar nome
-        </Button>
-        <Button
-          variant="alert"
-          onClick={async () => {
-            const ok = window.confirm(t("btn.disconnectAsk"));
-            if (!ok) return;
-            await disconnectAttendant();
-          }}
-        >
-          {t("btn.disconnect")}
-        </Button>
-        <DiagnosticIds vendorId={settings.vendorId} />
-      </div>
-    );
+  if (isStaffDevice(settings)) {
+    return <HelperSessionView />;
   }
 
   return (
@@ -499,20 +462,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="1 brinde grátis"
         />
       </Field>
-
-      {isStaffDevice(settings) ? (
-        <Button
-          variant="alert"
-          className="w-full"
-          onClick={async () => {
-            const ok = window.confirm(t("btn.disconnectAsk"));
-            if (!ok) return;
-            await disconnectAttendant();
-          }}
-        >
-          {t("btn.disconnect")}
-        </Button>
-      ) : null}
 
       <Button onClick={() => void save()}>Salvar</Button>
 

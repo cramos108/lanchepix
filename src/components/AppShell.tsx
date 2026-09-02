@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useHideBalances } from "@/components/Money";
+import { MasterSettingsProvider } from "@/components/MasterSettingsProvider";
 import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { TutorialModal, useTutorial } from "@/components/TutorialModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -203,6 +204,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <MasterSettingsProvider>
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col bg-ink">
       <header className="print-hidden sticky top-0 z-30 border-b-2 border-line bg-ink/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
         <div className="flex items-center justify-between gap-3">
@@ -386,5 +388,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ))}
       </div>
     </div>
+    </MasterSettingsProvider>
   );
 }

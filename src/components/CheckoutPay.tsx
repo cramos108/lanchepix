@@ -8,6 +8,7 @@ import { PixQr } from "@/components/PixQr";
 import { Price } from "@/components/Money";
 import { Button, inputClass } from "@/components/ui";
 import { getAttendantNameLocal, isStaffDevice } from "@/lib/account";
+import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { db } from "@/lib/db";
 import { useLang, useT } from "@/lib/i18n";
 import { normalizeCurrency, normalizeLang, type PayMethod } from "@/lib/locale";
@@ -30,28 +31,25 @@ export function CheckoutPay({
 }) {
   const t = useT();
   const lang = useLang();
+  const master = useMasterSettings();
   const live = useLiveQuery(() => db.settings.get("app"), []);
   const settings = live ?? settingsProp;
-  const [ownerPix, setOwnerPix] = useState(settingsProp.pixKey?.trim() || "");
-  const [ownerWhatsapp, setOwnerWhatsapp] = useState(settingsProp.whatsapp?.trim() || "");
-  const [ownerMerchant, setOwnerMerchant] = useState(settingsProp.merchantName || "");
-  const [ownerCity, setOwnerCity] = useState(settingsProp.merchantCity || "");
 
   useEffect(() => {
-    void refetchOwnerSettings()
-      .then((row) => {
-        if (row.pixKey?.trim()) setOwnerPix(row.pixKey.trim());
-        if (row.whatsapp?.trim()) setOwnerWhatsapp(row.whatsapp.trim());
-        if (row.merchantName) setOwnerMerchant(row.merchantName);
-        if (row.merchantCity) setOwnerCity(row.merchantCity);
-      })
-      .catch(() => undefined);
-  }, []);
+    if (master.isPaired) return;
+    void refetchOwnerSettings().catch(() => undefined);
+  }, [master.isPaired]);
 
-  const currency = normalizeCurrency(settings.currency);
-  const pixKey = ownerPix || settings.pixKey?.trim() || "";
-  const paymentLink = settings.paymentLink?.trim() || "";
-  const whatsapp = ownerWhatsapp || settings.whatsapp?.trim() || "";
+  const currency = normalizeCurrency(master.currency || settings.currency);
+  const pixKey = (master.isPaired ? master.pixKey : settings.pixKey)?.trim() || "";
+  const paymentLink = (master.isPaired ? master.paymentLink : settings.paymentLink)?.trim() || "";
+  const whatsapp = (master.isPaired ? master.whatsapp : settings.whatsapp)?.trim() || "";
+  const merchantName = master.isPaired
+    ? master.merchantName || settings.merchantName
+    : settings.merchantName;
+  const merchantCity = master.isPaired
+    ? master.merchantCity || settings.merchantCity
+    : settings.merchantCity;
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [received, setReceived] = useState(centsToInput(sale.totalCents, currency));
   const [busy, setBusy] = useState(false);
@@ -68,15 +66,15 @@ export function CheckoutPay({
     try {
       return buildPixPayload({
         pixKey,
-        merchantName: ownerMerchant || settings.merchantName || settings.storeName,
-        merchantCity: ownerCity || settings.merchantCity,
+        merchantName: merchantName || settings.storeName,
+        merchantCity: merchantCity,
         amountCents: sale.totalCents,
         description: sale.productName,
       });
     } catch {
       return "";
     }
-  }, [pixKey, sale.productName, sale.totalCents, ownerCity, ownerMerchant, settings.merchantCity, settings.merchantName, settings.storeName]);
+  }, [pixKey, sale.productName, sale.totalCents, merchantCity, merchantName, settings.storeName]);
 
   const waUrl = whatsapp
     ? waLink(
@@ -177,7 +175,7 @@ export function CheckoutPay({
             </button>
             <ProofButton />
           </div>
-        ) : staff ? null : (
+        ) : staff || master.isPaired ? null : (
           <p className="text-sm font-bold text-alert">{t("warn.pixOwner")}</p>
         )
       ) : null}

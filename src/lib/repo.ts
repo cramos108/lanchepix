@@ -129,7 +129,13 @@ export async function createSale(input: {
     customerPhone: input.customerPhone,
     customerName: input.customerName,
     attendantName,
-    notes: input.notes,
+    notes: [
+      input.notes,
+      attendantName ? `Vendido por: ${attendantName}` : "",
+      settings.vendorId ? `device:${settings.vendorId}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined,
     createdAt: now,
     paidAt: input.status === "paid" ? now : undefined,
     updatedAt: now,

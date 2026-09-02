@@ -144,8 +144,33 @@ export function persistPairLocal(
     localStorage.setItem(PAIR_ROLE_KEY, role);
     localStorage.setItem(USER_ROLE_KEY, role);
     localStorage.setItem("device_role", role);
+    localStorage.setItem("staff_role", role);
   } catch {
     /* private mode */
+  }
+}
+
+async function upsertDeviceSession(
+  deviceId: string,
+  ownerId: string,
+  role: StaffRole,
+  attendantName: string,
+): Promise<void> {
+  if (!supabaseConfigured || !deviceId || !ownerId) return;
+  const row = {
+    device_id: deviceId,
+    owner_id: ownerId,
+    role,
+    attendant_name: attendantName,
+    updated_at: nowIso(),
+  };
+  const first = await supabase.from("device_sessions").upsert(row);
+  if (first.error) {
+    await supabase.from("device_sessions").upsert({
+      device_id: deviceId,
+      owner_id: ownerId,
+      role,
+    });
   }
 }
 
@@ -180,6 +205,11 @@ export async function restorePairFromLocal(): Promise<void> {
       nextRole,
       prices === "true" || settings.allowHelperEditPrices === true,
     );
+    try {
+      localStorage.setItem("device_id", settings.vendorId);
+    } catch {
+      /* private mode */
+    }
     if (
       settings.pairedOwnerId === linked &&
       settings.deviceRole === nextRole &&
@@ -213,6 +243,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem(PAIR_ROLE_KEY);
     localStorage.removeItem(USER_ROLE_KEY);
     localStorage.removeItem("device_role");
+    localStorage.removeItem("staff_role");
   } catch {
     /* private mode */
   }
@@ -365,6 +396,17 @@ export async function redeemPairingCode(
     next.hideStoreTotals === true,
     next.deviceRole === "gerente" ? "gerente" : "ajudante",
     allowHelperEditPrices,
+  );
+  try {
+    localStorage.setItem("device_id", settings.vendorId);
+  } catch {
+    /* private mode */
+  }
+  void upsertDeviceSession(
+    settings.vendorId,
+    ownerId,
+    next.deviceRole === "gerente" ? "gerente" : "ajudante",
+    name,
   );
   await db.transaction("rw", db.products, db.sales, db.customers, db.settings, async () => {
     await db.products.clear();

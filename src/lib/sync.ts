@@ -195,9 +195,20 @@ function fromRemoteProduct(r: RemoteProduct): Product {
 
 function saleHelperNote(s: Sale): string | null {
   const helper = (getAttendantNameLocal() || s.attendantName || "").trim();
+  let deviceId = "";
+  try {
+    deviceId = localStorage.getItem("device_id")?.trim() || "";
+  } catch {
+    deviceId = "";
+  }
   const bits = [
-    s.notes?.trim().replace(/^(Vendido por|Ajudante):\s*.+$/i, "").trim(),
+    s.notes
+      ?.trim()
+      .replace(/^(Vendido por|Ajudante):\s*.+$/i, "")
+      .replace(/device:[a-z0-9-]+/gi, "")
+      .trim(),
     helper ? `Vendido por: ${helper}` : "",
+    deviceId ? `device:${deviceId}` : "",
   ].filter(Boolean);
   return bits.length ? bits.join(" · ") : null;
 }

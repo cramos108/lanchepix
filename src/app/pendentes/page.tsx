@@ -127,7 +127,9 @@ export default function PendentesPage() {
   async function refreshHistory() {
     setHistoryBusy(true);
     try {
-      const n = await refetchOwnerSales();
+      await refetchOwnerSales();
+      const rows = await db.sales.toArray();
+      const n = visibleSalesForDevice(rows, settings).length;
       toast(n > 0 ? `Histórico atualizado · ${n} vendas` : "Histórico atualizado");
     } catch (err) {
       toast(

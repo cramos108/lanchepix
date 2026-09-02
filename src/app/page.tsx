@@ -178,12 +178,7 @@ export default function VenderPage() {
   }
 
   async function openDraft(product: Product, mode: "pending" | "paid") {
-    if (isStaffDevice(settings)) {
-      const latest = await refetchOwnerSettings().catch(() => undefined);
-      if (mode === "paid" && !latest?.pixKey && !settings?.pixKey) {
-        /* Chefe key may still land on checkout after a second fetch. */
-      }
-    } else if (!settings?.pixKey && mode === "paid") {
+    if (!isStaffDevice(settings) && !settings?.pixKey && mode === "paid") {
       toast(t("warn.pixOwner"), "err");
       return;
     }

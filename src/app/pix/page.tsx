@@ -11,45 +11,41 @@ import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
-import { getAttendantNameLocal, isOwnerDevice, isStaffDevice } from "@/lib/account";
+import { getAttendantNameLocal, isOwnerDevice } from "@/lib/account";
+import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 import { refetchOwnerSettings } from "@/lib/sync";
 import { orderReceiptMessage, waLink } from "@/lib/whatsapp";
-import type { Settings } from "@/lib/types";
 
 export default function PixPage() {
   const t = useT();
   const lang = useLang();
+  const master = useMasterSettings();
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
-  const [owner, setOwner] = useState<Partial<Settings>>({});
 
   useEffect(() => {
-    void refetchOwnerSettings()
-      .then((row) => {
-        setOwner({
-          pixKey: row.pixKey,
-          whatsapp: row.whatsapp,
-          currency: row.currency,
-          merchantName: row.merchantName,
-          merchantCity: row.merchantCity,
-          storeName: row.storeName,
-          language: row.language,
-        });
-      })
-      .catch(() => undefined);
-  }, []);
+    if (master.isPaired) return;
+    void refetchOwnerSettings().catch(() => undefined);
+  }, [master.isPaired]);
 
-  const pixKey = (owner.pixKey || settings?.pixKey || "").trim();
-  const whatsapp = (owner.whatsapp || settings?.whatsapp || "").trim();
-  const merchantName = owner.merchantName || settings?.merchantName || settings?.storeName || "";
-  const merchantCity = owner.merchantCity || settings?.merchantCity || "";
-  const currency = normalizeCurrency(owner.currency || settings?.currency);
+  const pixKey = (master.isPaired ? master.pixKey : settings?.pixKey || "").trim();
+  const whatsapp = (master.isPaired ? master.whatsapp : settings?.whatsapp || "").trim();
+  const merchantName =
+    (master.isPaired ? master.merchantName : settings?.merchantName) ||
+    settings?.storeName ||
+    "";
+  const merchantCity = master.isPaired
+    ? master.merchantCity
+    : settings?.merchantCity || "";
+  const currency = normalizeCurrency(
+    master.isPaired ? master.currency : settings?.currency,
+  );
   const selectedProduct = products?.find((p) => p.id === selectedId);
 
   const payload = useMemo(() => {
@@ -73,7 +69,7 @@ export default function PixPage() {
     ? waLink(
         whatsapp,
         orderReceiptMessage({
-          lang: normalizeLang(owner.language || settings?.language || lang),
+          lang: normalizeLang(master.language || settings?.language || lang),
           currency,
           productName: selectedProduct?.name || merchantName || "Pix",
           quantity: 1,
@@ -90,16 +86,7 @@ export default function PixPage() {
 
   const money = (cents: number) => formatMoney(cents, currency);
 
-  if (!pixKey) {
-    if (isStaffDevice(settings)) {
-      return (
-        <EmptyState
-          title={t("pay.pix")}
-          text={t("warn.pixOwner")}
-        />
-      );
-    }
-    if (isOwnerDevice(settings)) {
+  if (!pixKey && isOwnerDevice(settings) && !master.isPaired) {
       return (
         <EmptyState
           title="Cadastre sua chave Pix"
@@ -114,7 +101,6 @@ export default function PixPage() {
           }
         />
       );
-    }
   }
 
   return (
@@ -155,7 +141,9 @@ export default function PixPage() {
               : t("pay.scanPix")
           }
         />
-      ) : (
+      ) : master.isPaired && !master.ready ? (
+        <p className="text-muted">{t("loading")}</p>
+      ) : master.isPaired ? null : (
         <p className="text-alert">{t("warn.pixOwner")}</p>
       )}
 

@@ -170,6 +170,19 @@ alter table public.pairing_codes add column if not exists owner_id uuid;
 alter table public.pairing_codes add column if not exists metadata text;
 alter table public.pairing_codes add column if not exists role text;
 
+create table if not exists public.device_sessions (
+  device_id uuid primary key,
+  owner_id uuid not null,
+  role text not null default 'ajudante',
+  attendant_name text,
+  updated_at timestamptz not null default now()
+);
+alter table public.device_sessions enable row level security;
+drop policy if exists "lanchepix_device_sessions_anon" on public.device_sessions;
+create policy "lanchepix_device_sessions_anon" on public.device_sessions
+  for all to anon, authenticated using (true) with check (true);
+grant select, insert, update, delete on public.device_sessions to anon, authenticated;
+
 alter table public.pairing_codes enable row level security;
 drop policy if exists "lanchepix_pairing_codes_anon" on public.pairing_codes;
 create policy "lanchepix_pairing_codes_anon" on public.pairing_codes
