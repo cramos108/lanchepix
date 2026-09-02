@@ -9,7 +9,6 @@ import {
   Eye,
   EyeOff,
   Handshake,
-  LogOut,
   QrCode,
   Settings,
   Package,
@@ -41,7 +40,7 @@ import {
   getDevSimulateLimit,
   getStoredActivePlan,
 } from "@/lib/plan";
-import { disconnectAttendant, restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
+import { restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 import { useT } from "@/lib/i18n";
@@ -307,7 +306,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <main className={`flex-1 px-4 pt-4 ${isStaffDevice(settings) ? "pb-40" : "pb-28"}`}>
+      <main className="flex-1 px-4 pb-28 pt-4">
         {children}
         <p className="print-hidden mt-8 pb-2 text-center text-xs font-bold text-muted">
           <Link href="/termos" className="underline decoration-sun/60 underline-offset-2">
@@ -319,22 +318,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav className="print-hidden fixed bottom-0 left-1/2 z-30 w-full max-w-lg -translate-x-1/2 border-t-2 border-line bg-ink/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
-        {isStaffDevice(settings) ? (
-          <div className="px-3 pb-1">
-            <button
-              type="button"
-              onClick={async () => {
-                const ok = window.confirm(t("btn.disconnectAsk"));
-                if (!ok) return;
-                await disconnectAttendant();
-              }}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-alert bg-alert/15 px-3 text-xs font-extrabold uppercase text-alert"
-            >
-              <LogOut className="h-4 w-4" />
-              {t("btn.disconnect")}
-            </button>
-          </div>
-        ) : null}
         <ul className="grid grid-cols-5 px-1">
           {NAV.map((item) => {
             const active =

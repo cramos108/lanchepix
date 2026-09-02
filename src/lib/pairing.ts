@@ -150,25 +150,40 @@ export function persistPairLocal(
 
 export async function restorePairFromLocal(): Promise<void> {
   const settings = await ensureSettings();
-  if (settings.pairedOwnerId) return;
   try {
     const owner =
-      localStorage.getItem(LINKED_OWNER_KEY) || localStorage.getItem(PAIR_OWNER_KEY);
+      localStorage.getItem(LINKED_OWNER_KEY) ||
+      localStorage.getItem(PAIR_OWNER_KEY) ||
+      settings.pairedOwnerId ||
+      "";
     const name =
       localStorage.getItem(ATTENDANT_NAME_LS_KEY) ||
       localStorage.getItem(PAIR_NAME_KEY) ||
       "";
     const hide = localStorage.getItem(PAIR_HIDE_KEY);
     const prices = localStorage.getItem(PAIR_PRICES_KEY);
-    const role = normalizePairRole(localStorage.getItem(PAIR_ROLE_KEY));
-    if (!owner) return;
+    const role = normalizePairRole(
+      localStorage.getItem(PAIR_ROLE_KEY) || localStorage.getItem(USER_ROLE_KEY),
+    );
+    if (!owner && !settings.pairedOwnerId) return;
+    const nextRole =
+      role === "gerente" || settings.deviceRole === "gerente" ? "gerente" : settings.deviceRole || role;
+    const linked = owner || settings.pairedOwnerId || "";
+    if (!linked) return;
+    if (
+      settings.pairedOwnerId === linked &&
+      settings.deviceRole === nextRole &&
+      (nextRole !== "gerente" || settings.hideStoreTotals === false)
+    ) {
+      return;
+    }
     await db.settings.put({
       ...settings,
-      pairedOwnerId: owner,
+      pairedOwnerId: linked,
       attendantName: name || settings.attendantName,
-      deviceRole: role === "gerente" ? "gerente" : "ajudante",
-      hideStoreTotals: hide !== "false",
-      allowHelperEditPrices: prices === "true",
+      deviceRole: nextRole === "gerente" ? "gerente" : nextRole || "ajudante",
+      hideStoreTotals: nextRole === "gerente" ? false : hide !== "false",
+      allowHelperEditPrices: prices === "true" || settings.allowHelperEditPrices,
       plan: "equipe",
       dirty: false,
     });

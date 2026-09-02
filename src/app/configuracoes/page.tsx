@@ -189,14 +189,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <Button
           variant="alert"
           onClick={async () => {
-            const ok = window.confirm(
-              "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
-            );
+            const ok = window.confirm(t("btn.disconnectAsk"));
             if (!ok) return;
             await disconnectAttendant();
           }}
         >
-          Desconectar / Sair da Banca
+          {t("btn.disconnect")}
         </Button>
         <DiagnosticIds vendorId={settings.vendorId} />
       </div>
@@ -353,31 +351,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
       </Field>
       </>
       ) : null}
-      {isAttendantDevice(settings) ? (
-        <section className="rounded-3xl border-2 border-mint bg-surface p-4">
-          <p className="text-xs font-extrabold uppercase tracking-widest text-mint">
-            Aparelho de ajudante
-          </p>
-          <p className="mt-1 text-sm font-bold text-muted">
-            Conectado à banca principal. Vendas entram com o nome{" "}
-            <span className="text-white">{settings.attendantName || "sem nome"}</span>.
-          </p>
-          <Button
-            variant="alert"
-            className="mt-3 w-full"
-            onClick={async () => {
-              const ok = window.confirm(
-                "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
-              );
-              if (!ok) return;
-              await disconnectAttendant();
-            }}
-          >
-            Desconectar / Sair da Banca
-          </Button>
-        </section>
-      ) : null}
-
       {canPairDevices(settings) && (isNegocio(settings) || isManagerDevice(settings)) ? (
         <section className="rounded-3xl border-2 border-sun bg-surface p-4">
           <h2 className="text-lg font-black">Conectar Novo Aparelho / Ajudante</h2>
@@ -530,15 +503,14 @@ function SettingsForm({ settings }: { settings: Settings }) {
       {isStaffDevice(settings) ? (
         <Button
           variant="alert"
+          className="w-full"
           onClick={async () => {
-            const ok = window.confirm(
-              "Sair da banca? Este aparelho volta ao modo grátis e apaga o catálogo local da banca.",
-            );
+            const ok = window.confirm(t("btn.disconnectAsk"));
             if (!ok) return;
             await disconnectAttendant();
           }}
         >
-          Desconectar / Sair da Banca
+          {t("btn.disconnect")}
         </Button>
       ) : null}
 

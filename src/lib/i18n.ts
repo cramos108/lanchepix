@@ -28,7 +28,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     "btn.paid": "Pago",
     "btn.edit": "Editar",
     "btn.delete": "Excluir",
-    "btn.disconnect": "Desconectar do Chefe / Sair",
+    "btn.disconnect": "Desconectar / Sair da Banca",
     "btn.disconnectAsk": "Sair da banca? Este aparelho volta ao modo solo e apaga o catálogo local.",
     "btn.newProduct": "Novo produto",
     "btn.printQr": "Imprimir QR",

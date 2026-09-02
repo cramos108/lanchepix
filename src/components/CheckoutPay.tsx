@@ -32,15 +32,26 @@ export function CheckoutPay({
   const lang = useLang();
   const live = useLiveQuery(() => db.settings.get("app"), []);
   const settings = live ?? settingsProp;
+  const [ownerPix, setOwnerPix] = useState(settingsProp.pixKey?.trim() || "");
+  const [ownerWhatsapp, setOwnerWhatsapp] = useState(settingsProp.whatsapp?.trim() || "");
+  const [ownerMerchant, setOwnerMerchant] = useState(settingsProp.merchantName || "");
+  const [ownerCity, setOwnerCity] = useState(settingsProp.merchantCity || "");
 
   useEffect(() => {
-    void refetchOwnerSettings().catch(() => undefined);
+    void refetchOwnerSettings()
+      .then((row) => {
+        if (row.pixKey?.trim()) setOwnerPix(row.pixKey.trim());
+        if (row.whatsapp?.trim()) setOwnerWhatsapp(row.whatsapp.trim());
+        if (row.merchantName) setOwnerMerchant(row.merchantName);
+        if (row.merchantCity) setOwnerCity(row.merchantCity);
+      })
+      .catch(() => undefined);
   }, []);
 
   const currency = normalizeCurrency(settings.currency);
-  const pixKey = settings.pixKey?.trim() || "";
+  const pixKey = ownerPix || settings.pixKey?.trim() || "";
   const paymentLink = settings.paymentLink?.trim() || "";
-  const whatsapp = settings.whatsapp?.trim() || "";
+  const whatsapp = ownerWhatsapp || settings.whatsapp?.trim() || "";
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [received, setReceived] = useState(centsToInput(sale.totalCents, currency));
   const [busy, setBusy] = useState(false);
@@ -57,15 +68,15 @@ export function CheckoutPay({
     try {
       return buildPixPayload({
         pixKey,
-        merchantName: settings.merchantName || settings.storeName,
-        merchantCity: settings.merchantCity,
+        merchantName: ownerMerchant || settings.merchantName || settings.storeName,
+        merchantCity: ownerCity || settings.merchantCity,
         amountCents: sale.totalCents,
         description: sale.productName,
       });
     } catch {
       return "";
     }
-  }, [pixKey, sale.productName, sale.totalCents, settings.merchantCity, settings.merchantName, settings.storeName]);
+  }, [pixKey, sale.productName, sale.totalCents, ownerCity, ownerMerchant, settings.merchantCity, settings.merchantName, settings.storeName]);
 
   const waUrl = whatsapp
     ? waLink(

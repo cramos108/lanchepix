@@ -24,12 +24,9 @@ export default function PixPage() {
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
-  const [settingsReady, setSettingsReady] = useState(false);
 
   useEffect(() => {
-    void refetchOwnerSettings()
-      .catch(() => undefined)
-      .finally(() => setSettingsReady(true));
+    void refetchOwnerSettings().catch(() => undefined);
   }, []);
 
   const selectedProduct = products?.find((p) => p.id === selectedId);
@@ -53,7 +50,7 @@ export default function PixPage() {
     }
   }, [settings, selectedProduct]);
 
-  if (!settings || !settingsReady) {
+  if (!settings) {
     return <p className="text-muted">{t("loading")}</p>;
   }
 
@@ -61,21 +58,7 @@ export default function PixPage() {
 
   if (!settings.pixKey) {
     if (isStaffDevice(settings)) {
-      return (
-        <EmptyState
-          title={t("pay.pix")}
-          text={t("sell.emptyStaff")}
-          action={
-            <Button
-              onClick={() =>
-                void refetchOwnerSettings().then(() => undefined)
-              }
-            >
-              {t("btn.update")}
-            </Button>
-          }
-        />
-      );
+      return <p className="text-muted">{t("loading")}</p>;
     }
     return (
       <EmptyState

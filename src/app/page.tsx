@@ -359,9 +359,7 @@ export default function VenderPage() {
           title={t("sell.empty")}
           text={
             isStaffDevice(settings)
-              ? settings?.pixKey
-                ? t("catalog.empty")
-                : catalogError || t("sell.emptyStaff")
+              ? catalogError || t("catalog.empty")
               : t("sell.emptyHint")
           }
           action={

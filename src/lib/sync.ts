@@ -866,6 +866,11 @@ export async function refetchOwnerSettings(): Promise<Settings> {
   return merged;
 }
 
+/** Staff checkout: read Chefe pix/whatsapp now, without waiting on a local Update tap. */
+export async function fetchOwnerBilling(): Promise<Settings> {
+  return refetchOwnerSettings();
+}
+
 function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {
   const currentUser = { id: settings.vendorId };
   if (isOwnerDevice(settings)) return currentUser?.id || "";
