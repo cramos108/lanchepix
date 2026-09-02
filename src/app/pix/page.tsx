@@ -9,10 +9,14 @@ import { PixQr } from "@/components/PixQr";
 import { Button, EmptyState } from "@/components/ui";
 import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
-import { formatBRL } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
+import { normalizeCurrency } from "@/lib/locale";
+import { isAttendantDevice } from "@/lib/account";
+import { useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 
 export default function PixPage() {
+  const t = useT();
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
@@ -45,7 +49,12 @@ export default function PixPage() {
     return <p className="text-muted">Carregando…</p>;
   }
 
+  const money = (cents: number) => formatMoney(cents, normalizeCurrency(settings.currency));
+
   if (!settings.pixKey) {
+    if (isAttendantDevice(settings)) {
+      return <EmptyState title={t("pay.pix")} text={t("pay.pixMissing")} />;
+    }
     return (
       <EmptyState
         title="Cadastre sua chave Pix"
@@ -85,7 +94,7 @@ export default function PixPage() {
             key={p.id}
             active={selectedId === p.id}
             onClick={() => setSelectedId(p.id)}
-            label={`${p.name} ${formatBRL(p.priceCents)}`}
+            label={`${p.name} ${money(p.priceCents)}`}
           />
         ))}
       </div>
@@ -96,7 +105,7 @@ export default function PixPage() {
           size={260}
           label={
             selectedProduct
-              ? `${selectedProduct.name} · ${formatBRL(selectedProduct.priceCents)}`
+              ? `${selectedProduct.name} · ${money(selectedProduct.priceCents)}`
               : "QR estático · cliente digita o valor"
           }
         />
@@ -133,8 +142,8 @@ export default function PixPage() {
                 <p className="text-lg font-black">{p.name}</p>
                 <p className="mb-2 text-xl font-black">
                   {p.priceMode === "suggested"
-                    ? `Contribuição Sugerida: ${formatBRL(p.priceCents)}`
-                    : formatBRL(p.priceCents)}
+                    ? `Contribuição Sugerida: ${money(p.priceCents)}`
+                    : money(p.priceCents)}
                 </p>
                 <div className="flex justify-center">
                   <QRCodeSVG value={code} size={140} bgColor="#fff" fgColor="#000" level="M" />

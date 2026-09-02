@@ -71,6 +71,9 @@ create table if not exists public.settings (
 alter table public.settings add column if not exists plan text not null default 'free';
 alter table public.settings add column if not exists business_type text not null default 'alimentacao';
 alter table public.settings add column if not exists allow_helper_edit_prices boolean not null default false;
+alter table public.settings add column if not exists currency text not null default 'BRL';
+alter table public.settings add column if not exists language text not null default 'pt';
+alter table public.settings add column if not exists payment_link text not null default '';
 alter table public.settings drop constraint if exists settings_plan_check;
 alter table public.settings add constraint settings_plan_check check (plan in ('free', 'pro', 'equipe'));
 alter table public.products add column if not exists price_mode text not null default 'fixed';

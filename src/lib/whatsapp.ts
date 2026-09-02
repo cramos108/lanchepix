@@ -1,13 +1,54 @@
-import { formatBRL } from "./money";
-import { cleanWhatsAppNumber } from "./phone";
+import { formatMoney } from "./money";
+import { digitsOnly } from "./phone";
+import type { AppCurrency, Lang, PayMethod } from "./locale";
 
+function payMethodLabel(lang: Lang, method: PayMethod): string {
+  if (lang === "en") {
+    if (method === "cash") return "Cash";
+    if (method === "link") return "Link / Card";
+    return "Pix";
+  }
+  if (lang === "es") {
+    if (method === "cash") return "Efectivo";
+    if (method === "link") return "Link / Tarjeta";
+    return "Pix";
+  }
+  if (method === "cash") return "Dinheiro";
+  if (method === "link") return "Link / Cartão";
+  return "Pix";
+}
+
+/** wa.me uses E.164 digits only — strip +, spaces, dashes, parentheses. */
 export function waLink(phone: string | undefined, message: string): string {
   const text = encodeURIComponent(message);
-  if (phone) {
-    const n = cleanWhatsAppNumber(phone);
-    if (n) return `https://wa.me/${n}?text=${text}`;
-  }
+  const n = digitsOnly(phone ?? "");
+  if (n) return `https://wa.me/${n}?text=${text}`;
   return `https://wa.me/?text=${text}`;
+}
+
+export function orderReceiptMessage(opts: {
+  lang: Lang;
+  currency: AppCurrency;
+  productName: string;
+  quantity?: number;
+  totalCents: number;
+  method: PayMethod;
+  sellerName?: string;
+}): string {
+  const item =
+    (opts.quantity ?? 1) > 1
+      ? `${opts.productName} (x${opts.quantity})`
+      : opts.productName;
+  const total = formatMoney(opts.totalCents, opts.currency);
+  const method = payMethodLabel(opts.lang, opts.method);
+  const seller = opts.sellerName?.trim() || "—";
+  if (opts.lang === "en") {
+    return `Hello! I placed an order for ${total} for ${item}. Payment method: ${method}. Seller: ${seller}.`;
+  }
+  if (opts.lang === "es") {
+    return `¡Hola! Realicé un pedido de ${total} para ${item}. Método de pago: ${method}. Vendedor: ${seller}.`;
+  }
+  return `Olá! Realizei o pedido no valor de ${total} para ${item}. Forma de pagamento: ${method}. Vendedor: ${seller}.`;
 }
 
 /** Buyer-to-seller text so the customer opens WhatsApp already speaking. */
@@ -17,17 +58,19 @@ export function buyerConfirmPixMessage(opts: {
   totalCents: number;
   pixKey?: string;
   sellerName?: string;
+  lang?: Lang;
+  currency?: AppCurrency;
+  method?: PayMethod;
 }): string {
-  const item =
-    (opts.quantity ?? 1) > 1
-      ? `${opts.productName} (x${opts.quantity})`
-      : opts.productName;
-  const chave = opts.pixKey?.trim() || "";
-  const vendedor = opts.sellerName?.trim() || "a banca";
-  return (
-    `Olá! Realizei o pagamento via Pix da Confiança no valor de ${formatBRL(opts.totalCents)} ` +
-    `para o produto ${item}. Chave Pix: ${chave}. Vendedor: ${vendedor}.`
-  );
+  return orderReceiptMessage({
+    lang: opts.lang ?? "pt",
+    currency: opts.currency ?? "BRL",
+    productName: opts.productName,
+    quantity: opts.quantity,
+    totalCents: opts.totalCents,
+    method: opts.method ?? "pix",
+    sellerName: opts.sellerName,
+  });
 }
 
 export function paymentReminderMessage(opts: {
@@ -37,12 +80,13 @@ export function paymentReminderMessage(opts: {
   quantity: number;
   totalCents: number;
   pixKey?: string;
+  currency?: AppCurrency;
 }): string {
   const nome = opts.customerName?.trim() || "";
   const oi = nome ? `Olá ${nome}!` : "Olá!";
   const item =
     opts.quantity > 1 ? `${opts.productName} (x${opts.quantity})` : opts.productName;
-  const pedido = `${item} / ${formatBRL(opts.totalCents)}`;
+  const pedido = `${item} / ${formatMoney(opts.totalCents, opts.currency ?? "BRL")}`;
   const chave = opts.pixKey?.trim() || "a chave combinada";
   return (
     `${oi} Passando pra lembrar do seu pedido de *${pedido}* no Pix Confiança. ` +

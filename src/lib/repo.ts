@@ -401,6 +401,9 @@ export async function deleteAccountAndAllData(): Promise<void> {
       merchantName: "MEU NEGOCIO",
       merchantCity: "SAO PAULO",
       whatsapp: "",
+      currency: "BRL",
+      language: "pt",
+      paymentLink: "",
       rewardLabel: "1 brinde grátis",
       stampsRequired: 10,
       plan: keepPaid

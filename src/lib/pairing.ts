@@ -332,8 +332,10 @@ export async function redeemPairingCode(
   } catch {
     /* ignore */
   }
-  const { pushAndPull } = await import("./sync");
+  const { pushAndPull, refetchOwnerSettings, refetchOwnerProducts } = await import("./sync");
   await pushAndPull();
+  await refetchOwnerSettings().catch(() => undefined);
+  await refetchOwnerProducts().catch(() => undefined);
   return next;
 }
 

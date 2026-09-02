@@ -35,6 +35,7 @@ export type Sale = {
   customerName?: string;
   attendantName?: string;
   notes?: string;
+  paymentMethod?: PayMethod;
   createdAt: string;
   paidAt?: string;
   updatedAt: string;
@@ -54,6 +55,9 @@ export type Customer = {
 };
 
 export type Plan = "free" | "pro" | "equipe";
+export type AppCurrency = "BRL" | "USD" | "EUR";
+export type AppLanguage = "pt" | "en" | "es";
+export type PayMethod = "pix" | "cash" | "link";
 
 export type BusinessType =
   | "alimentacao"
@@ -94,6 +98,9 @@ export type Settings = {
   merchantName: string;
   merchantCity: string;
   whatsapp: string;
+  currency?: AppCurrency;
+  language?: AppLanguage;
+  paymentLink?: string;
   rewardLabel: string;
   stampsRequired: number;
   plan: Plan;

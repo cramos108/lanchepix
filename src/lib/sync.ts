@@ -8,6 +8,8 @@ import {
 import { db, ensureSettings } from "./db";
 import { backupCatalog, clearCatalogBackup, isOfflineError } from "./persist";
 import { supabase, supabaseConfigured } from "./supabase";
+import { normalizeCurrency, normalizeLang } from "./locale";
+import { setPrefs } from "./prefs";
 import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
 
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -115,6 +117,9 @@ type RemoteSettings = {
   plan: Settings["plan"] | null;
   business_type: string | null;
   allow_helper_edit_prices?: boolean | null;
+  currency?: string | null;
+  language?: string | null;
+  payment_link?: string | null;
   updated_at: string;
 };
 
@@ -281,7 +286,7 @@ function fromRemoteCustomer(r: RemoteCustomer): Customer {
   };
 }
 
-function toRemoteSettings(s: Settings): RemoteSettings {
+function toRemoteSettings(s: Settings): Record<string, unknown> {
   return {
     vendor_id: s.vendorId,
     store_name: s.storeName,
@@ -294,8 +299,31 @@ function toRemoteSettings(s: Settings): RemoteSettings {
     plan: s.plan ?? "free",
     business_type: normalizeBusinessType(s.businessType),
     allow_helper_edit_prices: s.allowHelperEditPrices === true,
+    currency: s.currency || "BRL",
+    language: s.language || "pt",
+    payment_link: s.paymentLink || "",
     updated_at: s.updatedAt,
   };
+}
+
+function billingFromRemote(remote: RemoteSettings, local: Settings): Partial<Settings> {
+  return {
+    storeName: remote.store_name || local.storeName,
+    pixKey: remote.pix_key ?? local.pixKey,
+    merchantName: remote.merchant_name ?? local.merchantName,
+    merchantCity: remote.merchant_city ?? local.merchantCity,
+    whatsapp: remote.whatsapp ?? local.whatsapp,
+    rewardLabel: remote.reward_label || local.rewardLabel,
+    stampsRequired: remote.stamps_required || local.stampsRequired,
+    currency: normalizeCurrency(remote.currency ?? local.currency),
+    language: normalizeLang(remote.language ?? local.language),
+    paymentLink: remote.payment_link ?? local.paymentLink ?? "",
+    allowHelperEditPrices: remote.allow_helper_edit_prices === true,
+  };
+}
+
+function rememberPrefs(row: Settings) {
+  setPrefs({ currency: row.currency, language: row.language });
 }
 
 async function upsertOwned(table: string, rows: object[]) {
@@ -421,7 +449,15 @@ export async function pushAndPull(): Promise<void> {
     }
 
     if (settings.dirty && isOwnerDevice(settings)) {
-      const { error } = await supabase.from("settings").upsert(toRemoteSettings(settings));
+      const full = toRemoteSettings(settings);
+      let { error } = await supabase.from("settings").upsert(full);
+      if (error && isSchemaCacheError(error)) {
+        const core = { ...full };
+        delete core.currency;
+        delete core.language;
+        delete core.payment_link;
+        ({ error } = await supabase.from("settings").upsert(core));
+      }
       if (error) throw error;
       const current = await db.settings.get("app");
       if (current && current.updatedAt === settings.updatedAt) {
@@ -482,19 +518,10 @@ export async function pushAndPull(): Promise<void> {
     if (remoteSettings) {
       const remote = remoteSettings as RemoteSettings;
       const local = await db.settings.get("app");
-      if (
-        local &&
-        (staff || (!local.dirty && isNewer(remote.updated_at, local.updatedAt)))
-      ) {
+      if (local && (staff || !local.dirty)) {
         const merged: Settings = {
           ...local,
-          storeName: remote.store_name,
-          pixKey: remote.pix_key,
-          merchantName: remote.merchant_name,
-          merchantCity: remote.merchant_city,
-          whatsapp: remote.whatsapp,
-          rewardLabel: remote.reward_label,
-          stampsRequired: remote.stamps_required,
+          ...billingFromRemote(remote, local),
           plan: staff
             ? "equipe"
             : remote.plan === "equipe"
@@ -504,14 +531,14 @@ export async function pushAndPull(): Promise<void> {
                 : "free",
           businessType: normalizeBusinessType(remote.business_type),
           updatedAt: staff ? local.updatedAt : remote.updated_at,
-          dirty: false,
+          dirty: staff ? false : false,
           pairedOwnerId: local.pairedOwnerId,
           deviceRole: local.deviceRole,
           attendantName: local.attendantName,
           hideStoreTotals: local.hideStoreTotals,
-          allowHelperEditPrices: remote.allow_helper_edit_prices === true,
         };
         await db.settings.put(merged);
+        rememberPrefs(merged);
       }
     }
 
@@ -797,6 +824,46 @@ export async function refetchOwnerProducts(): Promise<number> {
     productFetchLock = null;
   });
   return productFetchLock;
+}
+
+/** Ajudante/Desktop: inherit Chefe pix, WhatsApp, currency, language, payment link. */
+export async function refetchOwnerSettings(): Promise<Settings> {
+  const local = await ensureSettings();
+  if (!supabaseConfigured) {
+    rememberPrefs(local);
+    return local;
+  }
+  const ownerId = isOwnerDevice(local)
+    ? local.vendorId
+    : getActiveOwnerId(local);
+  if (!ownerId) {
+    rememberPrefs(local);
+    return local;
+  }
+  const { data, error } = await supabase
+    .from("settings")
+    .select("*")
+    .eq("vendor_id", ownerId)
+    .maybeSingle();
+  if (error || !data) {
+    rememberPrefs(local);
+    return local;
+  }
+  const remote = data as RemoteSettings;
+  const staff = !isOwnerDevice(local);
+  if (!staff && local.dirty) {
+    rememberPrefs(local);
+    return local;
+  }
+  const merged: Settings = {
+    ...local,
+    ...billingFromRemote(remote, local),
+    dirty: staff ? false : local.dirty,
+    updatedAt: staff ? local.updatedAt : remote.updated_at || local.updatedAt,
+  };
+  await db.settings.put(merged);
+  rememberPrefs(merged);
+  return merged;
 }
 
 function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {

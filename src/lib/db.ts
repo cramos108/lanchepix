@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import Dexie, { type Table } from "dexie";
 import type { Customer, Product, Sale, Settings } from "./types";
 import { newId, nowIso } from "./id";
+import { detectBrowserLang } from "./locale";
 
 export class AppDB extends Dexie {
   products!: Table<Product, string>;
@@ -25,9 +26,21 @@ export const db = new AppDB();
 export async function ensureSettings(): Promise<Settings> {
   const existing = await db.settings.get("app");
   if (existing) {
-    if (existing.plan) return existing;
-    const patched = { ...existing, plan: "free" as const };
-    await db.settings.put(patched);
+    const patched = {
+      ...existing,
+      plan: existing.plan || ("free" as const),
+      currency: existing.currency || ("BRL" as const),
+      language: existing.language || detectBrowserLang(),
+      paymentLink: existing.paymentLink || "",
+    };
+    if (
+      patched.plan !== existing.plan ||
+      patched.currency !== existing.currency ||
+      patched.language !== existing.language ||
+      patched.paymentLink !== existing.paymentLink
+    ) {
+      await db.settings.put(patched);
+    }
     return patched;
   }
   const created: Settings = {
@@ -38,6 +51,9 @@ export async function ensureSettings(): Promise<Settings> {
     merchantName: "MEU NEGOCIO",
     merchantCity: "SAO PAULO",
     whatsapp: "",
+    currency: "BRL",
+    language: detectBrowserLang(),
+    paymentLink: "",
     rewardLabel: "1 brinde grátis",
     stampsRequired: 10,
     plan: "free",

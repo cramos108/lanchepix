@@ -1,16 +1,23 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { formatBRL } from "@/lib/money";
+import { currencySymbol, formatMoney } from "@/lib/money";
+import { getCurrency, subscribePrefs } from "@/lib/prefs";
 import { getHideBalances, subscribeHideBalances } from "@/lib/privacy";
 
 export function useHideBalances(): boolean {
   return useSyncExternalStore(subscribeHideBalances, getHideBalances, () => true);
 }
 
+function useCurrency() {
+  return useSyncExternalStore(subscribePrefs, getCurrency, () => "BRL" as const);
+}
+
 export function useMoney() {
   const hide = useHideBalances();
-  return (cents: number) => (hide ? "R$ ••••" : formatBRL(cents));
+  const currency = useCurrency();
+  return (cents: number) =>
+    hide ? `${currencySymbol(currency)} ••••` : formatMoney(cents, currency);
 }
 
 /** Personal financial metric — respects the header eye toggle. */
@@ -35,7 +42,10 @@ export function Price({
   cents: number;
   className?: string;
 }) {
+  const currency = useCurrency();
   return (
-    <span className={`tabular-nums ${className ?? ""}`.trim()}>{formatBRL(cents)}</span>
+    <span className={`tabular-nums ${className ?? ""}`.trim()}>
+      {formatMoney(cents, currency)}
+    </span>
   );
 }

@@ -44,24 +44,25 @@ import {
 import { restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
+import { useT } from "@/lib/i18n";
+import { detectBrowserLang } from "@/lib/locale";
+import { setPrefs } from "@/lib/prefs";
 
 const NAV = [
-  { href: "/", label: "Vender", icon: Store },
-  { href: "/produtos", label: "Catálogo", icon: Package },
-  { href: "/pendentes", label: "Confiança", icon: Handshake },
-  { href: "/fidelidade", label: "Cartão", icon: CreditCard },
-  { href: "/pix", label: "Pix", icon: QrCode },
+  { href: "/", key: "nav.sell", icon: Store },
+  { href: "/produtos", key: "nav.catalog", icon: Package },
+  { href: "/pendentes", key: "nav.history", icon: Handshake },
+  { href: "/fidelidade", key: "nav.loyalty", icon: CreditCard },
+  { href: "/pix", key: "nav.pix", icon: QrCode },
 ] as const;
 
-const TITLES: Record<string, string> = {
-  "/": "Vender agora",
-  "/produtos": "Produtos / Catálogo",
-  "/pendentes": "Pix Confiança",
-  "/fidelidade": "Cartão fidelidade",
-  "/pix": "QR Code Pix",
-  "/configuracoes": "Configurações",
-  "/termos": "Termos de uso",
-  "/pro/sucesso": "Pix da Confiança Pro",
+const TITLE_KEYS: Record<string, string> = {
+  "/": "title.sell",
+  "/produtos": "title.catalog",
+  "/pendentes": "title.history",
+  "/fidelidade": "title.loyalty",
+  "/pix": "title.pix",
+  "/configuracoes": "title.settings",
 };
 
 type InstallEvent = Event & {
@@ -71,6 +72,7 @@ type InstallEvent = Event & {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useT();
   const [online, setOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
@@ -117,12 +119,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const settings = useLiveQuery(() => db.settings.get("app"), []);
 
   useEffect(() => {
+    if (!settings) return;
+    setPrefs({
+      currency: settings.currency || "BRL",
+      language: settings.language || detectBrowserLang(),
+    });
+  }, [settings, settings?.currency, settings?.language]);
+
+  useEffect(() => {
     void ensureSettings()
       .then(() => restorePairFromLocal())
       .then(async () => {
         const { restorePaidPlanIfNeeded } = await import("@/lib/plan");
         await restorePaidPlanIfNeeded();
-        const { refetchOwnerProducts } = await import("@/lib/sync");
+        const { refetchOwnerProducts, refetchOwnerSettings } = await import("@/lib/sync");
+        try {
+          await refetchOwnerSettings();
+        } catch {
+          /* offline or unpaired helper */
+        }
         try {
           await refetchOwnerProducts();
         } catch {
@@ -197,7 +212,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {APP_NAME}
             </p>
             <h1 className="truncate text-2xl font-black leading-tight">
-              {TITLES[pathname] ?? settings?.storeName ?? APP_NAME}
+              {TITLE_KEYS[pathname] ? t(TITLE_KEYS[pathname]) : settings?.storeName ?? APP_NAME}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -330,7 +345,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     ) : null}
                   </span>
                   <span className="text-[10px] font-extrabold uppercase tracking-wide">
-                    {item.label}
+                    {t(item.key)}
                   </span>
                 </Link>
               </li>

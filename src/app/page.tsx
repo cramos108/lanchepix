@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Copy, MessageCircle, RefreshCw } from "lucide-react";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
+import { CheckoutPay } from "@/components/CheckoutPay";
 import { LgpdConsent } from "@/components/LgpdConsent";
 import { Money, Price } from "@/components/Money";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
-import { QRCodeSVG } from "qrcode.react";
 import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
@@ -23,18 +23,18 @@ import {
   periodCut,
 } from "@/lib/id";
 import { maskPhoneInput, nationalDigits, toWhatsAppNumber } from "@/lib/phone";
-import { buyerConfirmPixMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { loadCartQty, saveCartQty } from "@/lib/persist";
-import { refetchOwnerProducts } from "@/lib/sync";
+import { refetchOwnerProducts, refetchOwnerSettings } from "@/lib/sync";
 import {
   canEditPrices,
   canSeeFinances,
-  getAttendantNameLocal,
   isAttendantDevice,
   isStaffDevice,
   visibleSalesForDevice,
 } from "@/lib/account";
+import { useT } from "@/lib/i18n";
 import { uniqueById, sellableCatalogProducts } from "@/lib/unique";
 import {
   FREE_LOYALTY_LIMIT,
@@ -81,6 +81,7 @@ type Draft = {
 };
 
 export default function VenderPage() {
+  const t = useT();
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
@@ -149,6 +150,7 @@ export default function VenderPage() {
   async function refreshCatalog() {
     setRefreshing(true);
     try {
+      await refetchOwnerSettings().catch(() => undefined);
       const n = await refetchOwnerProducts();
       setCatalogError(null);
       toast(n ? `Catálogo atualizado · ${n} itens` : "Catálogo vazio na banca principal");
@@ -177,8 +179,10 @@ export default function VenderPage() {
   }
 
   async function openDraft(product: Product, mode: "pending" | "paid") {
-    if (!settings?.pixKey && mode === "paid") {
-      toast("Cadastre a chave Pix em Configurações.", "err");
+    if (isAttendantDevice(settings)) {
+      await refetchOwnerSettings().catch(() => undefined);
+    } else if (!settings?.pixKey && mode === "paid") {
+      toast(t("warn.pixOwner"), "err");
       return;
     }
     if (mode === "pending" && !(await canAddFiadoThisMonth())) {
@@ -254,25 +258,6 @@ export default function VenderPage() {
     }
   }
 
-  const checkoutSeller =
-    getAttendantNameLocal(settings) ||
-    settings?.attendantName?.trim() ||
-    settings?.storeName ||
-    "Dono";
-  const checkoutWaUrl =
-    paidSale && settings?.whatsapp
-      ? waLink(
-          settings.whatsapp,
-          buyerConfirmPixMessage({
-            productName: paidSale.productName,
-            quantity: paidSale.quantity,
-            totalCents: paidSale.totalCents,
-            pixKey: settings.pixKey,
-            sellerName: checkoutSeller,
-          }),
-        )
-      : "";
-
   return (
     <div className="flex flex-col gap-4">
       {isStaffDevice(settings) ? (
@@ -290,7 +275,7 @@ export default function VenderPage() {
               onClick={() => void refreshCatalog()}
             >
               <RefreshCw className="h-4 w-4" />
-              {refreshing ? "Atualizando…" : "Atualizar"}
+              {refreshing ? "…" : t("btn.update")}
             </Button>
           ) : null}
           {catalogError ? (
@@ -384,7 +369,7 @@ export default function VenderPage() {
                 onClick={() => void refreshCatalog()}
               >
                 <RefreshCw className="h-4 w-4" />
-                {refreshing ? "Atualizando…" : "Atualizar"}
+                {refreshing ? "…" : t("btn.update")}
               </Button>
             ) : (
             <div className="flex flex-col gap-2">
@@ -456,14 +441,14 @@ export default function VenderPage() {
                   className="px-2 text-sm leading-tight"
                   onClick={() => void openDraft(product, "pending")}
                 >
-                  Pix Confiança
+                  {t("btn.pixLater")}
                 </Button>
                 <Button
                   className="px-2 text-sm leading-tight"
                   onClick={() => void openDraft(product, "paid")}
                   disabled={out}
                 >
-                  Pix agora
+                  {t("btn.pixNow")}
                 </Button>
               </div>
             </article>
@@ -535,7 +520,7 @@ export default function VenderPage() {
                   disabled={registering}
                   onClick={() => void confirmDraft(false)}
                 >
-                  {registering ? "Registrando…" : "Registrar Pix Confiança"}
+                  {registering ? "…" : t("btn.registerSale")}
                 </Button>
                 <Button
                   variant="mint"
@@ -543,12 +528,12 @@ export default function VenderPage() {
                   onClick={() => void confirmDraft(true)}
                 >
                   <MessageCircle className="h-5 w-5" />
-                  {registering ? "Registrando…" : "Registrar e cobrar no WhatsApp"}
+                  {registering ? "…" : t("btn.registerSale")}
                 </Button>
               </div>
             ) : (
               <Button disabled={registering} onClick={() => void confirmDraft(false)}>
-                {registering ? "Registrando…" : "Gerar QR e baixar estoque"}
+                {registering ? "…" : t("btn.registerSale")}
               </Button>
             )}
           </div>
@@ -557,77 +542,11 @@ export default function VenderPage() {
 
       <Modal
         open={Boolean(paidSale)}
-        title="Pagar com Pix"
+        title={t("pay.title")}
         onClose={() => setPaidSale(null)}
       >
         {paidSale && settings ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-center text-lg font-bold">
-              {paidSale.productName} × {paidSale.quantity}
-              <span className="block text-3xl font-black text-sun">
-                <Price cents={paidSale.totalCents} />
-              </span>
-            </p>
-            {checkoutWaUrl ? (
-              <div className="flex flex-col items-center gap-3">
-                <p className="text-center text-sm font-extrabold uppercase tracking-widest text-sun">
-                  Aponte a câmera para o WhatsApp
-                </p>
-                <div className="rounded-3xl bg-white p-4 shadow-[0_0_0_4px_#ffe500]">
-                  <QRCodeSVG
-                    value={checkoutWaUrl}
-                    size={220}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                    level="M"
-                    includeMargin={false}
-                  />
-                </div>
-              </div>
-            ) : null}
-            {settings.pixKey ? (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(settings.pixKey);
-                    toast("Chave Pix copiada");
-                  } catch {
-                    toast("Não deu para copiar a chave Pix.", "err");
-                  }
-                }}
-                className="w-full rounded-2xl border-2 border-sun bg-sun/10 px-4 py-3 text-left"
-              >
-                <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-sun">
-                  <Copy className="h-4 w-4" />
-                  Chave Pix (copie no banco)
-                </p>
-                <p className="mt-1 break-all text-lg font-black">{settings.pixKey}</p>
-              </button>
-            ) : (
-              <p className="text-sm font-bold text-alert">
-                Cadastre a chave Pix em Configurações para o cliente copiar.
-              </p>
-            )}
-            {checkoutWaUrl ? (
-              <a
-                href={checkoutWaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
-              >
-                <MessageCircle className="h-5 w-5" />
-                Enviar Comprovante no WhatsApp
-              </a>
-            ) : (
-              <p className="text-center text-sm font-bold text-muted">
-                Cadastre o WhatsApp com código do país em Configurações para enviar o comprovante.
-              </p>
-            )}
-            <Button variant="ghost" onClick={() => setPaidSale(null)}>
-              Fechar
-            </Button>
-          </div>
+          <CheckoutPay sale={paidSale} settings={settings} onClose={() => setPaidSale(null)} />
         ) : null}
       </Modal>
     </div>

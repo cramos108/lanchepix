@@ -12,7 +12,9 @@ import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/l
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
 import { Price } from "@/components/Money";
-import { centsToInput, parseBRLToCents } from "@/lib/money";
+import { centsToInput, parseMoneyToCents } from "@/lib/money";
+import { useT } from "@/lib/i18n";
+import { getCurrency } from "@/lib/prefs";
 import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
@@ -32,6 +34,7 @@ const emptyForm = {
 };
 
 export default function ProdutosPage() {
+  const t = useT();
   const router = useRouter();
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
@@ -129,7 +132,7 @@ export default function ProdutosPage() {
     setNicheId(found?.id ?? "outros");
     setForm({
       name: p.name,
-      price: centsToInput(p.priceCents),
+      price: centsToInput(p.priceCents, getCurrency()),
       category: p.category,
       stock: String(p.stock),
       priceMode: p.priceMode === "suggested" ? "suggested" : "fixed",
@@ -166,7 +169,7 @@ export default function ProdutosPage() {
   async function submit() {
     if (savingRef.current) return;
     const name = form.name.trim();
-    const priceCents = parseBRLToCents(form.price);
+    const priceCents = parseMoneyToCents(form.price);
     const stock = Number.parseInt(form.stock, 10);
     if (!name) {
       toast("Informe o nome do produto.", "err");
@@ -519,7 +522,7 @@ export default function ProdutosPage() {
             />
           </Field>
           <Button type="submit" disabled={saving}>
-            {saving ? "Salvando…" : "Salvar"}
+            {saving ? "…" : editing ? t("btn.update") : t("btn.save")}
           </Button>
         </form>
       </Modal>

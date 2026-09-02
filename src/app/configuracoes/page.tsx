@@ -37,6 +37,9 @@ import {
 } from "@/lib/pairing";
 import { detectPixKeyType } from "@/lib/pix";
 import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
+import { useT } from "@/lib/i18n";
+import type { AppCurrency, AppLanguage } from "@/lib/types";
+import { setPrefs } from "@/lib/prefs";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { getSyncState, pushAndPull, subscribeSync } from "@/lib/sync";
@@ -89,6 +92,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [whatsapp, setWhatsapp] = useState(
     maskWhatsAppContactInput(settings.whatsapp || ""),
   );
+  const [currency, setCurrency] = useState<AppCurrency>(settings.currency || "BRL");
+  const [language, setLanguage] = useState<AppLanguage>(settings.language || "pt");
+  const [paymentLink, setPaymentLink] = useState(settings.paymentLink || "");
+  const t = useT();
   const [rewardLabel, setRewardLabel] = useState(settings.rewardLabel);
   const [attendantName, setAttendantName] = useState(settings.attendantName ?? "");
   const [businessType, setBusinessType] = useState<BusinessType>(
@@ -138,12 +145,16 @@ function SettingsForm({ settings }: { settings: Settings }) {
       merchantName: merchantName.trim().slice(0, 25),
       merchantCity: merchantCity.trim().slice(0, 15),
       whatsapp: digitsOnly(whatsapp),
+      currency,
+      language,
+      paymentLink: paymentLink.trim(),
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
       businessType,
       attendantName: attendantName.trim(),
       hideStoreTotals: !allowHelperTotals,
       allowHelperEditPrices,
     });
+    setPrefs({ currency, language });
     toast("Configurações salvas");
   }
 
@@ -299,6 +310,41 @@ function SettingsForm({ settings }: { settings: Settings }) {
           placeholder="5511999999999"
         />
       </Field>
+      {canEditBilling(settings) ? (
+      <>
+      <Field label={t("settings.currency")}>
+        <select
+          className={inputClass}
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value as AppCurrency)}
+        >
+          <option value="BRL">R$ (BRL)</option>
+          <option value="USD">$ (USD)</option>
+          <option value="EUR">€ (EUR)</option>
+        </select>
+      </Field>
+      <Field label={t("settings.language")}>
+        <select
+          className={inputClass}
+          value={language}
+          onChange={(e) => setLanguage(e.target.value as AppLanguage)}
+        >
+          <option value="pt">Português (PT)</option>
+          <option value="en">English (EN)</option>
+          <option value="es">Español (ES)</option>
+        </select>
+      </Field>
+      <Field label={t("settings.paymentLink")} hint="https://buy.stripe.com/… ou PayPal">
+        <input
+          className={inputClass}
+          inputMode="url"
+          placeholder="https://"
+          value={paymentLink}
+          onChange={(e) => setPaymentLink(e.target.value)}
+        />
+      </Field>
+      </>
+      ) : null}
       {isAttendantDevice(settings) ? (
         <section className="rounded-3xl border-2 border-mint bg-surface p-4">
           <p className="text-xs font-extrabold uppercase tracking-widest text-mint">

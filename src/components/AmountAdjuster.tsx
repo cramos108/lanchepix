@@ -1,7 +1,9 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { Price } from "@/components/Money";
-import { centsToInput, parseBRLToCents } from "@/lib/money";
+import { centsToInput, currencySymbol, parseMoneyToCents } from "@/lib/money";
+import { getCurrency, subscribePrefs } from "@/lib/prefs";
 import { inputClass } from "@/components/ui";
 
 export function AmountAdjuster({
@@ -17,7 +19,9 @@ export function AmountAdjuster({
   suggested?: boolean;
   locked?: boolean;
 }) {
+  const currency = useSyncExternalStore(subscribePrefs, getCurrency, () => "BRL" as const);
   const total = Math.max(0, baseCents + extraCents);
+  const symbol = currencySymbol(currency);
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm font-bold text-muted">
@@ -40,20 +44,20 @@ export function AmountAdjuster({
               locked ? "opacity-50" : ""
             }`}
           >
-            +R$ {n / 100}
+            +{symbol} {n / 100}
           </button>
         ))}
       </div>
       <label className="flex flex-col gap-1.5">
         <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
-          Valor pago (R$)
+          {symbol}
         </span>
         <input
           className={inputClass}
           inputMode="decimal"
-          value={centsToInput(total)}
+          value={centsToInput(total, currency)}
           disabled={locked}
-          onChange={(e) => onChange(parseBRLToCents(e.target.value) - baseCents)}
+          onChange={(e) => onChange(parseMoneyToCents(e.target.value) - baseCents)}
         />
       </label>
       {extraCents !== 0 ? (

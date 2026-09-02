@@ -3,7 +3,8 @@
 import { QRCodeSVG } from "qrcode.react";
 import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
-import { formatBRL } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
+import { getCurrency } from "@/lib/prefs";
 
 export function ProductSticker({
   name,
@@ -40,10 +41,10 @@ export function ProductSticker({
       <p className="mt-2 text-2xl font-black leading-tight">{name}</p>
       {suggested ? (
         <p className="mt-1 text-lg font-black leading-tight">
-          Contribuição Sugerida: {formatBRL(priceCents)}
+          Contribuição Sugerida: {formatMoney(priceCents, getCurrency())}
         </p>
       ) : (
-        <p className="mt-1 text-3xl font-black tabular-nums">{formatBRL(priceCents)}</p>
+        <p className="mt-1 text-3xl font-black tabular-nums">{formatMoney(priceCents, getCurrency())}</p>
       )}
       <div className="mx-auto mt-4 flex justify-center rounded-2xl bg-white p-2">
         <QRCodeSVG

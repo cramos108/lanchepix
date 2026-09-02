@@ -5,13 +5,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Check, FileDown, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
-import { PixQr } from "@/components/PixQr";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone, toWhatsAppNumber } from "@/lib/phone";
-import { buildPixPayload } from "@/lib/pix";
-import { canSeeFinances, getAttendantNameLocal, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
+import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
 import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
@@ -24,10 +22,13 @@ import {
 import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import { buyerConfirmPixMessage, loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { CheckoutPay } from "@/components/CheckoutPay";
+import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { useT } from "@/lib/i18n";
 import type { Sale } from "@/lib/types";
 
 export default function PendentesPage() {
+  const t = useT();
   const allSales = useLiveQuery(
     () =>
       db.sales
@@ -93,21 +94,6 @@ export default function PendentesPage() {
       toast(`Carimbo ${next?.stamps ?? 0}/${required}`);
     }
     setStampAsk(null);
-  }
-
-  let pixPayload = "";
-  if (paying && settings?.pixKey) {
-    try {
-      pixPayload = buildPixPayload({
-        pixKey: settings.pixKey,
-        merchantName: settings.merchantName || settings.storeName,
-        merchantCity: settings.merchantCity,
-        amountCents: paying.totalCents,
-        description: paying.productName,
-      });
-    } catch {
-      pixPayload = "";
-    }
   }
 
   const helperNames = useMemo(() => {
@@ -320,7 +306,7 @@ export default function PendentesPage() {
               onClick={() => void refreshHistory()}
             >
               <RefreshCw className="h-5 w-5" />
-              {historyBusy ? "Atualizando…" : "Atualizar Histórico"}
+              {historyBusy ? "…" : t("btn.update")}
             </Button>
             {hideStore ? null : (
             <Button
@@ -564,45 +550,9 @@ export default function PendentesPage() {
         ) : null}
       </Modal>
 
-      <Modal open={Boolean(paying)} title="Recebido!" onClose={() => setPaying(null)}>
+      <Modal open={Boolean(paying)} title={t("pay.title")} onClose={() => setPaying(null)}>
         {paying && settings ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-center text-lg font-bold">
-              {paying.productName}
-              <span className="block text-3xl font-black text-sun">
-                <Price cents={paying.totalCents} />
-              </span>
-            </p>
-            {pixPayload ? (
-              <PixQr payload={pixPayload} size={200} label="Se ainda precisar do QR" />
-            ) : null}
-            {settings.whatsapp ? (
-              <a
-                href={waLink(
-                  settings.whatsapp,
-                  buyerConfirmPixMessage({
-                    productName: paying.productName,
-                    quantity: paying.quantity,
-                    totalCents: paying.totalCents,
-                    pixKey: settings.pixKey,
-                    sellerName:
-                      sellerNameFromSale(paying) ||
-                      getAttendantNameLocal(settings) ||
-                      settings.storeName,
-                  }),
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
-              >
-                <MessageCircle className="h-5 w-5" />
-                Enviar Comprovante no WhatsApp
-              </a>
-            ) : null}
-            <Button variant="ghost" onClick={() => setPaying(null)}>
-              Fechar
-            </Button>
-          </div>
+          <CheckoutPay sale={paying} settings={settings} onClose={() => setPaying(null)} />
         ) : null}
       </Modal>
 
