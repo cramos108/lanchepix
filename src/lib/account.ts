@@ -57,7 +57,8 @@ export function accountVendorId(
 export function staffRole(
   settings?: Pick<Settings, "deviceRole" | "pairedOwnerId"> | null,
 ): StaffRole {
-  const fromLs = readLs(USER_ROLE_KEY) || readLs("pair_staff_role");
+  const fromLs =
+    readLs(USER_ROLE_KEY) || readLs("pair_staff_role") || readLs("device_role");
   const role = settings?.deviceRole || fromLs;
   if (role === "gerente" || fromLs === "gerente") return "gerente";
   if (role === "ajudante" || role === "attendant") return "ajudante";

@@ -247,13 +247,11 @@ export function isNegocio(
   return isEquipe(settings);
 }
 
-/** Helper filter: Chefe/Gerente on Negócio only — never Solo/Grátis or Ajudante. */
+/** Helper filter: Chefe or Gerente. Never Ajudante. */
 export function canFilterByHelper(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
-  if (!settings) return false;
   if (isAttendantDevice(settings)) return false;
-  if (!isNegocio(settings)) return false;
   const role = staffRole(settings);
   return role === "dono" || role === "gerente";
 }

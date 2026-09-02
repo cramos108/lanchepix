@@ -840,11 +840,22 @@ export async function refetchOwnerSettings(): Promise<Settings> {
     rememberPrefs(local);
     return local;
   }
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("settings")
     .select("*")
     .eq("vendor_id", ownerId)
     .maybeSingle();
+  if (error) {
+    const core = await supabase
+      .from("settings")
+      .select(
+        "vendor_id, store_name, pix_key, merchant_name, merchant_city, whatsapp, reward_label, stamps_required, plan, business_type, allow_helper_edit_prices, updated_at",
+      )
+      .eq("vendor_id", ownerId)
+      .maybeSingle();
+    data = core.data;
+    error = core.error;
+  }
   if (error || !data) {
     rememberPrefs(local);
     return local;

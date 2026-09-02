@@ -143,6 +143,7 @@ export function persistPairLocal(
     localStorage.setItem(PAIR_PRICES_KEY, allowHelperEditPrices ? "true" : "false");
     localStorage.setItem(PAIR_ROLE_KEY, role);
     localStorage.setItem(USER_ROLE_KEY, role);
+    localStorage.setItem("device_role", role);
   } catch {
     /* private mode */
   }
@@ -163,13 +164,22 @@ export async function restorePairFromLocal(): Promise<void> {
     const hide = localStorage.getItem(PAIR_HIDE_KEY);
     const prices = localStorage.getItem(PAIR_PRICES_KEY);
     const role = normalizePairRole(
-      localStorage.getItem(PAIR_ROLE_KEY) || localStorage.getItem(USER_ROLE_KEY),
+      localStorage.getItem(PAIR_ROLE_KEY) ||
+        localStorage.getItem(USER_ROLE_KEY) ||
+        localStorage.getItem("device_role"),
     );
     if (!owner && !settings.pairedOwnerId) return;
-    const nextRole =
-      role === "gerente" || settings.deviceRole === "gerente" ? "gerente" : settings.deviceRole || role;
+    const nextRole: StaffRole =
+      role === "gerente" || settings.deviceRole === "gerente" ? "gerente" : role || "ajudante";
     const linked = owner || settings.pairedOwnerId || "";
     if (!linked) return;
+    persistPairLocal(
+      linked,
+      name || settings.attendantName || "",
+      nextRole === "gerente" ? false : hide !== "false",
+      nextRole,
+      prices === "true" || settings.allowHelperEditPrices === true,
+    );
     if (
       settings.pairedOwnerId === linked &&
       settings.deviceRole === nextRole &&
@@ -181,7 +191,7 @@ export async function restorePairFromLocal(): Promise<void> {
       ...settings,
       pairedOwnerId: linked,
       attendantName: name || settings.attendantName,
-      deviceRole: nextRole === "gerente" ? "gerente" : nextRole || "ajudante",
+      deviceRole: nextRole,
       hideStoreTotals: nextRole === "gerente" ? false : hide !== "false",
       allowHelperEditPrices: prices === "true" || settings.allowHelperEditPrices,
       plan: "equipe",
@@ -202,6 +212,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem(PAIR_PRICES_KEY);
     localStorage.removeItem(PAIR_ROLE_KEY);
     localStorage.removeItem(USER_ROLE_KEY);
+    localStorage.removeItem("device_role");
   } catch {
     /* private mode */
   }
@@ -340,15 +351,21 @@ export async function redeemPairingCode(
     ...settings,
     pairedOwnerId: ownerId,
     attendantName: name,
-    deviceRole: role,
-    hideStoreTotals,
+    deviceRole: role === "gerente" ? "gerente" : "ajudante",
+    hideStoreTotals: role === "gerente" ? false : hideStoreTotals,
     allowHelperEditPrices,
     plan: "equipe",
     storeName: storeName || settings.storeName,
     updatedAt: nowIso(),
     dirty: false,
   };
-  persistPairLocal(ownerId, name, hideStoreTotals, role, allowHelperEditPrices);
+  persistPairLocal(
+    ownerId,
+    name,
+    next.hideStoreTotals === true,
+    next.deviceRole === "gerente" ? "gerente" : "ajudante",
+    allowHelperEditPrices,
+  );
   await db.transaction("rw", db.products, db.sales, db.customers, db.settings, async () => {
     await db.products.clear();
     await db.sales.clear();

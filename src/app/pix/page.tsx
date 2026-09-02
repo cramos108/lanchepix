@@ -3,88 +3,129 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Printer } from "lucide-react";
+import { MessageCircle, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PixQr } from "@/components/PixQr";
 import { Button, EmptyState } from "@/components/ui";
 import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
-import { normalizeCurrency } from "@/lib/locale";
-import { isStaffDevice } from "@/lib/account";
-import { useT } from "@/lib/i18n";
+import { normalizeCurrency, normalizeLang } from "@/lib/locale";
+import { getAttendantNameLocal, isOwnerDevice, isStaffDevice } from "@/lib/account";
+import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 import { refetchOwnerSettings } from "@/lib/sync";
+import { orderReceiptMessage, waLink } from "@/lib/whatsapp";
+import type { Settings } from "@/lib/types";
 
 export default function PixPage() {
   const t = useT();
+  const lang = useLang();
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
+  const [owner, setOwner] = useState<Partial<Settings>>({});
 
   useEffect(() => {
-    void refetchOwnerSettings().catch(() => undefined);
+    void refetchOwnerSettings()
+      .then((row) => {
+        setOwner({
+          pixKey: row.pixKey,
+          whatsapp: row.whatsapp,
+          currency: row.currency,
+          merchantName: row.merchantName,
+          merchantCity: row.merchantCity,
+          storeName: row.storeName,
+          language: row.language,
+        });
+      })
+      .catch(() => undefined);
   }, []);
 
+  const pixKey = (owner.pixKey || settings?.pixKey || "").trim();
+  const whatsapp = (owner.whatsapp || settings?.whatsapp || "").trim();
+  const merchantName = owner.merchantName || settings?.merchantName || settings?.storeName || "";
+  const merchantCity = owner.merchantCity || settings?.merchantCity || "";
+  const currency = normalizeCurrency(owner.currency || settings?.currency);
   const selectedProduct = products?.find((p) => p.id === selectedId);
 
   const payload = useMemo(() => {
-    if (!settings?.pixKey) return "";
+    if (!pixKey) return "";
     try {
       return buildPixPayload({
-        pixKey: settings.pixKey,
-        merchantName: settings.merchantName || settings.storeName,
-        merchantCity: settings.merchantCity,
+        pixKey,
+        merchantName,
+        merchantCity,
         amountCents:
-          selectedProduct?.priceMode === "suggested"
-            ? undefined
-            : selectedProduct?.priceCents,
-        description: selectedProduct?.name ?? settings.storeName,
+          selectedProduct?.priceMode === "suggested" ? undefined : selectedProduct?.priceCents,
+        description: selectedProduct?.name ?? merchantName,
         txid: "***",
       });
     } catch {
       return "";
     }
-  }, [settings, selectedProduct]);
+  }, [pixKey, merchantName, merchantCity, selectedProduct]);
+
+  const waUrl = whatsapp
+    ? waLink(
+        whatsapp,
+        orderReceiptMessage({
+          lang: normalizeLang(owner.language || settings?.language || lang),
+          currency,
+          productName: selectedProduct?.name || merchantName || "Pix",
+          quantity: 1,
+          totalCents: selectedProduct?.priceCents ?? 0,
+          method: "pix",
+          sellerName: getAttendantNameLocal(settings) || settings?.attendantName || settings?.storeName,
+        }),
+      )
+    : "";
 
   if (!settings) {
     return <p className="text-muted">{t("loading")}</p>;
   }
 
-  const money = (cents: number) => formatMoney(cents, normalizeCurrency(settings.currency));
+  const money = (cents: number) => formatMoney(cents, currency);
 
-  if (!settings.pixKey) {
+  if (!pixKey) {
     if (isStaffDevice(settings)) {
-      return <p className="text-muted">{t("loading")}</p>;
+      return (
+        <EmptyState
+          title={t("pay.pix")}
+          text={t("warn.pixOwner")}
+        />
+      );
     }
-    return (
-      <EmptyState
-        title="Cadastre sua chave Pix"
-        text="Sem a chave não dá para gerar o QR. Leva 10 segundos nas configurações."
-        action={
-          <Link
-            href="/configuracoes"
-            className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-sun px-5 text-base font-extrabold uppercase text-sunink"
-          >
-            Ir para configurações
-          </Link>
-        }
-      />
-    );
+    if (isOwnerDevice(settings)) {
+      return (
+        <EmptyState
+          title="Cadastre sua chave Pix"
+          text="Sem a chave não dá para gerar o QR. Leva 10 segundos nas configurações."
+          action={
+            <Link
+              href="/configuracoes"
+              className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-sun px-5 text-base font-extrabold uppercase text-sunink"
+            >
+              Ir para configurações
+            </Link>
+          }
+        />
+      );
+    }
   }
 
   return (
     <div className="flex flex-col gap-5">
       <section className="rounded-3xl border-2 border-line bg-surface p-4">
         <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
-          {detectPixKeyType(settings.pixKey)}
+          {detectPixKeyType(pixKey)}
         </p>
-        <p className="break-all text-lg font-black">{normalizePixKey(settings.pixKey)}</p>
+        <p className="break-all text-lg font-black">{normalizePixKey(pixKey)}</p>
         <p className="text-sm font-bold text-muted">
-          {settings.merchantName || settings.storeName} · {settings.merchantCity}
+          {merchantName} · {merchantCity}
         </p>
       </section>
 
@@ -111,12 +152,24 @@ export default function PixPage() {
           label={
             selectedProduct
               ? `${selectedProduct.name} · ${money(selectedProduct.priceCents)}`
-              : "QR estático · cliente digita o valor"
+              : t("pay.scanPix")
           }
         />
       ) : (
-        <p className="text-alert">Não foi possível gerar o QR. Revise a chave Pix.</p>
+        <p className="text-alert">{t("warn.pixOwner")}</p>
       )}
+
+      {waUrl ? (
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-mint bg-mint px-4 text-base font-extrabold uppercase text-sunink"
+        >
+          <MessageCircle className="h-5 w-5" />
+          {t("pay.proof")}
+        </a>
+      ) : null}
 
       <Button onClick={() => window.print()}>
         <Printer className="h-5 w-5" />
@@ -129,9 +182,9 @@ export default function PixPage() {
             let code = "";
             try {
               code = buildPixPayload({
-                pixKey: settings.pixKey,
-                merchantName: settings.merchantName || settings.storeName,
-                merchantCity: settings.merchantCity,
+                pixKey,
+                merchantName,
+                merchantCity,
                 amountCents: p.priceMode === "suggested" ? undefined : p.priceCents,
                 description: p.name,
               });
@@ -153,7 +206,7 @@ export default function PixPage() {
                 <div className="flex justify-center">
                   <QRCodeSVG value={code} size={140} bgColor="#fff" fgColor="#000" level="M" />
                 </div>
-                <p className="mt-2 text-[10px]">Pix · {detectPixKeyType(settings.pixKey)}</p>
+                <p className="mt-2 text-[10px]">Pix · {detectPixKeyType(pixKey)}</p>
               </article>
             );
           })}

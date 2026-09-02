@@ -25,8 +25,12 @@ export function PairingJoinModal({
     setBusy(true);
     setError("");
     try {
-      await redeemPairingCode(code, name);
-      toast("Conectado como ajudante. Vendas vão para a conta principal.");
+      const linked = await redeemPairingCode(code, name);
+      toast(
+        linked.deviceRole === "gerente"
+          ? "Conectado como Gerente. Você vê o time inteiro."
+          : "Conectado como ajudante. Vendas vão para a conta principal.",
+      );
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não deu para conectar.");
