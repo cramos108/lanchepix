@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency } from "@/lib/locale";
-import { isAttendantDevice } from "@/lib/account";
+import { isStaffDevice } from "@/lib/account";
 import { useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 import { refetchOwnerSettings } from "@/lib/sync";
@@ -60,13 +60,19 @@ export default function PixPage() {
   const money = (cents: number) => formatMoney(cents, normalizeCurrency(settings.currency));
 
   if (!settings.pixKey) {
-    if (isAttendantDevice(settings)) {
+    if (isStaffDevice(settings)) {
       return (
         <EmptyState
           title={t("pay.pix")}
           text={t("sell.emptyStaff")}
           action={
-            <Button onClick={() => void refetchOwnerSettings()}>{t("btn.update")}</Button>
+            <Button
+              onClick={() =>
+                void refetchOwnerSettings().then(() => undefined)
+              }
+            >
+              {t("btn.update")}
+            </Button>
           }
         />
       );

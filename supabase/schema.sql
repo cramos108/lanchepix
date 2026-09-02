@@ -168,6 +168,7 @@ create table if not exists public.pairing_codes (
 );
 alter table public.pairing_codes add column if not exists owner_id uuid;
 alter table public.pairing_codes add column if not exists metadata text;
+alter table public.pairing_codes add column if not exists role text;
 
 alter table public.pairing_codes enable row level security;
 drop policy if exists "lanchepix_pairing_codes_anon" on public.pairing_codes;

@@ -7,7 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { PixQr } from "@/components/PixQr";
 import { Price } from "@/components/Money";
 import { Button, inputClass } from "@/components/ui";
-import { getAttendantNameLocal, isAttendantDevice } from "@/lib/account";
+import { getAttendantNameLocal, isStaffDevice } from "@/lib/account";
 import { db } from "@/lib/db";
 import { useLang, useT } from "@/lib/i18n";
 import { normalizeCurrency, normalizeLang, type PayMethod } from "@/lib/locale";
@@ -84,7 +84,7 @@ export function CheckoutPay({
 
   const receivedCents = parseMoneyToCents(received);
   const changeCents = receivedCents - sale.totalCents;
-  const staff = isAttendantDevice(settings);
+  const staff = isStaffDevice(settings);
 
   async function confirmCash() {
     if (busy) return;

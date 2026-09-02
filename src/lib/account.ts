@@ -120,7 +120,8 @@ export function canPairDevices(
 export function canSeeFinances(
   settings?: Pick<Settings, "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
-  return staffRole(settings) === "dono";
+  const role = staffRole(settings);
+  return role === "dono" || role === "gerente";
 }
 
 export function canEditBilling(
@@ -135,9 +136,18 @@ export function helperHidesStoreTotals(
 ): boolean {
   if (!settings) return false;
   const role = staffRole(settings);
-  if (role === "dono") return false;
-  if (role === "gerente") return true;
+  if (role === "dono" || role === "gerente") return false;
   return isAttendantDevice(settings) && settings.hideStoreTotals !== false;
+}
+
+export function saleSellerName(sale: {
+  attendantName?: string;
+  notes?: string;
+}): string {
+  const named = sale.attendantName?.trim();
+  if (named) return named;
+  const fromNotes = sale.notes?.match(/(?:Vendido por|Ajudante):\s*(.+?)(?:\s·|$)/i);
+  return fromNotes?.[1]?.trim() || "";
 }
 
 export function visibleSalesForDevice(
@@ -148,5 +158,5 @@ export function visibleSalesForDevice(
   if (staffRole(settings) !== "ajudante") return list;
   const name = settings?.attendantName?.trim() ?? "";
   if (!name) return [];
-  return list.filter((s) => (s.attendantName ?? "").trim() === name);
+  return list.filter((s) => saleSellerName(s) === name);
 }

@@ -204,9 +204,10 @@ export async function createPairingCode(
   const code = randomCode();
   const ownerId = settings.vendorId;
   const storeName = settings.storeName || "Meu negócio";
-  const hideStoreTotals = settings.hideStoreTotals !== false;
-  const allowHelperEditPrices = settings.allowHelperEditPrices === true;
   const assignedRole: StaffRole = role === "gerente" ? "gerente" : "ajudante";
+  const hideStoreTotals =
+    assignedRole === "gerente" ? false : settings.hideStoreTotals !== false;
+  const allowHelperEditPrices = settings.allowHelperEditPrices === true;
   const metadata = JSON.stringify({
     store_name: storeName,
     expires_at: expiresAt,
@@ -218,10 +219,15 @@ export async function createPairingCode(
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
     const payload = { code, owner_id: ownerId };
-    const first = await supabase.from("pairing_codes").insert({ ...payload, metadata });
-    if (first.error) {
-      const second = await supabase.from("pairing_codes").insert(payload);
-      if (second.error) throw second.error;
+    const withRole = await supabase
+      .from("pairing_codes")
+      .insert({ ...payload, metadata, role: assignedRole });
+    if (withRole.error) {
+      const withMeta = await supabase.from("pairing_codes").insert({ ...payload, metadata });
+      if (withMeta.error) {
+        const second = await supabase.from("pairing_codes").insert(payload);
+        if (second.error) throw second.error;
+      }
     }
   } catch (err) {
     console.error("Pairing code insert failed, using local fallback:", err);
@@ -268,9 +274,16 @@ export async function redeemPairingCode(
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
     let query = await supabase
       .from("pairing_codes")
-      .select("code, owner_id, metadata")
+      .select("code, owner_id, metadata, role")
       .eq("code", code)
       .maybeSingle();
+    if (query.error) {
+      query = await supabase
+        .from("pairing_codes")
+        .select("code, owner_id, metadata")
+        .eq("code", code)
+        .maybeSingle();
+    }
     if (query.error) {
       query = await supabase
         .from("pairing_codes")
@@ -279,15 +292,16 @@ export async function redeemPairingCode(
         .maybeSingle();
     }
     if (query.error) throw query.error;
-    const row = query.data as PairingCodeRow | null;
+    const row = query.data as (PairingCodeRow & { role?: string | null }) | null;
     if (!row?.owner_id) throw new Error("Código não encontrado.");
     ownerId = row.owner_id;
     const extra = parseMetadata(row.metadata);
     storeName = extra.store_name ?? "";
     expiresAt = extra.expires_at ?? "";
-    hideStoreTotals = extra.hide_store_totals !== false;
     allowHelperEditPrices = extra.allow_helper_edit_prices === true;
-    role = extra.role === "gerente" ? "gerente" : "ajudante";
+    role = normalizePairRole(row.role || extra.role);
+    hideStoreTotals =
+      role === "gerente" ? false : extra.hide_store_totals !== false;
   } catch (err) {
     console.error("Pairing code select failed, trying local fallback:", err);
     const local = lookupLocalFallback(code);
@@ -297,9 +311,9 @@ export async function redeemPairingCode(
     ownerId = local.owner_id;
     storeName = local.store_name;
     expiresAt = local.expires_at;
-    hideStoreTotals = local.hide_store_totals !== false;
     allowHelperEditPrices = local.allow_helper_edit_prices === true;
     role = local.role === "gerente" ? "gerente" : "ajudante";
+    hideStoreTotals = role === "gerente" ? false : local.hide_store_totals !== false;
   }
 
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {

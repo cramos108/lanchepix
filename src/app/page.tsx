@@ -30,7 +30,6 @@ import { refetchOwnerProducts, refetchOwnerSettings } from "@/lib/sync";
 import {
   canEditPrices,
   canSeeFinances,
-  isAttendantDevice,
   isStaffDevice,
   visibleSalesForDevice,
 } from "@/lib/account";
@@ -179,8 +178,11 @@ export default function VenderPage() {
   }
 
   async function openDraft(product: Product, mode: "pending" | "paid") {
-    if (isAttendantDevice(settings)) {
-      await refetchOwnerSettings().catch(() => undefined);
+    if (isStaffDevice(settings)) {
+      const latest = await refetchOwnerSettings().catch(() => undefined);
+      if (mode === "paid" && !latest?.pixKey && !settings?.pixKey) {
+        /* Chefe key may still land on checkout after a second fetch. */
+      }
     } else if (!settings?.pixKey && mode === "paid") {
       toast(t("warn.pixOwner"), "err");
       return;
@@ -267,7 +269,7 @@ export default function VenderPage() {
               settings?.attendantName || "conectado"
             }`}
           </p>
-          {isAttendantDevice(settings) ? (
+          {isStaffDevice(settings) ? (
             <Button
               variant="line"
               className="w-full text-sm"
@@ -357,7 +359,9 @@ export default function VenderPage() {
           title={t("sell.empty")}
           text={
             isStaffDevice(settings)
-              ? catalogError || t("sell.emptyStaff")
+              ? settings?.pixKey
+                ? t("catalog.empty")
+                : catalogError || t("sell.emptyStaff")
               : t("sell.emptyHint")
           }
           action={

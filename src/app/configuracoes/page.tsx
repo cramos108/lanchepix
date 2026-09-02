@@ -419,7 +419,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
             <span className="text-sm font-bold leading-snug">
               Permitir que ajudantes vejam o total geral da banca
               <span className="mt-1 block text-xs font-bold text-muted">
-                Não se aplica a Gerente (sem acesso a totais da loja).
+                Gerente sempre vê totais e o filtro por ajudante.
               </span>
             </span>
           </label>
