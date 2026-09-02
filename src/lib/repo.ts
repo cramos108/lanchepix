@@ -1,6 +1,5 @@
 import { db, ensureSettings } from "./db";
 import { newId, nowIso } from "./id";
-import { nationalDigits } from "./phone";
 import type { Customer, Product, Sale, Settings } from "./types";
 
 function scheduleSync() {
@@ -290,17 +289,19 @@ export async function attachCustomerToSale(
 }
 
 export async function findCustomerByPhone(phone: string): Promise<Customer | undefined> {
-  const needle = nationalDigits(phone);
+  const { digitsOnly } = await import("./phone");
+  const needle = digitsOnly(phone);
   if (!needle) return undefined;
   const all = await db.customers.toArray();
-  return all.find((c) => nationalDigits(c.phone) === needle);
+  return all.find((c) => digitsOnly(c.phone) === needle);
 }
 
 export async function upsertCustomer(input: {
   phone: string;
   name?: string;
 }): Promise<Customer> {
-  const phone = nationalDigits(input.phone);
+  const { digitsOnly } = await import("./phone");
+  const phone = digitsOnly(input.phone);
   const existing = await findCustomerByPhone(phone);
   const now = nowIso();
   if (existing) {

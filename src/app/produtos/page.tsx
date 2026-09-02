@@ -237,7 +237,7 @@ export default function ProdutosPage() {
       <div className="flex gap-2">
         <Button className="flex-1" onClick={startCreate}>
           <Plus className="h-5 w-5" />
-          Novo produto
+          {t("btn.newProduct")}
         </Button>
       </div>
       ) : null}
@@ -260,7 +260,7 @@ export default function ProdutosPage() {
                   : "border-line bg-surface text-white"
               }`}
             >
-              {c}
+              {c === "Todos" ? t("filter.all") : c}
             </button>
           ))}
         </div>
@@ -268,7 +268,7 @@ export default function ProdutosPage() {
 
       {products && products.length === 0 ? (
         <EmptyState
-          title="Catálogo vazio"
+          title={t("catalog.empty")}
           text="Escolha o nicho e cadastre lanches, capinhas, meias, sabonetes…"
           action={
             canEdit ? <Button onClick={startCreate}>Começar pelo nicho</Button> : undefined
@@ -293,7 +293,7 @@ export default function ProdutosPage() {
               </p>
               {p.priceMode === "suggested" ? (
                 <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber">
-                  Sugerida
+                  {t("sell.suggested")}
                 </p>
               ) : null}
             </div>
@@ -302,7 +302,7 @@ export default function ProdutosPage() {
                 p.stock <= 0 ? "text-alert" : p.stock <= 3 ? "text-amber" : "text-muted"
               }`}
             >
-              Estoque: {p.stock} un.
+              {t("catalog.stock")}: {p.stock}
             </p>
             <div className="mt-auto flex flex-col gap-2 pt-2">
               {canEdit ? (
@@ -312,7 +312,7 @@ export default function ProdutosPage() {
                 onClick={() => startEdit(p)}
               >
                 <Pencil className="h-4 w-4" />
-                Editar
+                {t("btn.edit")}
               </Button>
               ) : null}
               <Button
@@ -321,7 +321,7 @@ export default function ProdutosPage() {
                 onClick={() => openSticker(p)}
               >
                 <Printer className="h-4 w-4" />
-                Imprimir QR
+                {t("btn.printQr")}
               </Button>
               {canEdit ? (
               <Button
@@ -330,7 +330,7 @@ export default function ProdutosPage() {
                 onClick={() => setConfirmId(p.id)}
               >
                 <Trash2 className="h-4 w-4" />
-                Excluir
+                {t("btn.delete")}
               </Button>
               ) : null}
             </div>
@@ -340,7 +340,7 @@ export default function ProdutosPage() {
 
       <Modal
         open={open}
-        title={editing ? "Editar produto" : "Novo produto"}
+        title={editing ? t("catalog.edit") : t("catalog.new")}
         onClose={() => setOpen(false)}
       >
         <form
@@ -449,7 +449,7 @@ export default function ProdutosPage() {
               <span className="text-sm text-muted">Compactamos a foto para a rede móvel.</span>
             )}
           </div>
-          <Field label="Nome">
+          <Field label={t("catalog.name")}>
             <input
               className={inputClass}
               placeholder="Nome do produto"
@@ -594,7 +594,7 @@ export default function ProdutosPage() {
         <p className="mb-4 text-muted">Ele some do catálogo, mas o histórico de vendas fica.</p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="ghost" onClick={() => setConfirmId(null)}>
-            Cancelar
+            {t("btn.cancel")}
           </Button>
           <Button
             variant="alert"

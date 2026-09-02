@@ -8,9 +8,9 @@ import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
-import { formatBrPhone, toWhatsAppNumber } from "@/lib/phone";
+import { formatBrPhone } from "@/lib/phone";
 import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
-import { isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
+import { canFilterByHelper, isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
 import {
   addStamp,
   cancelSale,
@@ -116,7 +116,7 @@ export default function PendentesPage() {
   const pro = isPro(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = isNegocio(settings) && canSeeFinances(settings);
-  const showHelperFilter = canSeeFinances(settings);
+  const showHelperFilter = canFilterByHelper(settings);
   const tabTotalGeral = tab === "open" ? pendingCents : historyCents;
   const tabTotalAjudante = tab === "open" ? pendingFilteredCents : historyFilteredCents;
 
@@ -169,7 +169,7 @@ export default function PendentesPage() {
       ) : (
       <div className="rounded-3xl border-2 border-amber bg-surface px-4 py-3">
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-          Dinheiro na rua · a receber
+          {t("history.due")}
         </p>
         <p className="text-3xl font-black tabular-nums text-sun">
           <Money cents={pendingCents} />
@@ -180,8 +180,7 @@ export default function PendentesPage() {
       </div>
       )}
       <p className="text-sm font-bold text-muted">
-        Toque em <span className="text-sun">Pago</span> quando o Pix cair. O valor
-        entra no lucro de hoje, da semana, do mês e do ano.
+        {t("history.hint")}
       </p>
 
       <div className={`grid gap-2 ${showReports ? "grid-cols-3" : "grid-cols-2"}`}>
@@ -192,7 +191,7 @@ export default function PendentesPage() {
             tab === "open" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
           }`}
         >
-          A receber
+          {t("tab.open")}
         </button>
         <button
           type="button"
@@ -201,7 +200,7 @@ export default function PendentesPage() {
             tab === "history" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
           }`}
         >
-          Histórico
+          {t("tab.history")}
         </button>
         {showReports ? (
           <button
@@ -211,7 +210,7 @@ export default function PendentesPage() {
               tab === "reports" ? "border-sun bg-sun text-sunink" : "border-line bg-surface"
             }`}
           >
-            Relatórios
+            {t("tab.reports")}
           </button>
         ) : null}
       </div>
@@ -220,14 +219,14 @@ export default function PendentesPage() {
         <section className="rounded-3xl border-2 border-line bg-surface p-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
-              Filtrar por ajudante
+              {t("filter.helper")}
             </span>
             <select
               className={inputClass}
               value={helperFilter}
               onChange={(e) => setHelperFilter(e.target.value)}
             >
-              <option value="">Todos os Ajudantes</option>
+              <option value="">{t("filter.helpersAll")}</option>
               {helperNames.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -238,7 +237,7 @@ export default function PendentesPage() {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-2xl border-2 border-sun/70 bg-ink px-3 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
-                Total Geral
+                {t("metric.totalAll")}
               </p>
               <p className="text-xl font-black tabular-nums">
                 <Money cents={tabTotalGeral} />
@@ -246,13 +245,13 @@ export default function PendentesPage() {
             </div>
             <div className="rounded-2xl border-2 border-mint/70 bg-ink px-3 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-widest text-mint">
-                Total por Ajudante
+                {t("metric.totalHelper")}
               </p>
               <p className="text-xl font-black tabular-nums">
                 <Money cents={helperFilter ? tabTotalAjudante : tabTotalGeral} />
               </p>
               <p className="text-[11px] font-bold text-muted">
-                {helperFilter || "Todos os Ajudantes"}
+                {helperFilter || t("filter.helpersAll")}
               </p>
             </div>
           </div>
@@ -323,7 +322,7 @@ export default function PendentesPage() {
           {filteredHistory.length === 0 ? (
             <li>
               <EmptyState
-                title="Sem vendas"
+                title={t("history.emptySales")}
                 text="PIX AGORA, Pix Confiança em aberto e pagos aparecem aqui."
               />
             </li>
@@ -373,7 +372,7 @@ export default function PendentesPage() {
 
       {tab === "open" && filteredPending.length === 0 ? (
         <EmptyState
-          title="Nada no Pix Confiança"
+          title={t("history.empty")}
           text="Quando alguém levar e pagar depois, a venda aparece aqui."
         />
       ) : null}
@@ -420,7 +419,7 @@ export default function PendentesPage() {
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button variant="mint" onClick={() => startSettle(sale)}>
                 <Check className="h-5 w-5" />
-                Pago
+                {t("btn.paid")}
               </Button>
               <Button
                 variant="alert"
@@ -431,13 +430,13 @@ export default function PendentesPage() {
                 }}
               >
                 <X className="h-5 w-5" />
-                Cancelar
+                {t("btn.cancel")}
               </Button>
             </div>
             {settings ? (
               <a
                 href={waLink(
-                  toWhatsAppNumber(sale.customerPhone ?? ""),
+                  sale.customerPhone ?? "",
                   paymentReminderMessage({
                     storeName: settings.storeName,
                     customerName: sale.customerName,
@@ -452,7 +451,7 @@ export default function PendentesPage() {
                 className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-line bg-surface2 text-sm font-extrabold uppercase"
               >
                 <MessageCircle className="h-5 w-5" />
-                Cobrar no WhatsApp
+                {t("wa.charge")}
               </a>
             ) : null}
           </li>
@@ -574,7 +573,7 @@ export default function PendentesPage() {
                 if (customer && settings) {
                   window.open(
                     waLink(
-                      toWhatsAppNumber(customer.phone),
+                      customer.phone,
                       loyaltyStampMessage({
                         storeName: settings.storeName,
                         customerName: customer.name,

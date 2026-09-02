@@ -1,6 +1,5 @@
-import { isStaffDevice } from "./account";
+import { isAttendantDevice, isStaffDevice, staffRole } from "./account";
 import { db, ensureSettings } from "./db";
-import { nationalDigits } from "./phone";
 import type { Plan, Sale, Settings } from "./types";
 
 export const STRIPE_PRO_URL = "https://buy.stripe.com/6oU7sK3TQ0X77vr5VC4ko00";
@@ -248,6 +247,17 @@ export function isNegocio(
   return isEquipe(settings);
 }
 
+/** Helper filter: Chefe/Gerente on Negócio only — never Solo/Grátis or Ajudante. */
+export function canFilterByHelper(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  if (!settings) return false;
+  if (isAttendantDevice(settings)) return false;
+  if (!isNegocio(settings)) return false;
+  const role = staffRole(settings);
+  return role === "dono" || role === "gerente";
+}
+
 export function planLabel(plan?: Plan | string | null): string {
   const p = normalizePlan(plan);
   if (p === "equipe") return "NEGÓCIO";
@@ -284,9 +294,10 @@ export async function canAddLoyaltyCard(phone: string): Promise<boolean> {
   if (getDevSimulateLimit()) return false;
   const settings = await ensureSettings();
   if (isPro(settings)) return true;
-  const needle = nationalDigits(phone);
+  const { digitsOnly } = await import("./phone");
+  const needle = digitsOnly(phone);
   const all = await db.customers.toArray();
-  if (all.some((c) => nationalDigits(c.phone) === needle)) return true;
+  if (all.some((c) => digitsOnly(c.phone) === needle)) return true;
   return all.length < FREE_LOYALTY_LIMIT;
 }
 

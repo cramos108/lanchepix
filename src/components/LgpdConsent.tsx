@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 
 export function LgpdConsent({
   checked,
@@ -9,6 +10,7 @@ export function LgpdConsent({
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const t = useT();
   return (
     <label className="flex items-start gap-3 rounded-2xl border-2 border-line bg-surface2 p-3">
       <input
@@ -18,9 +20,9 @@ export function LgpdConsent({
         onChange={(e) => onChange(e.target.checked)}
       />
       <span className="text-sm font-bold leading-snug text-muted">
-        Concordo com os termos da LGPD para controle de fidelidade e fiado.{" "}
+        {t("lgpd")}{" "}
         <Link href="/termos" className="text-sun underline">
-          Termos
+          {t("lgpd.terms")}
         </Link>
       </span>
     </label>

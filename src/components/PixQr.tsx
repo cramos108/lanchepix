@@ -3,6 +3,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
+import { useT } from "@/lib/i18n";
 
 export function PixQr({
   payload,
@@ -13,6 +14,7 @@ export function PixQr({
   size?: number;
   label?: string;
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -49,7 +51,7 @@ export function PixQr({
         className="w-full rounded-2xl border-2 border-line bg-surface2 px-3 py-3 text-left"
       >
         <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
-          Pix Copia e Cola {copied ? "· copiado" : ""}
+          {t("pay.copyCode")} {copied ? `· ${t("pay.copied")}` : ""}
         </p>
         <p className="mt-1 break-all font-mono text-[11px] leading-snug text-muted">
           {payload}

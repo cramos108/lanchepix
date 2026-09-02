@@ -309,15 +309,15 @@ function toRemoteSettings(s: Settings): Record<string, unknown> {
 function billingFromRemote(remote: RemoteSettings, local: Settings): Partial<Settings> {
   return {
     storeName: remote.store_name || local.storeName,
-    pixKey: remote.pix_key ?? local.pixKey,
-    merchantName: remote.merchant_name ?? local.merchantName,
-    merchantCity: remote.merchant_city ?? local.merchantCity,
-    whatsapp: remote.whatsapp ?? local.whatsapp,
+    pixKey: String(remote.pix_key ?? "").trim() || local.pixKey || "",
+    merchantName: remote.merchant_name || local.merchantName,
+    merchantCity: remote.merchant_city || local.merchantCity,
+    whatsapp: String(remote.whatsapp ?? "").trim() || local.whatsapp || "",
     rewardLabel: remote.reward_label || local.rewardLabel,
     stampsRequired: remote.stamps_required || local.stampsRequired,
-    currency: normalizeCurrency(remote.currency ?? local.currency),
-    language: normalizeLang(remote.language ?? local.language),
-    paymentLink: remote.payment_link ?? local.paymentLink ?? "",
+    currency: normalizeCurrency(remote.currency || local.currency),
+    language: normalizeLang(remote.language || local.language),
+    paymentLink: String(remote.payment_link ?? "").trim() || local.paymentLink || "",
     allowHelperEditPrices: remote.allow_helper_edit_prices === true,
   };
 }

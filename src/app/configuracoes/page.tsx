@@ -155,7 +155,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       allowHelperEditPrices,
     });
     setPrefs({ currency, language });
-    toast("Configurações salvas");
+    toast(t("settings.saved"));
   }
 
   const sync = getSyncState();
@@ -252,7 +252,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
           ))}
         </select>
       </Field>
-      <Field label="Nome do Negócio / Banca">
+      <Field label={t("settings.store")}>
         <input
           className={inputClass}
           value={storeName}
@@ -263,7 +263,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       {canEditBilling(settings) ? (
       <>
       <Field
-        label="Chave Pix"
+        label={t("settings.pixKey")}
         hint={
           pixKey
             ? detectPixKeyType(pixKey)
@@ -298,7 +298,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       </>
       ) : null}
       <Field
-        label="WhatsApp de Contato"
+        label={t("settings.whatsapp")}
         hint="Com código do país, só números. Brasil: 5511999999999 · EUA: 13525550199"
       >
         <input
@@ -316,7 +316,11 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <select
           className={inputClass}
           value={currency}
-          onChange={(e) => setCurrency(e.target.value as AppCurrency)}
+          onChange={(e) => {
+            const next = e.target.value as AppCurrency;
+            setCurrency(next);
+            setPrefs({ currency: next });
+          }}
         >
           <option value="BRL">R$ (BRL)</option>
           <option value="USD">$ (USD)</option>
@@ -327,7 +331,11 @@ function SettingsForm({ settings }: { settings: Settings }) {
         <select
           className={inputClass}
           value={language}
-          onChange={(e) => setLanguage(e.target.value as AppLanguage)}
+          onChange={(e) => {
+            const next = e.target.value as AppLanguage;
+            setLanguage(next);
+            setPrefs({ language: next });
+          }}
         >
           <option value="pt">Português (PT)</option>
           <option value="en">English (EN)</option>

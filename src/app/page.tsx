@@ -22,7 +22,7 @@ import {
   isSameLocalYear,
   periodCut,
 } from "@/lib/id";
-import { maskPhoneInput, nationalDigits, toWhatsAppNumber } from "@/lib/phone";
+import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
 import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { loadCartQty, saveCartQty } from "@/lib/persist";
@@ -198,7 +198,7 @@ export default function VenderPage() {
 
   async function confirmDraft(withWhatsApp: boolean) {
     if (!draft || registering) return;
-    const digits = nationalDigits(phone);
+    const digits = digitsOnly(phone);
     if (digits && !lgpdOk) {
       toast("Marque o consentimento LGPD para salvar o telefone.", "err");
       return;
@@ -225,7 +225,7 @@ export default function VenderPage() {
         toast("Pix Confiança registrado. Estoque baixa quando marcar Pago.");
         if (withWhatsApp && digits && settings) {
           const url = waLink(
-            toWhatsAppNumber(digits),
+            digits,
             paymentReminderMessage({
               storeName: settings.storeName,
               customerName: customer?.name || customerName,
@@ -288,10 +288,10 @@ export default function VenderPage() {
 
       {hideStore ? null : (
         <section className="grid grid-cols-2 gap-2">
-          <MetricCard label="Hoje" value={todayPaid} highlight />
-          <MetricCard label="Esta Semana" value={weekPaid} />
-          <MetricCard label="Este Mês" value={monthPaid} />
-          <MetricCard label="Este Ano" value={yearPaid} />
+          <MetricCard label={t("metric.today")} value={todayPaid} highlight />
+          <MetricCard label={t("metric.week")} value={weekPaid} />
+          <MetricCard label={t("metric.month")} value={monthPaid} />
+          <MetricCard label={t("metric.year")} value={yearPaid} />
         </section>
       )}
 
@@ -300,7 +300,7 @@ export default function VenderPage() {
         className="rounded-3xl border-2 border-amber bg-surface px-4 py-3"
       >
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
-          {hideStore ? "Seus pedidos · Pix Confiança" : "Pix Confiança · a receber"}
+          {hideStore ? t("sell.pendingMine") : t("sell.pending")}
         </p>
         {hideStore ? (
           <p className="text-2xl font-black">{pendingCount} abertos</p>
@@ -310,7 +310,7 @@ export default function VenderPage() {
           </p>
         )}
         <p className="text-sm font-bold text-muted">
-          {pendingCount} {pendingCount === 1 ? "pedido aberto" : "pedidos abertos"} na rua
+          {pendingCount} {pendingCount === 1 ? t("sell.openOne") : t("sell.openMany")}
         </p>
       </Link>
 
@@ -347,19 +347,18 @@ export default function VenderPage() {
                 : "border-line bg-surface text-white"
             }`}
           >
-            {c}
+            {c === "Todos" ? t("filter.all") : c}
           </button>
         ))}
       </div>
 
       {products && products.length === 0 ? (
         <EmptyState
-          title="Nenhum produto cadastrado"
+          title={t("sell.empty")}
           text={
             isStaffDevice(settings)
-              ? catalogError ||
-                "O catálogo da banca principal ainda não chegou. Confira a internet e aguarde o sync."
-              : "Comece pelo catálogo: lanches, capinhas, meias, sabonetes…"
+              ? catalogError || t("sell.emptyStaff")
+              : t("sell.emptyHint")
           }
           action={
             isStaffDevice(settings) ? (
@@ -412,7 +411,7 @@ export default function VenderPage() {
                   </span>
                   {product.priceMode === "suggested" ? (
                     <span className="text-[10px] font-extrabold uppercase text-amber">
-                      Sugerida
+                      {t("sell.suggested")}
                     </span>
                   ) : null}
                 </p>
@@ -423,8 +422,8 @@ export default function VenderPage() {
                 }`}
               >
                 {out
-                  ? "Sem estoque"
-                  : `${product.stock} un. em estoque${low ? " · baixo" : ""}`}
+                  ? t("sell.out")
+                  : `${product.stock} ${t("sell.stock")}${low ? ` · ${t("sell.low")}` : ""}`}
               </p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <QuantityStepper
@@ -432,7 +431,7 @@ export default function VenderPage() {
                   onChange={(n) => setQtyById((m) => ({ ...m, [product.id]: n }))}
                 />
                 <p className="text-sm font-bold text-muted">
-                  Total <Price cents={product.priceCents * q} />
+                  {t("sell.total")} <Price cents={product.priceCents * q} />
                 </p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -477,9 +476,7 @@ export default function VenderPage() {
               </span>
             </p>
             <p className="text-sm text-muted">
-              {draft.mode === "paid"
-                ? "O estoque baixa agora. Mostre o QR para o cliente pagar."
-                : "O estoque só baixa quando você marcar como Pago na fila."}
+              {draft.mode === "paid" ? t("sell.paidHint") : t("sell.pendingHint")}
             </p>
             <AmountAdjuster
               baseCents={draft.product.priceCents * draft.quantity}
@@ -490,24 +487,24 @@ export default function VenderPage() {
             />
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
-                Telefone do cliente (opcional)
+                {t("sell.phone")}
               </span>
               <input
                 inputMode="tel"
                 autoComplete="tel"
                 className="min-h-14 w-full rounded-2xl border-2 border-line bg-surface px-4 text-lg font-semibold"
-                placeholder="(11) 99999-9999"
+                placeholder="5511999999999"
                 value={phone}
-                onChange={(e) => setPhone(maskPhoneInput(e.target.value))}
+                onChange={(e) => setPhone(maskWhatsAppContactInput(e.target.value))}
               />
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
-                Nome (opcional)
+                {t("sell.name")}
               </span>
               <input
                 className="min-h-14 w-full rounded-2xl border-2 border-line bg-surface px-4 text-lg font-semibold"
-                placeholder="Como chama o cliente"
+                placeholder={t("sell.name")}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
@@ -524,7 +521,7 @@ export default function VenderPage() {
                 </Button>
                 <Button
                   variant="mint"
-                  disabled={registering || !nationalDigits(phone) || !lgpdOk}
+                  disabled={registering || !digitsOnly(phone) || !lgpdOk}
                   onClick={() => void confirmDraft(true)}
                 >
                   <MessageCircle className="h-5 w-5" />

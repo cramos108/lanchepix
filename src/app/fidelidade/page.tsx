@@ -7,7 +7,7 @@ import { LgpdConsent } from "@/components/LgpdConsent";
 import { StampCard } from "@/components/StampCard";
 import { Button, EmptyState, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { formatBrPhone, maskPhoneInput, nationalDigits, toWhatsAppNumber } from "@/lib/phone";
+import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
 import {
   FREE_LOYALTY_LIMIT,
   canAddLoyaltyCard,
@@ -16,10 +16,12 @@ import {
 } from "@/lib/plan";
 import { addStamp, redeemReward, upsertCustomer } from "@/lib/repo";
 import { toast } from "@/lib/toast";
+import { useT } from "@/lib/i18n";
 import { loyaltyRewardMessage, loyaltyStampMessage, waLink } from "@/lib/whatsapp";
 import type { Customer } from "@/lib/types";
 
 export default function FidelidadePage() {
+  const t = useT();
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const customers = useLiveQuery(
     () =>
@@ -36,15 +38,16 @@ export default function FidelidadePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const required = settings?.stampsRequired ?? 10;
-  const digits = nationalDigits(query);
+  const digits = digitsOnly(query);
 
   const matches = useMemo(() => {
     const list = customers ?? [];
     if (!digits) return list.slice(0, 12);
+    const q = query.toLowerCase();
     return list.filter(
       (c) =>
-        nationalDigits(c.phone).includes(digits) ||
-        c.name.toLowerCase().includes(query.toLowerCase()),
+        digitsOnly(c.phone).includes(digits) ||
+        c.name.toLowerCase().includes(q),
     );
   }, [customers, digits, query]);
 
@@ -53,12 +56,12 @@ export default function FidelidadePage() {
   );
 
   async function openOrCreate() {
-    if (digits.length < 10) {
-      toast("Digite um celular com DDD.", "err");
+    if (digits.length < 8) {
+      toast(t("loyalty.needPhone"), "err");
       return;
     }
     if (!lgpdOk) {
-      toast("Marque o consentimento LGPD para usar o telefone.", "err");
+      toast(t("loyalty.needLgpd"), "err");
       return;
     }
     if (!(await canAddLoyaltyCard(digits))) {
@@ -70,8 +73,8 @@ export default function FidelidadePage() {
       setSelectedId(customer.id);
       toast(
         customer.totalStamps === 0 && customer.stamps === 0
-          ? "Cliente cadastrado"
-          : "Cliente encontrado",
+          ? t("loyalty.open")
+          : t("loyalty.open"),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
@@ -79,7 +82,7 @@ export default function FidelidadePage() {
         openUpgradeModal();
         return;
       }
-      toast("Não deu para abrir o cartão.", "err");
+      toast(t("loyalty.empty"), "err");
     }
   }
 
@@ -88,14 +91,14 @@ export default function FidelidadePage() {
     const next = await addStamp(selected.id);
     if (!next) return;
     if (next.stamps >= required) {
-      toast("Cartão completo! Resgate o prêmio.");
+      toast(t("loyalty.open"));
     } else {
-      toast(`Carimbo ${next.stamps}/${required}`);
+      toast(`${next.stamps}/${required}`);
     }
     if (notify) {
       window.open(
         waLink(
-          toWhatsAppNumber(next.phone),
+          next.phone,
           loyaltyStampMessage({
             storeName: settings.storeName,
             customerName: next.name,
@@ -113,11 +116,11 @@ export default function FidelidadePage() {
     if (!selected || !settings) return;
     const next = await redeemReward(selected.id);
     if (!next) return;
-    toast("Prêmio resgatado. Cartão zerado.");
+    toast(t("btn.save"));
     if (notify) {
       window.open(
         waLink(
-          toWhatsAppNumber(next.phone),
+          next.phone,
           loyaltyRewardMessage({
             storeName: settings.storeName,
             customerName: next.name,
@@ -132,34 +135,34 @@ export default function FidelidadePage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm font-bold text-muted">
-        Busque pelo celular. A cada {required} carimbos, o cliente ganha{" "}
+        {t("loyalty.search")}. {required} ·{" "}
         <span className="text-sun">{settings?.rewardLabel ?? "1 brinde grátis"}</span>.
       </p>
       {!isPro(settings) ? (
         <p className="text-xs font-extrabold uppercase tracking-widest text-amber">
-          Plano gratuito · {customers?.length ?? 0}/{FREE_LOYALTY_LIMIT} cartões
+          {customers?.length ?? 0}/{FREE_LOYALTY_LIMIT}
         </p>
       ) : null}
 
-      <Field label="Buscar ou cadastrar">
+      <Field label={t("loyalty.search")} hint={t("loyalty.phoneHint")}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
           <input
             className={`${inputClass} pl-12`}
             inputMode="tel"
-            placeholder="(11) 99999-9999"
+            placeholder="5511999999999"
             value={query}
             onChange={(e) => {
-              setQuery(maskPhoneInput(e.target.value));
+              setQuery(maskWhatsAppContactInput(e.target.value));
               setSelectedId(null);
             }}
           />
         </div>
       </Field>
-      <Field label="Nome (se for novo)">
+      <Field label={t("loyalty.name")}>
         <input
           className={inputClass}
-          placeholder="Nome do cliente"
+          placeholder={t("loyalty.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -167,36 +170,27 @@ export default function FidelidadePage() {
       <LgpdConsent checked={lgpdOk} onChange={setLgpdOk} />
       <Button disabled={!lgpdOk} onClick={() => void openOrCreate()}>
         <Plus className="h-5 w-5" />
-        Abrir cartão
+        {t("loyalty.open")}
       </Button>
 
       {selected ? (
         <section className="flex flex-col gap-3 rounded-3xl border-2 border-sun bg-surface p-4">
           <div>
             <h2 className="text-2xl font-black leading-tight">
-              {selected.name || "Cliente"}
+              {selected.name || t("loyalty.clients")}
             </h2>
-            <p className="font-bold text-sky">{formatBrPhone(selected.phone)}</p>
+            <p className="font-bold text-sky">{maskWhatsAppContactInput(selected.phone)}</p>
             <p className="text-sm text-muted">
-              {selected.totalStamps} carimbos no total · {selected.rewardsClaimed}{" "}
-              {selected.rewardsClaimed === 1 ? "prêmio" : "prêmios"}
+              {selected.totalStamps} · {selected.rewardsClaimed}
             </p>
           </div>
           <StampCard filled={selected.stamps} total={required} />
-          {selected.stamps >= required ? (
-            <div className="rounded-2xl border-2 border-mint bg-mint/15 p-3 text-center">
-              <p className="text-lg font-black text-mint">Cartão completo!</p>
-              <p className="text-sm font-bold">
-                Resgate: {settings?.rewardLabel}
-              </p>
-            </div>
-          ) : null}
           <div className="grid gap-2">
             <Button
               disabled={selected.stamps >= required}
               onClick={() => void stamp(false)}
             >
-              +1 carimbo
+              {t("loyalty.stamp")}
             </Button>
             <Button
               variant="mint"
@@ -204,16 +198,16 @@ export default function FidelidadePage() {
               onClick={() => void stamp(true)}
             >
               <MessageCircle className="h-5 w-5" />
-              Carimbar e avisar no WhatsApp
+              {t("loyalty.stampWa")}
             </Button>
             {selected.stamps >= required ? (
               <>
                 <Button variant="sun" onClick={() => void redeem(true)}>
                   <Trophy className="h-5 w-5" />
-                  Resgatar e avisar
+                  {t("btn.save")}
                 </Button>
                 <Button variant="line" onClick={() => void redeem(false)}>
-                  Só resgatar
+                  {t("btn.save")}
                 </Button>
               </>
             ) : null}
@@ -223,12 +217,12 @@ export default function FidelidadePage() {
 
       <section>
         <h3 className="mb-2 text-xs font-extrabold uppercase tracking-widest text-sun">
-          Clientes
+          {t("loyalty.clients")}
         </h3>
         {matches.length === 0 ? (
           <EmptyState
-            title="Nenhum cliente ainda"
-            text="Digite o celular e toque em Abrir cartão."
+            title={t("loyalty.empty")}
+            text={t("loyalty.emptyHint")}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -238,7 +232,7 @@ export default function FidelidadePage() {
                   type="button"
                   onClick={() => {
                     setSelectedId(c.id);
-                    setQuery(maskPhoneInput(c.phone));
+                    setQuery(maskWhatsAppContactInput(c.phone));
                     setName(c.name);
                   }}
                   className={`flex w-full items-center justify-between rounded-2xl border-2 px-4 py-3 text-left ${
@@ -248,9 +242,9 @@ export default function FidelidadePage() {
                   }`}
                 >
                   <span>
-                    <span className="block font-black">{c.name || "Sem nome"}</span>
+                    <span className="block font-black">{c.name || "—"}</span>
                     <span className="text-sm font-bold text-muted">
-                      {formatBrPhone(c.phone)}
+                      {maskWhatsAppContactInput(c.phone)}
                     </span>
                   </span>
                   <span className="text-lg font-black text-sun">

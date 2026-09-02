@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Printer } from "lucide-react";
@@ -14,6 +14,7 @@ import { normalizeCurrency } from "@/lib/locale";
 import { isAttendantDevice } from "@/lib/account";
 import { useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
+import { refetchOwnerSettings } from "@/lib/sync";
 
 export default function PixPage() {
   const t = useT();
@@ -23,6 +24,13 @@ export default function PixPage() {
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  useEffect(() => {
+    void refetchOwnerSettings()
+      .catch(() => undefined)
+      .finally(() => setSettingsReady(true));
+  }, []);
 
   const selectedProduct = products?.find((p) => p.id === selectedId);
 
@@ -45,15 +53,23 @@ export default function PixPage() {
     }
   }, [settings, selectedProduct]);
 
-  if (!settings) {
-    return <p className="text-muted">Carregando…</p>;
+  if (!settings || !settingsReady) {
+    return <p className="text-muted">{t("loading")}</p>;
   }
 
   const money = (cents: number) => formatMoney(cents, normalizeCurrency(settings.currency));
 
   if (!settings.pixKey) {
     if (isAttendantDevice(settings)) {
-      return <EmptyState title={t("pay.pix")} text={t("pay.pixMissing")} />;
+      return (
+        <EmptyState
+          title={t("pay.pix")}
+          text={t("sell.emptyStaff")}
+          action={
+            <Button onClick={() => void refetchOwnerSettings()}>{t("btn.update")}</Button>
+          }
+        />
+      );
     }
     return (
       <EmptyState
