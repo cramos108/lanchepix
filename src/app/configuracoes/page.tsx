@@ -597,6 +597,10 @@ function SettingsForm({ settings }: { settings: Settings }) {
           await db.products.clear();
           await db.sales.clear();
           await db.customers.clear();
+          const { clearCatalogBackup } = await import("@/lib/persist");
+          clearCatalogBackup();
+          const { restorePaidPlanIfNeeded } = await import("@/lib/plan");
+          await restorePaidPlanIfNeeded();
           toast("Dados locais apagados", "info");
         }}
       >

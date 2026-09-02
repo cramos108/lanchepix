@@ -163,6 +163,39 @@ export function getStoredActivePlan(): Plan | null {
 }
 
 /** Persistência local do plano pago: 'pro' | 'negocio'. */
+function keepNegocioSession(): boolean {
+  if (typeof window === "undefined") return false;
+  bootDev();
+  if (new URLSearchParams(window.location.search).get("dev") === "true") return true;
+  const stored = getStoredActivePlan();
+  const override = getDevPlanOverride();
+  return stored === "equipe" || override === "equipe";
+}
+
+/** After a local wipe, keep Negócio/Pro if a paid session or ?dev=true is still active. */
+export async function restorePaidPlanIfNeeded(): Promise<void> {
+  const settings = await ensureSettings();
+  if (isStaffDevice(settings)) return;
+  const override = getDevPlanOverride();
+  const stored = getStoredActivePlan();
+  const keep = override ?? stored;
+  if (!keep && !keepNegocioSession()) return;
+  const next: Plan =
+    keep === "pro" || keep === "equipe"
+      ? keep
+      : keepNegocioSession()
+        ? "equipe"
+        : settings.plan;
+  if (next === "free" || settings.plan === next) return;
+  persistActivePlan(next === "equipe" ? "negocio" : "pro");
+  await db.settings.put({
+    ...settings,
+    plan: next,
+    updatedAt: new Date().toISOString(),
+    dirty: true,
+  });
+}
+
 export function persistActivePlan(plan: "pro" | "negocio" | "free"): void {
   bootDev();
   if (plan === "free") {

@@ -336,10 +336,25 @@ export async function activateEquipe(): Promise<Settings> {
 }
 
 export async function deleteAccountAndAllData(): Promise<void> {
-  const { clearDevOverrides, persistActivePlan } = await import("./plan");
+  const {
+    clearDevOverrides,
+    persistActivePlan,
+    restorePaidPlanIfNeeded,
+    getDevPlanOverride,
+    getStoredActivePlan,
+  } = await import("./plan");
   const { clearPairLocal } = await import("./pairing");
-  clearDevOverrides();
-  persistActivePlan("free");
+  const keepPaid =
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).get("dev") === "true" ||
+      getDevPlanOverride() === "equipe" ||
+      getStoredActivePlan() === "equipe" ||
+      getDevPlanOverride() === "pro" ||
+      getStoredActivePlan() === "pro");
+  if (!keepPaid) {
+    clearDevOverrides();
+    persistActivePlan("free");
+  }
   clearPairLocal();
   const current = await ensureSettings();
   const vendorId = current.vendorId;
@@ -363,12 +378,19 @@ export async function deleteAccountAndAllData(): Promise<void> {
       whatsapp: "",
       rewardLabel: "1 brinde grátis",
       stampsRequired: 10,
-      plan: "free",
+      plan: keepPaid
+        ? getDevPlanOverride() === "pro" || getStoredActivePlan() === "pro"
+          ? "pro"
+          : "equipe"
+        : "free",
       businessType: "alimentacao",
       updatedAt: nowIso(),
       dirty: true,
     });
   });
+  const { clearCatalogBackup } = await import("./persist");
+  clearCatalogBackup();
+  if (keepPaid) await restorePaidPlanIfNeeded();
 }
 
 export async function addStamp(customerId: string): Promise<Customer | undefined> {

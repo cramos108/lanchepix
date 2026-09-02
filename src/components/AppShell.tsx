@@ -120,8 +120,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     void ensureSettings()
       .then(() => restorePairFromLocal())
       .then(async () => {
-        const { restoreCatalogBackupIfEmpty } = await import("@/lib/persist");
-        await restoreCatalogBackupIfEmpty();
+        const { restorePaidPlanIfNeeded } = await import("@/lib/plan");
+        await restorePaidPlanIfNeeded();
         scheduleSync();
       });
   }, []);

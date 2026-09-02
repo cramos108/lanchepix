@@ -1,5 +1,4 @@
 import { db } from "./db";
-import type { Product } from "./types";
 
 const CART_KEY = "lanchepix_cart_qty";
 const CATALOG_KEY = "lanchepix_catalog_backup";
@@ -32,18 +31,17 @@ export async function backupCatalog(): Promise<void> {
   }
 }
 
-export async function restoreCatalogBackupIfEmpty(): Promise<void> {
+export function clearCatalogBackup(): void {
   try {
-    const count = await db.products.count();
-    if (count > 0) return;
-    const raw = localStorage.getItem(CATALOG_KEY);
-    if (!raw) return;
-    const rows = JSON.parse(raw) as Product[];
-    if (!Array.isArray(rows) || !rows.length) return;
-    await db.products.bulkPut(rows);
+    localStorage.removeItem(CATALOG_KEY);
   } catch {
-    /* ignore corrupt backup */
+    /* private mode */
   }
+}
+
+/** Auto-restore is disabled: an empty catalog must stay empty until the user adds products. */
+export async function restoreCatalogBackupIfEmpty(): Promise<void> {
+  return;
 }
 
 export function isOfflineError(error: unknown): boolean {
