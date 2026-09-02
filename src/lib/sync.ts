@@ -79,12 +79,12 @@ type RemoteSale = {
   quantity: number;
   unit_price_cents: number;
   total_cents: number;
-  extra_cents: number | null;
-  price_mode: string | null;
+  extra_cents?: number | null;
+  price_mode?: string | null;
   status: Sale["status"];
   customer_phone: string | null;
   customer_name: string | null;
-  attendant_name: string | null;
+  attendant_name?: string | null;
   notes: string | null;
   created_at: string;
   paid_at: string | null;
@@ -189,6 +189,12 @@ function fromRemoteProduct(r: RemoteProduct): Product {
   };
 }
 
+function saleHelperNote(s: Sale): string | null {
+  const helper = getAttendantNameLocal() || s.attendantName || "";
+  const bits = [s.notes?.trim(), helper ? `Ajudante: ${helper}` : ""].filter(Boolean);
+  return bits.length ? bits.join(" · ") : null;
+}
+
 function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
   return {
     id: s.id,
@@ -200,13 +206,10 @@ function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
     unit_price_cents: s.unitPriceCents,
     total_cents: s.totalCents,
     extra_cents: s.extraCents ?? 0,
-    price_mode: s.priceMode ?? "fixed",
     status: s.status,
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
-    attendant_name:
-      getAttendantNameLocal() || s.attendantName || "Desconhecido",
-    notes: s.notes ?? null,
+    notes: saleHelperNote(s),
     created_at: s.createdAt,
     paid_at: s.paidAt ?? null,
     updated_at: s.updatedAt,
@@ -226,7 +229,9 @@ function fromRemoteSale(r: RemoteSale): Sale {
     status: r.status,
     customerPhone: r.customer_phone ?? undefined,
     customerName: r.customer_name ?? undefined,
-    attendantName: r.attendant_name ?? undefined,
+    attendantName:
+      r.attendant_name ??
+      (r.notes?.match(/Ajudante:\s*(.+?)(?:\s·|$)/)?.[1]?.trim() || undefined),
     notes: r.notes ?? undefined,
     createdAt: r.created_at,
     paidAt: r.paid_at ?? undefined,
@@ -659,12 +664,10 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       unit_price_cents: sale.unitPriceCents,
       total_cents: sale.totalCents,
       extra_cents: sale.extraCents ?? 0,
-      price_mode: sale.priceMode ?? "fixed",
       status: sale.status,
       customer_phone: sale.customerPhone ?? null,
       customer_name: sale.customerName ?? null,
-      attendant_name: attendantName,
-      notes: sale.notes ?? null,
+      notes: saleHelperNote({ ...sale, attendantName }),
       created_at: sale.createdAt,
       paid_at: sale.paidAt ?? null,
       updated_at: sale.updatedAt,
@@ -693,7 +696,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
         status: sale.status,
         customer_phone: sale.customerPhone ?? null,
         customer_name: sale.customerName ?? null,
-        attendant_name: attendantName,
+        notes: saleHelperNote({ ...sale, attendantName }),
         created_at: sale.createdAt,
         paid_at: null,
         updated_at: sale.updatedAt,

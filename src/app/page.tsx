@@ -241,7 +241,7 @@ export default function VenderPage() {
         setExtraCents(0);
         setQtyById({});
         saveCartQty({});
-        router.replace("/pendentes");
+        router.replace("/");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
