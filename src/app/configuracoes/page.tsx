@@ -225,18 +225,20 @@ function SettingsForm({ settings }: { settings: Settings }) {
       <>
       <Field
         label={t("settings.pixKey")}
-        hint={
-          pixKey
-            ? detectPixKeyType(pixKey)
-            : "CPF, CNPJ, e-mail, celular (+55…) ou chave aleatória"
-        }
+        hint="Recomendamos usar uma Chave Aleatória para proteger sua privacidade e não expor seu CPF aos clientes."
       >
         <input
           className={inputClass}
           value={pixKey}
           onChange={(e) => setPixKey(e.target.value)}
-          placeholder="seu-email@banco.com"
+          placeholder="Chave Aleatória (EVP)"
+          autoComplete="off"
         />
+        {pixKey ? (
+          <span className="text-xs font-extrabold uppercase tracking-widest text-sun">
+            {detectPixKeyType(pixKey)}
+          </span>
+        ) : null}
       </Field>
       <Field label="Nome no QR (máx. 25, sem acento)">
         <input

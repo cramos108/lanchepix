@@ -34,21 +34,22 @@ export function orderReceiptMessage(opts: {
   totalCents: number;
   method: PayMethod;
   sellerName?: string;
+  pixKey?: string;
 }): string {
   const item =
     (opts.quantity ?? 1) > 1
       ? `${opts.productName} (x${opts.quantity})`
       : opts.productName;
   const total = formatMoney(opts.totalCents, opts.currency);
-  const method = payMethodLabel(opts.lang, opts.method);
   const seller = opts.sellerName?.trim() || "—";
+  const chave = opts.pixKey?.trim() || "—";
   if (opts.lang === "en") {
-    return `Hello! I placed an order for ${total} for ${item}. Payment method: ${method}. Seller: ${seller}.`;
+    return `Hello! I placed an order for ${total} for ${item}. Pix key: ${chave}. Seller: ${seller}.`;
   }
   if (opts.lang === "es") {
-    return `¡Hola! Realicé un pedido de ${total} para ${item}. Método de pago: ${method}. Vendedor: ${seller}.`;
+    return `¡Hola! Realicé un pedido de ${total} para ${item}. Clave Pix: ${chave}. Vendedor: ${seller}.`;
   }
-  return `Olá! Realizei o pedido no valor de ${total} para ${item}. Forma de pagamento: ${method}. Vendedor: ${seller}.`;
+  return `Olá! Realizei o pedido no valor de ${total} para ${item}. Chave Pix para pagamento: ${chave}. Vendedor: ${seller}.`;
 }
 
 /** Buyer-to-seller text so the customer opens WhatsApp already speaking. */
@@ -70,6 +71,7 @@ export function buyerConfirmPixMessage(opts: {
     totalCents: opts.totalCents,
     method: opts.method ?? "pix",
     sellerName: opts.sellerName,
+    pixKey: opts.pixKey,
   });
 }
 

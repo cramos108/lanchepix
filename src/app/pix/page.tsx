@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
-import { getAttendantNameLocal, isOwnerDevice } from "@/lib/account";
+import { isOwnerDevice } from "@/lib/account";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
@@ -75,7 +75,8 @@ export default function PixPage() {
           quantity: 1,
           totalCents: selectedProduct?.priceCents ?? 0,
           method: "pix",
-          sellerName: getAttendantNameLocal(settings) || settings?.attendantName || settings?.storeName,
+          sellerName: settings?.storeName || merchantName,
+          pixKey,
         }),
       )
     : "";

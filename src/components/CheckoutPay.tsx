@@ -86,7 +86,8 @@ export function CheckoutPay({
           quantity: sale.quantity,
           totalCents: sale.totalCents,
           method: activeMethod,
-          sellerName: seller,
+          sellerName: settings.storeName || seller,
+          pixKey,
         }),
       )
     : "";
