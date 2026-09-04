@@ -12,6 +12,7 @@ import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
 import { isOwnerDevice, isStaffDevice, resolveActivePixKey } from "@/lib/account";
+import { useChefePixOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
@@ -29,6 +30,8 @@ export default function PixPage() {
     [],
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
+  const helper = master.isPaired || isStaffDevice(settings);
+  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
 
   useEffect(() => {
     if (master.isPaired) return;
@@ -37,7 +40,7 @@ export default function PixPage() {
 
   const activePixKey = resolveActivePixKey(
     settings,
-    master.pixKey || master.master?.pixKey,
+    chefePix || master.pixKey || master.master?.pixKey,
   );
   const pixKey = activePixKey;
   const whatsapp = (settings?.whatsapp || master.whatsapp || "").trim();

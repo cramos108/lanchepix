@@ -8,6 +8,7 @@ import { PixQr } from "@/components/PixQr";
 import { Price } from "@/components/Money";
 import { Button, inputClass } from "@/components/ui";
 import { getAttendantNameLocal, isStaffDevice, resolveActivePixKey } from "@/lib/account";
+import { useChefePixOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { db } from "@/lib/db";
 import { useLang, useT } from "@/lib/i18n";
@@ -41,9 +42,11 @@ export function CheckoutPay({
   }, [master.isPaired]);
 
   const currency = normalizeCurrency(master.currency || settings.currency);
+  const helper = master.isPaired || isStaffDevice(settings);
+  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
   const pixKey = resolveActivePixKey(
     settings,
-    master.pixKey || master.master?.pixKey,
+    chefePix || master.pixKey || master.master?.pixKey,
   );
   const paymentLink = (settings.paymentLink || master.paymentLink || "").trim();
   const whatsapp = (settings.whatsapp || master.whatsapp || "").trim();

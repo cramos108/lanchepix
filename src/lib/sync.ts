@@ -109,7 +109,8 @@ type RemoteCustomer = {
 type RemoteSettings = {
   vendor_id: string;
   store_name: string;
-  pix_key: string;
+  pix_key?: string | null;
+  chave_pix?: string | null;
   merchant_name: string;
   merchant_city: string;
   whatsapp: string;
@@ -321,7 +322,8 @@ function toRemoteSettings(s: Settings): Record<string, unknown> {
 function billingFromRemote(remote: RemoteSettings, local: Settings): Partial<Settings> {
   return {
     storeName: remote.store_name || local.storeName,
-    pixKey: String(remote.pix_key ?? "").trim() || local.pixKey || "",
+    pixKey:
+      String(remote.pix_key ?? remote.chave_pix ?? "").trim() || local.pixKey || "",
     merchantName: remote.merchant_name || local.merchantName,
     merchantCity: remote.merchant_city || local.merchantCity,
     whatsapp: String(remote.whatsapp ?? "").trim() || local.whatsapp || "",
@@ -852,12 +854,18 @@ export async function refetchOwnerSettings(): Promise<Settings> {
     rememberPrefs(local);
     return local;
   }
-  let { data, error } = await supabase
-    .from("settings")
-    .select("*")
-    .eq("vendor_id", ownerId)
-    .maybeSingle();
-  if (error) {
+  let remote: RemoteSettings | null = null;
+  {
+    const first = await supabase
+      .from("settings")
+      .select(
+        "vendor_id, store_name, pix_key, chave_pix, merchant_name, merchant_city, whatsapp, reward_label, stamps_required, plan, business_type, allow_helper_edit_prices, updated_at",
+      )
+      .eq("vendor_id", ownerId)
+      .maybeSingle();
+    if (!first.error && first.data) remote = first.data as RemoteSettings;
+  }
+  if (!remote) {
     const core = await supabase
       .from("settings")
       .select(
@@ -865,14 +873,20 @@ export async function refetchOwnerSettings(): Promise<Settings> {
       )
       .eq("vendor_id", ownerId)
       .maybeSingle();
-    data = core.data;
-    error = core.error;
+    if (!core.error && core.data) remote = core.data as RemoteSettings;
   }
-  if (error || !data) {
+  if (!remote) {
+    const byOwner = await supabase
+      .from("settings")
+      .select("vendor_id, store_name, pix_key, chave_pix, merchant_name, merchant_city, whatsapp")
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (!byOwner.error && byOwner.data) remote = byOwner.data as RemoteSettings;
+  }
+  if (!remote) {
     rememberPrefs(local);
     return local;
   }
-  const remote = data as RemoteSettings;
   const staff = !isOwnerDevice(local);
   if (!staff && local.dirty) {
     rememberPrefs(local);
@@ -893,6 +907,56 @@ export async function refetchOwnerSettings(): Promise<Settings> {
 /** Staff checkout: read Chefe pix/whatsapp now, without waiting on a local Update tap. */
 export async function fetchOwnerBilling(): Promise<Settings> {
   return refetchOwnerSettings();
+}
+
+let chefePixOnce: Promise<string> | null = null;
+let chefePixOnceId = "";
+
+function pixFromRow(row: Record<string, unknown> | null | undefined): string {
+  if (!row) return "";
+  return String(row.pix_key ?? row.chave_pix ?? "").trim();
+}
+
+/**
+ * One-shot Chefe Pix key lookup for Ajudante (Código de Conexão).
+ * Not a live subscription — module-cached per owner id.
+ */
+export async function fetchLinkedChefePixOnce(ownerId: string): Promise<string> {
+  const id = ownerId?.trim() || "";
+  if (!id || !supabaseConfigured) return "";
+  if (chefePixOnce && chefePixOnceId === id) return chefePixOnce;
+  chefePixOnceId = id;
+  chefePixOnce = (async () => {
+    const selects = [
+      "store_name, merchant_name, merchant_city, pix_key, chave_pix, whatsapp",
+      "store_name, merchant_name, merchant_city, pix_key, whatsapp",
+      "pix_key, chave_pix",
+      "chave_pix",
+      "pix_key",
+    ];
+    const cols = ["vendor_id", "owner_id"] as const;
+    for (const col of cols) {
+      for (const sel of selects) {
+        try {
+          const { data, error } = await supabase
+            .from("settings")
+            .select(sel)
+            .eq(col, id)
+            .maybeSingle();
+          if (error || !data || typeof data !== "object") continue;
+          const key = pixFromRow(data as unknown as Record<string, unknown>);
+          if (key) {
+            cacheChefePixKey(key);
+            return key;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    return "";
+  })();
+  return chefePixOnce;
 }
 
 function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {

@@ -20,6 +20,7 @@ import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
+import { useChefePixOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
 import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
@@ -43,6 +44,8 @@ export default function ProdutosPage() {
     [],
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const helper = master.isPaired || isStaffDevice(settings);
+  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
   const canEdit = canEditCatalog(settings);
   const pricesUnlocked = canEditPrices(settings);
   const [open, setOpen] = useState(false);
@@ -90,7 +93,7 @@ export default function ProdutosPage() {
 
   const activePixKey = resolveActivePixKey(
     settings,
-    master.pixKey || master.master?.pixKey,
+    chefePix || master.pixKey || master.master?.pixKey,
   );
   const merchantName =
     settings?.merchantName || master.merchantName || settings?.storeName || "MEU NEGOCIO";
