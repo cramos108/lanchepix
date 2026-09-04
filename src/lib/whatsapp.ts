@@ -36,20 +36,19 @@ export function orderReceiptMessage(opts: {
   sellerName?: string;
   pixKey?: string;
 }): string {
+  void opts.lang;
+  void opts.method;
   const item =
     (opts.quantity ?? 1) > 1
       ? `${opts.productName} (x${opts.quantity})`
       : opts.productName;
   const total = formatMoney(opts.totalCents, opts.currency);
-  const seller = opts.sellerName?.trim() || "—";
-  const chave = opts.pixKey?.trim() || "—";
-  if (opts.lang === "en") {
-    return `Hello! I placed an order for ${total} for ${item}. Pix key: ${chave}. Seller: ${seller}.`;
+  const loja = opts.sellerName?.trim() || "Meu Negócio";
+  const chave = opts.pixKey?.trim() || "";
+  if (chave) {
+    return `Oi, ${loja}! Peguei ${item} por ${total} e paguei agora pelo Pix da Confiança (${chave}). Obrigado! `;
   }
-  if (opts.lang === "es") {
-    return `¡Hola! Realicé un pedido de ${total} para ${item}. Clave Pix: ${chave}. Vendedor: ${seller}.`;
-  }
-  return `Olá! Realizei o pedido no valor de ${total} para ${item}. Chave Pix para pagamento: ${chave}. Vendedor: ${seller}.`;
+  return `Oi, ${loja}! Peguei ${item} por ${total} no Pix da Confiança. Pode me mandar sua chave Pix para eu te pagar? Valeu!`;
 }
 
 /** Buyer-to-seller text so the customer opens WhatsApp already speaking. */
