@@ -48,6 +48,15 @@ export function getAttendantNameLocal(
   );
 }
 
+/** Snapshot of the Pix key already stored on this device. No listeners. */
+export function readLocalPixKey(
+  settings?: Pick<Settings, "pixKey"> | null,
+): string {
+  const fromSettings = String(settings?.pixKey ?? "").trim();
+  if (fromSettings) return fromSettings;
+  return readLs("chefe_pix_key");
+}
+
 export function accountVendorId(
   settings?: Pick<Settings, "vendorId" | "pairedOwnerId"> | null,
 ): string {

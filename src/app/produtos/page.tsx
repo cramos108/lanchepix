@@ -19,7 +19,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
-import { canEditCatalog, canEditPrices } from "@/lib/account";
+import { canEditCatalog, canEditPrices, isStaffDevice, readLocalPixKey } from "@/lib/account";
 import { toast } from "@/lib/toast";
 import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
 import type { Product } from "@/lib/types";
@@ -86,13 +86,15 @@ export default function ProdutosPage() {
     (p) => filter === "Todos" || p.category === filter,
   );
 
+  const pixKey = readLocalPixKey(settings);
+
   function stickerPayload(product: Product): string {
-    if (!settings?.pixKey) return "";
+    if (!pixKey) return "";
     try {
       return buildPixPayload({
-        pixKey: settings.pixKey,
-        merchantName: settings.merchantName || settings.storeName,
-        merchantCity: settings.merchantCity,
+        pixKey,
+        merchantName: settings?.merchantName || settings?.storeName || "MEU NEGOCIO",
+        merchantCity: settings?.merchantCity || "SAO PAULO",
         amountCents:
           product.priceMode === "suggested" ? undefined : product.priceCents,
         description: product.name,
@@ -103,7 +105,8 @@ export default function ProdutosPage() {
   }
 
   function openSticker(product: Product) {
-    if (!settings?.pixKey?.trim()) {
+    if (!pixKey) {
+      if (isStaffDevice(settings)) return;
       setNeedPixKey(true);
       return;
     }

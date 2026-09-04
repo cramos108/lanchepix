@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
-import { isOwnerDevice } from "@/lib/account";
+import { isOwnerDevice, isStaffDevice, readLocalPixKey } from "@/lib/account";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
@@ -34,15 +34,11 @@ export default function PixPage() {
     void refetchOwnerSettings().catch(() => undefined);
   }, [master.isPaired]);
 
-  const pixKey = (master.isPaired ? master.pixKey : settings?.pixKey || "").trim();
-  const whatsapp = (master.isPaired ? master.whatsapp : settings?.whatsapp || "").trim();
+  const pixKey = (readLocalPixKey(settings) || master.pixKey || "").trim();
+  const whatsapp = (settings?.whatsapp || master.whatsapp || "").trim();
   const merchantName =
-    (master.isPaired ? master.merchantName : settings?.merchantName) ||
-    settings?.storeName ||
-    "";
-  const merchantCity = master.isPaired
-    ? master.merchantCity
-    : settings?.merchantCity || "";
+    settings?.merchantName || master.merchantName || settings?.storeName || "";
+  const merchantCity = settings?.merchantCity || master.merchantCity || "";
   const currency = normalizeCurrency(
     master.isPaired ? master.currency : settings?.currency,
   );
@@ -87,7 +83,12 @@ export default function PixPage() {
 
   const money = (cents: number) => formatMoney(cents, currency);
 
-  if (!pixKey && isOwnerDevice(settings) && !master.isPaired) {
+  if (
+    !pixKey &&
+    isOwnerDevice(settings) &&
+    !isStaffDevice(settings) &&
+    !master.isPaired
+  ) {
       return (
         <EmptyState
           title="Cadastre sua chave Pix"
@@ -142,9 +143,7 @@ export default function PixPage() {
               : t("pay.scanPix")
           }
         />
-      ) : master.isPaired && !master.ready ? (
-        <p className="text-muted">{t("loading")}</p>
-      ) : master.isPaired ? null : (
+      ) : master.isPaired || isStaffDevice(settings) ? null : (
         <p className="text-alert">{t("warn.pixOwner")}</p>
       )}
 

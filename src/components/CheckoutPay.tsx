@@ -7,7 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { PixQr } from "@/components/PixQr";
 import { Price } from "@/components/Money";
 import { Button, inputClass } from "@/components/ui";
-import { getAttendantNameLocal, isStaffDevice } from "@/lib/account";
+import { getAttendantNameLocal, isStaffDevice, readLocalPixKey } from "@/lib/account";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { db } from "@/lib/db";
 import { useLang, useT } from "@/lib/i18n";
@@ -41,15 +41,12 @@ export function CheckoutPay({
   }, [master.isPaired]);
 
   const currency = normalizeCurrency(master.currency || settings.currency);
-  const pixKey = (master.isPaired ? master.pixKey : settings.pixKey)?.trim() || "";
-  const paymentLink = (master.isPaired ? master.paymentLink : settings.paymentLink)?.trim() || "";
-  const whatsapp = (master.isPaired ? master.whatsapp : settings.whatsapp)?.trim() || "";
-  const merchantName = master.isPaired
-    ? master.merchantName || settings.merchantName
-    : settings.merchantName;
-  const merchantCity = master.isPaired
-    ? master.merchantCity || settings.merchantCity
-    : settings.merchantCity;
+  const pixKey = (readLocalPixKey(settings) || master.pixKey || "").trim();
+  const paymentLink = (settings.paymentLink || master.paymentLink || "").trim();
+  const whatsapp = (settings.whatsapp || master.whatsapp || "").trim();
+  const merchantName =
+    settings.merchantName || master.merchantName || settings.storeName;
+  const merchantCity = settings.merchantCity || master.merchantCity;
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [received, setReceived] = useState(centsToInput(sale.totalCents, currency));
   const [busy, setBusy] = useState(false);
