@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
-import { isOwnerDevice, isStaffDevice, readLocalPixKey } from "@/lib/account";
+import { isOwnerDevice, isStaffDevice, resolveActivePixKey } from "@/lib/account";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
@@ -35,7 +35,11 @@ export default function PixPage() {
     void refetchOwnerSettings().catch(() => undefined);
   }, [master.isPaired]);
 
-  const pixKey = (readLocalPixKey(settings) || master.pixKey || "").trim();
+  const activePixKey = resolveActivePixKey(
+    settings,
+    master.pixKey || master.master?.pixKey,
+  );
+  const pixKey = activePixKey;
   const whatsapp = (settings?.whatsapp || master.whatsapp || "").trim();
   const merchantName =
     settings?.merchantName || master.merchantName || settings?.storeName || "";

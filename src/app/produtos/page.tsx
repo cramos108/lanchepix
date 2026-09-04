@@ -19,7 +19,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
-import { canEditCatalog, canEditPrices, isStaffDevice, readLocalPixKey } from "@/lib/account";
+import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
 import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
@@ -88,16 +88,19 @@ export default function ProdutosPage() {
     (p) => filter === "Todos" || p.category === filter,
   );
 
-  const pixKey = (readLocalPixKey(settings) || master.pixKey || "").trim();
+  const activePixKey = resolveActivePixKey(
+    settings,
+    master.pixKey || master.master?.pixKey,
+  );
   const merchantName =
     settings?.merchantName || master.merchantName || settings?.storeName || "MEU NEGOCIO";
   const merchantCity = settings?.merchantCity || master.merchantCity || "SAO PAULO";
 
   function stickerPayload(product: Product): string {
-    if (!pixKey) return "";
+    if (!activePixKey) return "";
     try {
       return buildPixPayload({
-        pixKey,
+        pixKey: activePixKey,
         merchantName,
         merchantCity,
         amountCents:
@@ -110,7 +113,7 @@ export default function ProdutosPage() {
   }
 
   function openSticker(product: Product) {
-    if (!pixKey && !isStaffDevice(settings)) {
+    if (!activePixKey && !isStaffDevice(settings)) {
       setNeedPixKey(true);
       return;
     }
@@ -541,16 +544,21 @@ export default function ProdutosPage() {
       >
         {sticker ? (
           <div className="flex flex-col gap-4">
-            {stickerPayload(sticker) ? (
+            {activePixKey && stickerPayload(sticker) ? (
               <ProductSticker
                 name={sticker.name}
                 priceCents={sticker.priceCents}
                 payload={stickerPayload(sticker)}
-                storeName={settings?.storeName}
+                storeName={settings?.storeName || master.storeName}
                 suggested={sticker.priceMode === "suggested"}
                 imageData={sticker.imageData}
                 category={sticker.category}
               />
+            ) : isStaffDevice(settings) ? (
+              <p className="text-sm font-bold text-muted">
+                Solicite ao Chefe para cadastrar a Chave Pix nas configurações
+                dele.
+              </p>
             ) : (
               <p className="text-alert">
                 Não foi possível gerar o QR.{" "}
@@ -580,14 +588,17 @@ export default function ProdutosPage() {
         onClose={() => setNeedPixKey(false)}
       >
         <p className="mb-4 text-base font-bold text-muted">
-          Cadastre sua Chave Pix nas configurações primeiro para gerar seus
-          adesivos QR Code!
+          {isStaffDevice(settings)
+            ? "Solicite ao Chefe para cadastrar a Chave Pix nas configurações dele."
+            : "Cadastre sua Chave Pix nas configurações primeiro para gerar seus adesivos QR Code!"}
         </p>
+        {isStaffDevice(settings) ? null : (
         <Link href="/configuracoes" className="block">
           <Button className="w-full" onClick={() => setNeedPixKey(false)}>
             Ir para Configurações
           </Button>
         </Link>
+        )}
         <Button variant="ghost" className="mt-2 w-full" onClick={() => setNeedPixKey(false)}>
           Agora não
         </Button>

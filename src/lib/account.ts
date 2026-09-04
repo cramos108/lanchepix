@@ -53,9 +53,21 @@ export function getAttendantNameLocal(
 export function readLocalPixKey(
   settings?: Pick<Settings, "pixKey"> | null,
 ): string {
-  const fromSettings = String(settings?.pixKey ?? "").trim();
-  if (fromSettings) return fromSettings;
-  return readLs(CHEFE_PIX_KEY);
+  return resolveActivePixKey(settings);
+}
+
+/**
+ * localChavePix || session.chefe_chave_pix || session.master_chave_pix
+ * Passive read only — no live sync.
+ */
+export function resolveActivePixKey(
+  settings?: Pick<Settings, "pixKey"> | null,
+  masterPixKey?: string | null,
+): string {
+  const localChavePix = String(settings?.pixKey ?? "").trim();
+  const chefeChavePix = readLs(CHEFE_PIX_KEY);
+  const masterChavePix = String(masterPixKey ?? "").trim();
+  return localChavePix || chefeChavePix || masterChavePix;
 }
 
 /** Cache Chefe Pix key once (pairing / one-shot settings fetch). Not a live listener. */
