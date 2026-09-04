@@ -7,6 +7,7 @@ export const ATTENDANT_NAME_LS_KEY = "attendant_name";
 export const USER_ROLE_KEY = "user_role";
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
+export const CHEFE_PIX_KEY = "chefe_pix_key";
 
 function readLs(key: string): string {
   try {
@@ -54,7 +55,18 @@ export function readLocalPixKey(
 ): string {
   const fromSettings = String(settings?.pixKey ?? "").trim();
   if (fromSettings) return fromSettings;
-  return readLs("chefe_pix_key");
+  return readLs(CHEFE_PIX_KEY);
+}
+
+/** Cache Chefe Pix key once (pairing / one-shot settings fetch). Not a live listener. */
+export function cacheChefePixKey(pixKey?: string | null): void {
+  const key = String(pixKey ?? "").trim();
+  if (!key) return;
+  try {
+    localStorage.setItem(CHEFE_PIX_KEY, key);
+  } catch {
+    /* private mode */
+  }
 }
 
 export function accountVendorId(

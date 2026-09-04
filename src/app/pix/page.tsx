@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle, Printer } from "lucide-react";
+import { Copy, MessageCircle, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PixQr } from "@/components/PixQr";
 import { Button, EmptyState } from "@/components/ui";
@@ -16,6 +16,7 @@ import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
 import { refetchOwnerSettings } from "@/lib/sync";
+import { toast } from "@/lib/toast";
 import { orderReceiptMessage, waLink } from "@/lib/whatsapp";
 
 export default function PixPage() {
@@ -108,12 +109,17 @@ export default function PixPage() {
   return (
     <div className="flex flex-col gap-5">
       <section className="rounded-3xl border-2 border-line bg-surface p-4">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
-          {detectPixKeyType(pixKey)}
-        </p>
-        <p className="break-all text-lg font-black">{normalizePixKey(pixKey)}</p>
+        {pixKey ? (
+          <>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
+              {detectPixKeyType(pixKey)}
+            </p>
+            <p className="break-all text-lg font-black">{normalizePixKey(pixKey)}</p>
+          </>
+        ) : null}
         <p className="text-sm font-bold text-muted">
-          {merchantName} · {merchantCity}
+          {master.storeName || settings.storeName || merchantName}
+          {merchantCity ? ` · ${merchantCity}` : ""}
         </p>
       </section>
 
@@ -134,15 +140,35 @@ export default function PixPage() {
       </div>
 
       {payload ? (
-        <PixQr
-          payload={payload}
-          size={260}
-          label={
-            selectedProduct
-              ? `${selectedProduct.name} · ${money(selectedProduct.priceCents)}`
-              : t("pay.scanPix")
-          }
-        />
+        <div className="flex flex-col gap-3">
+          <PixQr
+            payload={payload}
+            size={260}
+            label={
+              selectedProduct
+                ? `${selectedProduct.name} · ${money(selectedProduct.priceCents)}`
+                : t("pay.scanPix")
+            }
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(pixKey);
+                toast(t("pay.copyPix"));
+              } catch {
+                toast(pixKey);
+              }
+            }}
+            className="w-full rounded-2xl border-2 border-sun bg-sun/10 px-4 py-3 text-left"
+          >
+            <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-sun">
+              <Copy className="h-4 w-4" />
+              {t("pay.copyPix")}
+            </p>
+            <p className="mt-1 break-all text-lg font-black">{pixKey}</p>
+          </button>
+        </div>
       ) : master.isPaired || isStaffDevice(settings) ? null : (
         <p className="text-alert">{t("warn.pixOwner")}</p>
       )}

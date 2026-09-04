@@ -1,5 +1,7 @@
 import {
   ATTENDANT_NAME_LS_KEY,
+  cacheChefePixKey,
+  CHEFE_PIX_KEY,
   LINKED_OWNER_KEY,
   PAIR_NAME_KEY,
   PAIR_OWNER_KEY,
@@ -244,6 +246,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem(USER_ROLE_KEY);
     localStorage.removeItem("device_role");
     localStorage.removeItem("staff_role");
+    localStorage.removeItem(CHEFE_PIX_KEY);
   } catch {
     /* private mode */
   }
@@ -422,9 +425,10 @@ export async function redeemPairingCode(
   }
   const { pushAndPull, refetchOwnerSettings, refetchOwnerProducts } = await import("./sync");
   await pushAndPull();
-  await refetchOwnerSettings().catch(() => undefined);
+  const inherited = await refetchOwnerSettings().catch(() => undefined);
+  if (inherited?.pixKey) cacheChefePixKey(inherited.pixKey);
   await refetchOwnerProducts().catch(() => undefined);
-  return next;
+  return inherited ?? next;
 }
 
 export async function disconnectAttendant(): Promise<Settings> {

@@ -20,6 +20,7 @@ import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, readLocalPixKey } from "@/lib/account";
+import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
 import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
 import type { Product } from "@/lib/types";
@@ -36,6 +37,7 @@ const emptyForm = {
 export default function ProdutosPage() {
   const t = useT();
   const router = useRouter();
+  const master = useMasterSettings();
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
@@ -86,15 +88,18 @@ export default function ProdutosPage() {
     (p) => filter === "Todos" || p.category === filter,
   );
 
-  const pixKey = readLocalPixKey(settings);
+  const pixKey = (readLocalPixKey(settings) || master.pixKey || "").trim();
+  const merchantName =
+    settings?.merchantName || master.merchantName || settings?.storeName || "MEU NEGOCIO";
+  const merchantCity = settings?.merchantCity || master.merchantCity || "SAO PAULO";
 
   function stickerPayload(product: Product): string {
     if (!pixKey) return "";
     try {
       return buildPixPayload({
         pixKey,
-        merchantName: settings?.merchantName || settings?.storeName || "MEU NEGOCIO",
-        merchantCity: settings?.merchantCity || "SAO PAULO",
+        merchantName,
+        merchantCity,
         amountCents:
           product.priceMode === "suggested" ? undefined : product.priceCents,
         description: product.name,
@@ -105,8 +110,7 @@ export default function ProdutosPage() {
   }
 
   function openSticker(product: Product) {
-    if (!pixKey) {
-      if (isStaffDevice(settings)) return;
+    if (!pixKey && !isStaffDevice(settings)) {
       setNeedPixKey(true);
       return;
     }

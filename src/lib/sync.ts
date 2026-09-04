@@ -1,4 +1,5 @@
 import {
+  cacheChefePixKey,
   getActiveOwnerId,
   getAttendantNameLocal,
   isOwnerDevice,
@@ -883,6 +884,7 @@ export async function refetchOwnerSettings(): Promise<Settings> {
     dirty: staff ? false : local.dirty,
     updatedAt: staff ? local.updatedAt : remote.updated_at || local.updatedAt,
   };
+  cacheChefePixKey(merged.pixKey);
   await db.settings.put(merged);
   rememberPrefs(merged);
   return merged;
