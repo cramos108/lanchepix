@@ -83,16 +83,17 @@ export function paymentReminderMessage(opts: {
   pixKey?: string;
   currency?: AppCurrency;
 }): string {
-  const nome = opts.customerName?.trim() || "";
-  const oi = nome ? `Olá ${nome}!` : "Olá!";
+  void opts.storeName;
+  void opts.customerName;
+  void opts.currency;
   const item =
     opts.quantity > 1 ? `${opts.productName} (x${opts.quantity})` : opts.productName;
-  const pedido = `${item} / ${formatMoney(opts.totalCents, opts.currency ?? "BRL")}`;
-  const chave = opts.pixKey?.trim() || "a chave combinada";
-  return (
-    `${oi} Passando pra lembrar do seu pedido de *${pedido}* no Pix Confiança. ` +
-    `Segue minha chave Pix para pagamento quando puder: *${chave}*. Muito obrigado(a)!`
-  );
+  const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
+  const chave = opts.pixKey?.trim() || "";
+  if (chave) {
+    return `Oi! Passando só pra te mandar a chave Pix do *${item}* (R$ *${valor}*): *${chave}*. Pode pagar quando puder! Valeu! `;
+  }
+  return `Oi! Passando pra confirmar seu pedido do *${item}* (R$ *${valor}*). Me avisa quando quiser o Pix para pagamento! Valeu! `;
 }
 
 export function loyaltyStampMessage(opts: {
