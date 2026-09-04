@@ -7,7 +7,11 @@ import type { Settings } from "./types";
 
 function readCachedChefePix(): string {
   try {
-    return localStorage.getItem(CHEFE_PIX_KEY)?.trim() || "";
+    return (
+      localStorage.getItem(CHEFE_PIX_KEY)?.trim() ||
+      localStorage.getItem("chefe_pix_key")?.trim() ||
+      ""
+    );
   } catch {
     return "";
   }

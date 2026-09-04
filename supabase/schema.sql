@@ -74,6 +74,8 @@ alter table public.settings add column if not exists allow_helper_edit_prices bo
 alter table public.settings add column if not exists currency text not null default 'BRL';
 alter table public.settings add column if not exists language text not null default 'pt';
 alter table public.settings add column if not exists payment_link text not null default '';
+alter table public.settings add column if not exists chave_pix text not null default '';
+update public.settings set chave_pix = pix_key where coalesce(chave_pix, '') = '' and coalesce(pix_key, '') <> '';
 alter table public.settings drop constraint if exists settings_plan_check;
 alter table public.settings add constraint settings_plan_check check (plan in ('free', 'pro', 'equipe'));
 alter table public.products add column if not exists price_mode text not null default 'fixed';
@@ -160,6 +162,12 @@ create policy "lanchepix_customers_anon" on public.customers
 drop policy if exists "lanchepix_settings_anon" on public.settings;
 create policy "lanchepix_settings_anon" on public.settings
   for all to anon, authenticated using (true) with check (true);
+
+-- Explicit read so Ajudante sessions can load the Chefe Pix key (pix_key / chave_pix).
+drop policy if exists "lanchepix_settings_pix_read" on public.settings;
+create policy "lanchepix_settings_pix_read" on public.settings
+  for select to anon, authenticated
+  using (true);
 
 create table if not exists public.pairing_codes (
   code text primary key,

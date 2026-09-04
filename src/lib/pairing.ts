@@ -44,6 +44,8 @@ type FallbackEntry = {
   hide_store_totals: boolean;
   allow_helper_edit_prices: boolean;
   role: StaffRole;
+  pix_key?: string;
+  chave_pix?: string;
 };
 
 function normalizePairRole(value?: string | null): StaffRole {
@@ -62,6 +64,8 @@ function parseMetadata(raw?: string | null): {
   hide_store_totals?: boolean;
   allow_helper_edit_prices?: boolean;
   role?: StaffRole;
+  pix_key?: string;
+  chave_pix?: string;
 } {
   if (!raw) return {};
   try {
@@ -71,6 +75,8 @@ function parseMetadata(raw?: string | null): {
       hide_store_totals?: boolean;
       allow_helper_edit_prices?: boolean;
       role?: string;
+      pix_key?: string;
+      chave_pix?: string;
     };
     if (!value || typeof value !== "object") return {};
     return { ...value, role: normalizePairRole(value.role) };
@@ -106,6 +112,7 @@ function saveLocalFallback(
   hideStoreTotals: boolean,
   role: StaffRole,
   allowHelperEditPrices = false,
+  pixKey = "",
 ): void {
   const map = readFallbackMap();
   map[code] = {
@@ -115,6 +122,8 @@ function saveLocalFallback(
     hide_store_totals: hideStoreTotals,
     allow_helper_edit_prices: allowHelperEditPrices,
     role,
+    pix_key: pixKey,
+    chave_pix: pixKey,
   };
   writeFallbackMap(map);
 }
@@ -247,6 +256,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem("device_role");
     localStorage.removeItem("staff_role");
     localStorage.removeItem(CHEFE_PIX_KEY);
+    localStorage.removeItem("chefe_pix_key");
   } catch {
     /* private mode */
   }
@@ -268,12 +278,15 @@ export async function createPairingCode(
   const hideStoreTotals =
     assignedRole === "gerente" ? false : settings.hideStoreTotals !== false;
   const allowHelperEditPrices = settings.allowHelperEditPrices === true;
+  const pixKey = String(settings.pixKey ?? "").trim();
   const metadata = JSON.stringify({
     store_name: storeName,
     expires_at: expiresAt,
     hide_store_totals: hideStoreTotals,
     allow_helper_edit_prices: allowHelperEditPrices,
     role: assignedRole,
+    pix_key: pixKey,
+    chave_pix: pixKey,
   });
 
   try {
@@ -299,6 +312,7 @@ export async function createPairingCode(
       hideStoreTotals,
       assignedRole,
       allowHelperEditPrices,
+      pixKey,
     );
   }
 
@@ -310,6 +324,7 @@ export async function createPairingCode(
     hideStoreTotals,
     assignedRole,
     allowHelperEditPrices,
+    pixKey,
   );
   return { code, expiresAt, url: inviteUrl(code) };
 }
@@ -329,6 +344,7 @@ export async function redeemPairingCode(
   let hideStoreTotals = true;
   let allowHelperEditPrices = false;
   let role: StaffRole = "ajudante";
+  let pixKeyFromCode = "";
 
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
@@ -362,6 +378,7 @@ export async function redeemPairingCode(
     role = normalizePairRole(row.role || extra.role);
     hideStoreTotals =
       role === "gerente" ? false : extra.hide_store_totals !== false;
+    pixKeyFromCode = String(extra.chave_pix || extra.pix_key || "").trim();
   } catch (err) {
     console.error("Pairing code select failed, trying local fallback:", err);
     const local = lookupLocalFallback(code);
@@ -374,6 +391,7 @@ export async function redeemPairingCode(
     allowHelperEditPrices = local.allow_helper_edit_prices === true;
     role = local.role === "gerente" ? "gerente" : "ajudante";
     hideStoreTotals = role === "gerente" ? false : local.hide_store_totals !== false;
+    pixKeyFromCode = String(local.chave_pix || local.pix_key || "").trim();
   }
 
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -390,9 +408,11 @@ export async function redeemPairingCode(
     allowHelperEditPrices,
     plan: "equipe",
     storeName: storeName || settings.storeName,
+    pixKey: pixKeyFromCode || settings.pixKey,
     updatedAt: nowIso(),
     dirty: false,
   };
+  if (pixKeyFromCode) cacheChefePixKey(pixKeyFromCode);
   persistPairLocal(
     ownerId,
     name,

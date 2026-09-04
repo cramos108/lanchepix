@@ -7,7 +7,8 @@ export const ATTENDANT_NAME_LS_KEY = "attendant_name";
 export const USER_ROLE_KEY = "user_role";
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
-export const CHEFE_PIX_KEY = "chefe_pix_key";
+export const CHEFE_PIX_KEY = "pix_confianca_chefe_key";
+const LEGACY_CHEFE_PIX_KEY = "chefe_pix_key";
 
 function readLs(key: string): string {
   try {
@@ -65,7 +66,8 @@ export function resolveActivePixKey(
   masterPixKey?: string | null,
 ): string {
   const localChavePix = String(settings?.pixKey ?? "").trim();
-  const chefeChavePix = readLs(CHEFE_PIX_KEY);
+  const chefeChavePix =
+    readLs(CHEFE_PIX_KEY) || readLs(LEGACY_CHEFE_PIX_KEY);
   const masterChavePix = String(masterPixKey ?? "").trim();
   return localChavePix || chefeChavePix || masterChavePix;
 }
@@ -76,6 +78,7 @@ export function cacheChefePixKey(pixKey?: string | null): void {
   if (!key) return;
   try {
     localStorage.setItem(CHEFE_PIX_KEY, key);
+    localStorage.setItem(LEGACY_CHEFE_PIX_KEY, key);
   } catch {
     /* private mode */
   }
