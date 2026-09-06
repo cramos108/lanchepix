@@ -24,7 +24,6 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import {
   accountVendorId,
   getActiveOwnerId,
-  canSeeFinances,
   isStaffDevice,
   staffRole,
   staffRoleLabel,
@@ -257,7 +256,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Online
               </span>
             ) : null}
-            {canSeeFinances(settings) ? (
             <button
               type="button"
               aria-label={hideBalances ? "Mostrar saldos" : "Ocultar saldos"}
@@ -266,12 +264,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
             >
               {hideBalances ? (
-                <EyeOff className="h-6 w-6" aria-hidden />
+                <EyeOff className="h-5 w-5 text-zinc-400" aria-hidden />
               ) : (
-                <Eye className="h-6 w-6" aria-hidden />
+                <Eye className="h-5 w-5 text-white" aria-hidden />
               )}
             </button>
-            ) : null}
             <button
               type="button"
               aria-label="Abrir tutorial"

@@ -17,7 +17,7 @@ export function useMoney() {
   const hide = useHideBalances();
   const currency = useCurrency();
   return (cents: number) =>
-    hide ? `${currencySymbol(currency)} ••••` : formatMoney(cents, currency);
+    hide ? `${currencySymbol(currency)} ●●●●` : formatMoney(cents, currency);
 }
 
 /** Personal financial metric — respects the header eye toggle. */
