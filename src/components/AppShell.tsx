@@ -224,7 +224,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {TITLE_KEYS[pathname] ? t(TITLE_KEYS[pathname]) : settings?.storeName ?? APP_NAME}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {isStaffDevice(settings) ? (
               <span className="max-w-[11rem] truncate rounded-full border-2 border-mint bg-mint px-2 py-1 text-[11px] font-black uppercase text-sunink">
                 {chefeBadge}
@@ -256,12 +256,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Online
               </span>
             ) : null}
+            <div className="flex items-center gap-3">
             <button
               type="button"
               aria-label={hideBalances ? "Mostrar saldos" : "Ocultar saldos"}
               title={hideBalances ? "Saldos ocultos — toque para mostrar" : "Saldos visíveis — toque para ocultar"}
               onClick={toggleHideBalances}
-              className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
+              className="p-1.5 text-zinc-300 hover:text-white transition-colors"
             >
               {hideBalances ? (
                 <EyeOff className="h-5 w-5 text-zinc-400" aria-hidden />
@@ -273,21 +274,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               aria-label="Abrir tutorial"
               onClick={openTutorial}
-              className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-line bg-surface text-white"
+              className="p-1.5 text-zinc-300 hover:text-white transition-colors"
             >
               <CircleHelp className="h-6 w-6" />
             </button>
             <Link
               href="/configuracoes"
               aria-label={t("title.settings")}
-              className={`grid h-12 w-12 place-items-center rounded-2xl border-2 ${
+              className={`p-1.5 transition-colors ${
                 pathname === "/configuracoes"
-                  ? "border-sun bg-sun text-sunink"
-                  : "border-line bg-surface text-white"
+                  ? "text-white"
+                  : "text-zinc-300 hover:text-white"
               }`}
             >
               <Settings className="h-6 w-6" />
             </Link>
+            </div>
           </div>
         </div>
       </header>
