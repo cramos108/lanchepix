@@ -67,7 +67,10 @@ export default function PixPage() {
     settings?.storeName ||
     "";
   const merchantCity =
-    chefe.city || settings?.merchantCity || master.merchantCity || "";
+    chefe.city ||
+    settings?.merchantCity ||
+    master.merchantCity ||
+    "";
   const currency = normalizeCurrency(
     master.isPaired ? master.currency : settings?.currency,
   );

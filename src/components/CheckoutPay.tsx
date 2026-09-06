@@ -61,7 +61,7 @@ export function CheckoutPay({
     chefe.storeName ||
     settings.storeName;
   const merchantCity =
-    chefe.city || settings.merchantCity || master.merchantCity;
+    chefe.city || settings.merchantCity || master.merchantCity || "";
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [received, setReceived] = useState(centsToInput(sale.totalCents, currency));
   const [busy, setBusy] = useState(false);

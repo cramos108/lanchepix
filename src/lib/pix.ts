@@ -29,6 +29,17 @@ function pixText(value: string, max: number): string {
     .slice(0, max);
 }
 
+/** EMV Tag 60: no accents, uppercase, max 15 chars. */
+export function sanitizePixCity(raw?: string | null): string {
+  const cleaned = stripAccents(String(raw ?? ""))
+    .replace(/[^A-Za-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+    .slice(0, 15);
+  return cleaned || "BRASIL";
+}
+
 /** Normaliza chave Pix (telefone vira +55..., e-mail em minúsculas). */
 export function normalizePixKey(raw: string): string {
   const key = raw.trim();
@@ -76,7 +87,7 @@ export function buildPixPayload(input: PixPayloadInput): string {
   if (!pixKey) throw new Error("Informe a chave Pix nas configurações.");
 
   const name = pixText(input.merchantName || "MEU NEGOCIO", 25) || "MEU NEGOCIO";
-  const city = pixText(input.merchantCity || "SAO PAULO", 15) || "SAO PAULO";
+  const city = sanitizePixCity(input.merchantCity);
   const txid = (input.txid ?? "***").replace(/[^A-Za-z0-9*]/g, "").slice(0, 25) || "***";
 
   let merchantAccount = tlv("00", "br.gov.bcb.pix") + tlv("01", pixKey);
