@@ -106,7 +106,7 @@ export function paymentReminderMessage(opts: {
   const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const chave = opts.pixKey?.trim() || "";
   if (chave) {
-    return `Oi! Passando só pra te mandar a chave Pix do *${item}* (R$ *${valor}*): *${chave}*. Pode pagar quando puder! Valeu! `;
+    return `Oi! Muito obrigado(a) pela confiança!  Passando só pra te mandar a chave Pix do *${item}* (R$ *${valor}*): *${chave}*. Pode pagar por aqui quando puder. Tmj! `;
   }
   return `Oi! Passando pra confirmar seu pedido do *${item}* (R$ *${valor}*). Me avisa quando quiser o Pix para pagamento! Valeu! `;
 }
