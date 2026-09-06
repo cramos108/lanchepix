@@ -26,6 +26,63 @@ export function waLink(phone: string | undefined, message: string): string {
   return `https://wa.me/?text=${text}`;
 }
 
+function receiptWhen(iso?: string): string {
+  return new Date(iso || Date.now()).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function paidSaleReceiptMessage(opts: {
+  storeName?: string;
+  productName: string;
+  quantity?: number;
+  totalCents: number;
+  paidAt?: string;
+  sellerName?: string;
+}): string {
+  const loja = opts.storeName?.trim() || "Meu Negócio";
+  const item =
+    (opts.quantity ?? 1) > 1
+      ? `${opts.productName} (x${opts.quantity})`
+      : opts.productName;
+  const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
+  const seller = opts.sellerName?.trim() || "Chefe";
+  return (
+    `Comprovante - *${loja}* 🧾\n\n` +
+    `Item: *${item}*\n` +
+    `Total: *R$ ${valor}*\n` +
+    `Data: ${receiptWhen(opts.paidAt)}\n` +
+    `Vendido por: ${seller}\n\n` +
+    `Obrigado pela preferência! 🙌`
+  );
+}
+
+/** Opens WhatsApp only when a customer phone exists. Never blocks the sale save. */
+export function openPaidSaleWhatsApp(opts: {
+  phone?: string;
+  storeName?: string;
+  productName: string;
+  quantity?: number;
+  totalCents: number;
+  paidAt?: string;
+  sellerName?: string;
+}): void {
+  const n = digitsOnly(opts.phone ?? "");
+  if (!n) return;
+  try {
+    window.open(
+      waLink(n, paidSaleReceiptMessage(opts)),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  } catch {
+    /* popup blocked / ssr */
+  }
+}
+
 /** Printed catalog sticker: camera scan opens WhatsApp to the seller. */
 export function stickerWhatsAppLink(opts: {
   sellerPhone?: string;

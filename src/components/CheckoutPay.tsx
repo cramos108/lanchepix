@@ -18,7 +18,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { markSalePaid } from "@/lib/repo";
 import { refetchOwnerSettings } from "@/lib/sync";
 import { toast } from "@/lib/toast";
-import { orderReceiptMessage, waLink } from "@/lib/whatsapp";
+import { openPaidSaleWhatsApp, orderReceiptMessage, waLink } from "@/lib/whatsapp";
 import type { Sale, Settings } from "@/lib/types";
 
 export function CheckoutPay({
@@ -114,6 +114,17 @@ export function CheckoutPay({
     try {
       if (sale.status !== "paid") {
         await markSalePaid(sale.id);
+      }
+      if (sale.customerPhone) {
+        openPaidSaleWhatsApp({
+          phone: sale.customerPhone,
+          storeName: settings.storeName,
+          productName: sale.productName,
+          quantity: sale.quantity,
+          totalCents: sale.totalCents,
+          paidAt: sale.paidAt ?? sale.createdAt,
+          sellerName: settings.storeName || seller,
+        });
       }
       toast(t("pay.cashConfirm"));
     } catch (err) {

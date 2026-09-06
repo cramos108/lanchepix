@@ -29,7 +29,13 @@ import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { CheckoutPay } from "@/components/CheckoutPay";
-import { loyaltyStampMessage, paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import {
+  loyaltyStampMessage,
+  openPaidSaleWhatsApp,
+  paidSaleReceiptMessage,
+  paymentReminderMessage,
+  waLink,
+} from "@/lib/whatsapp";
 import { useT } from "@/lib/i18n";
 import type { Sale } from "@/lib/types";
 
@@ -73,8 +79,19 @@ export default function PendentesPage() {
       const updated = await markSalePaid(settle.id, settleExtra);
       await refetchOwnerSales().catch(() => undefined);
       toast("Marcado como pago. Estoque baixado.");
+      const paid = updated ?? settle;
       setSettle(null);
-      setPaying(updated ?? settle);
+      if (paid.customerPhone) {
+        openPaidSaleWhatsApp({
+          phone: paid.customerPhone,
+          storeName: settings?.storeName,
+          productName: paid.productName,
+          quantity: paid.quantity,
+          totalCents: paid.totalCents,
+          paidAt: paid.paidAt ?? paid.createdAt,
+          sellerName: sellerNameFromSale(paid) || "Chefe",
+        });
+      }
     } catch (err) {
       toast(
         err instanceof Error ? err.message : "Não deu pra marcar como pago.",
@@ -376,11 +393,11 @@ export default function PendentesPage() {
             </li>
           ) : (
             filteredHistory.map((sale) => (
-              <li key={sale.id}>
+              <li key={sale.id} className="rounded-3xl border-2 border-line bg-surface p-4">
                 <button
                   type="button"
                   onClick={() => setDetail(sale)}
-                  className="w-full rounded-3xl border-2 border-line bg-surface p-4 text-left"
+                  className="w-full text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -410,6 +427,27 @@ export default function PendentesPage() {
                     </p>
                   </div>
                 </button>
+                {sale.status === "paid" && sale.customerPhone ? (
+                  <a
+                    href={waLink(
+                      sale.customerPhone,
+                      paidSaleReceiptMessage({
+                        storeName: settings?.storeName,
+                        productName: sale.productName,
+                        quantity: sale.quantity,
+                        totalCents: sale.totalCents,
+                        paidAt: sale.paidAt ?? sale.createdAt,
+                        sellerName: sellerNameFromSale(sale) || "Chefe",
+                      }),
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-extrabold uppercase text-mint"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Reenviar Comprovante
+                  </a>
+                ) : null}
               </li>
             ))
           )}

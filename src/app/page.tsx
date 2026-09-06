@@ -23,7 +23,7 @@ import {
   periodCut,
 } from "@/lib/id";
 import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
-import { paymentReminderMessage, waLink } from "@/lib/whatsapp";
+import { openPaidSaleWhatsApp, paymentReminderMessage, waLink } from "@/lib/whatsapp";
 import { toast } from "@/lib/toast";
 import { loadCartQty, saveCartQty } from "@/lib/persist";
 import { refetchOwnerProducts, refetchOwnerSettings } from "@/lib/sync";
@@ -215,6 +215,17 @@ export default function VenderPage() {
         customerName: customer?.name || customerName || undefined,
       });
       if (draft.mode === "paid") {
+        if (digits) {
+          openPaidSaleWhatsApp({
+            phone: digits,
+            storeName: settings?.storeName,
+            productName: sale.productName,
+            quantity: sale.quantity,
+            totalCents: sale.totalCents,
+            paidAt: sale.paidAt ?? sale.createdAt,
+            sellerName: sale.attendantName || settings?.storeName || "Chefe",
+          });
+        }
         setPaidSale(sale);
         toast("Venda paga. Estoque baixado.");
         setDraft(null);
