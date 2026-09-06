@@ -272,6 +272,10 @@ export async function createPairingCode(
   url: string;
 }> {
   const settings = await ensureSettings();
+  const { canConnectDevices } = await import("./plan");
+  if (!canConnectDevices(settings)) {
+    throw new Error("PLAN_LIMIT_PAIR");
+  }
   const expiresAt = new Date(Date.now() + PAIR_TTL_MS).toISOString();
   const code = randomCode();
   const ownerId = settings.vendorId;

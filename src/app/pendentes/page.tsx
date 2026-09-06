@@ -10,7 +10,13 @@ import { formatDateTime } from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
-import { canFilterByHelper, isNegocio, isPro, openUpgradeModal } from "@/lib/plan";
+import {
+  canExportSalesPdf,
+  canFilterByHelper,
+  canSendWhatsAppReminders,
+  isNegocio,
+  openUpgradeModal,
+} from "@/lib/plan";
 import {
   addStamp,
   cancelSale,
@@ -112,7 +118,8 @@ export default function PendentesPage() {
   const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
   const historyFilteredCents = filteredHistory.reduce((sum, s) => sum + s.totalCents, 0);
   const helpers = attendantPerformance(scoped);
-  const pro = isPro(settings);
+  const canRemind = canSendWhatsAppReminders(settings);
+  const canPdf = canExportSalesPdf(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = isNegocio(settings) && canSeeFinances(settings);
   const showHelperFilter = canFilterByHelper(settings);
@@ -140,8 +147,48 @@ export default function PendentesPage() {
     }
   }
 
+  function reminderHref(sale: Sale): string {
+    return waLink(
+      sale.customerPhone ?? "",
+      paymentReminderMessage({
+        storeName: settings?.storeName ?? "Meu Negócio",
+        customerName: sale.customerName,
+        productName: sale.productName,
+        quantity: sale.quantity,
+        totalCents: sale.totalCents,
+        pixKey: settings?.pixKey,
+      }),
+    );
+  }
+
+  function chargeSale(sale: Sale) {
+    if (!canRemind) {
+      openUpgradeModal();
+      return;
+    }
+    window.open(reminderHref(sale), "_blank", "noopener,noreferrer");
+  }
+
+  function chargeAllPending() {
+    if (!canRemind) {
+      openUpgradeModal();
+      return;
+    }
+    const due = filteredPending.filter((s) => s.customerPhone);
+    if (!due.length) {
+      toast("Nenhum pedido com WhatsApp");
+      return;
+    }
+    window.open(reminderHref(due[0]), "_blank", "noopener,noreferrer");
+    toast(
+      due.length === 1
+        ? "Lembrete aberto no WhatsApp"
+        : `${due.length} cobranças — o primeiro abriu; toque nos outros pedidos.`,
+    );
+  }
+
   async function downloadReport() {
-    if (!pro) {
+    if (!canPdf) {
       openUpgradeModal();
       return;
     }
@@ -311,7 +358,7 @@ export default function PendentesPage() {
             {hideStore ? null : (
             <Button
               className="mt-3 w-full"
-              variant={pro ? "sun" : "line"}
+              variant={canPdf ? "sun" : "line"}
               disabled={pdfBusy}
               onClick={() => void downloadReport()}
             >
@@ -388,6 +435,14 @@ export default function PendentesPage() {
             <RefreshCw className="h-5 w-5" />
             {historyBusy ? "Atualizando…" : "Atualizar Histórico"}
           </Button>
+          <Button
+            className="mt-2 w-full"
+            variant={canRemind ? "mint" : "line"}
+            onClick={chargeAllPending}
+          >
+            <MessageCircle className="h-5 w-5" />
+            Lembrar todos no WhatsApp
+          </Button>
         </li>
         {filteredPending.map((sale) => (
           <li key={sale.id} className="rounded-3xl border-2 border-amber bg-surface p-4">
@@ -430,26 +485,15 @@ export default function PendentesPage() {
                 {t("btn.cancel")}
               </Button>
             </div>
-            {settings ? (
-              <a
-                href={waLink(
-                  sale.customerPhone ?? "",
-                  paymentReminderMessage({
-                    storeName: settings.storeName,
-                    customerName: sale.customerName,
-                    productName: sale.productName,
-                    quantity: sale.quantity,
-                    totalCents: sale.totalCents,
-                    pixKey: settings.pixKey,
-                  }),
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-line bg-surface2 text-sm font-extrabold uppercase"
+            {sale.customerPhone ? (
+              <Button
+                variant="line"
+                className="mt-2 w-full"
+                onClick={() => chargeSale(sale)}
               >
                 <MessageCircle className="h-5 w-5" />
                 {t("wa.charge")}
-              </a>
+              </Button>
             ) : null}
           </li>
         ))}

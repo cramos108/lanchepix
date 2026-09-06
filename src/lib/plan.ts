@@ -247,13 +247,35 @@ export function isNegocio(
   return isEquipe(settings);
 }
 
-/** Helper filter: Chefe or Gerente. Never Ajudante. */
+/** Helper filter and per-helper reports: Negócio Chefe or Gerente. Never Ajudante. */
 export function canFilterByHelper(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
   if (isAttendantDevice(settings)) return false;
+  if (!isNegocio(settings)) return false;
   const role = staffRole(settings);
   return role === "dono" || role === "gerente";
+}
+
+/** Multi-device codes: Negócio only. Pro stays locked. */
+export function canConnectDevices(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isNegocio(settings);
+}
+
+/** Individual and batch WhatsApp charge reminders: Pro and Negócio. */
+export function canSendWhatsAppReminders(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isPro(settings);
+}
+
+/** Sales PDF export: Pro and Negócio. */
+export function canExportSalesPdf(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isPro(settings);
 }
 
 export function planLabel(plan?: Plan | string | null): string {

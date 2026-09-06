@@ -316,6 +316,17 @@ function SettingsForm({ settings }: { settings: Settings }) {
       </Field>
       </>
       ) : null}
+      {isOwnerDevice(settings) && !isNegocio(settings) ? (
+        <section className="rounded-3xl border-2 border-sun bg-surface p-4">
+          <h2 className="text-lg font-black">Conectar Novo Aparelho / Ajudante</h2>
+          <p className="mt-1 text-sm font-bold text-muted">
+            Multi-dispositivo é exclusivo do plano Negócio (R$ 24,90/mês).
+          </p>
+          <Button className="mt-3 w-full" onClick={openUpgradeModal}>
+            Fazer upgrade
+          </Button>
+        </section>
+      ) : null}
       {canPairDevices(settings) && (isNegocio(settings) || isManagerDevice(settings)) ? (
         <section className="rounded-3xl border-2 border-sun bg-surface p-4">
           <h2 className="text-lg font-black">Conectar Novo Aparelho / Ajudante</h2>
@@ -394,10 +405,12 @@ function SettingsForm({ settings }: { settings: Settings }) {
                 setPairExpires(created.expiresAt);
                 toast("Código de conexão gerado");
               } catch (err) {
-                toast(
-                  err instanceof Error ? err.message : "Não deu para gerar o código.",
-                  "err",
-                );
+                const message = err instanceof Error ? err.message : "";
+                if (message.startsWith("PLAN_LIMIT")) {
+                  openUpgradeModal();
+                } else {
+                  toast(message || "Não deu para gerar o código.", "err");
+                }
               } finally {
                 setPairBusy(false);
               }
