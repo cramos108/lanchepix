@@ -311,9 +311,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/configuracoes"
               aria-label={t("title.settings")}
-              className={`p-1.5 transition-colors ${
+              className={`p-1 focus:outline-none transition-colors ${
                 pathname === "/configuracoes"
-                  ? "text-white"
+                  ? "text-yellow-400"
                   : "text-zinc-300 hover:text-white"
               }`}
             >
