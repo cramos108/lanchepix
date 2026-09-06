@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { QRCodeSVG } from "qrcode.react";
-import { Cloud, Copy, Download, Lock, ShieldAlert, Trash2, Upload } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
+import { Cloud, Copy, Download, Lock, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { HelperSessionView } from "@/components/HelperSessionView";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
@@ -53,11 +53,72 @@ import {
   type Settings,
 } from "@/lib/types";
 
+const PAIRING_DISPLAY_KEY = "pairing_display";
+
+type PairingDisplay = {
+  pairingCode: string;
+  pairingQrPayload: string;
+  pairingExpires: string;
+};
+
+const EMPTY_PAIRING: PairingDisplay = {
+  pairingCode: "",
+  pairingQrPayload: "",
+  pairingExpires: "",
+};
+
+function readPairingDisplay(): PairingDisplay {
+  if (typeof window === "undefined") return EMPTY_PAIRING;
+  try {
+    const raw = sessionStorage.getItem(PAIRING_DISPLAY_KEY);
+    if (!raw) return EMPTY_PAIRING;
+    const parsed = JSON.parse(raw) as PairingDisplay;
+    const code = String(parsed?.pairingCode ?? "").replace(/\D/g, "").slice(0, 6);
+    if (code.length !== 6) return EMPTY_PAIRING;
+    const expires = String(parsed?.pairingExpires ?? "");
+    if (expires && Date.parse(expires) <= Date.now()) {
+      sessionStorage.removeItem(PAIRING_DISPLAY_KEY);
+      return EMPTY_PAIRING;
+    }
+    const payload = String(parsed?.pairingQrPayload ?? "").trim() || inviteUrl(code);
+    return { pairingCode: code, pairingQrPayload: payload, pairingExpires: expires };
+  } catch {
+    return EMPTY_PAIRING;
+  }
+}
+
+function writePairingDisplay(next: PairingDisplay): void {
+  try {
+    if (!next.pairingCode) sessionStorage.removeItem(PAIRING_DISPLAY_KEY);
+    else sessionStorage.setItem(PAIRING_DISPLAY_KEY, JSON.stringify(next));
+  } catch {
+    /* private mode */
+  }
+}
+
 export default function ConfiguracoesPage() {
   const settings = useLiveQuery(async () => {
     await ensureSettings();
     return db.settings.get("app");
   }, []);
+  const [restoreNonce, setRestoreNonce] = useState(0);
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingQrPayload, setPairingQrPayload] = useState("");
+  const [pairingExpires, setPairingExpires] = useState("");
+
+  useEffect(() => {
+    const loaded = readPairingDisplay();
+    setPairingCode(loaded.pairingCode);
+    setPairingQrPayload(loaded.pairingQrPayload);
+    setPairingExpires(loaded.pairingExpires);
+  }, []);
+
+  function setPairingDisplay(next: PairingDisplay) {
+    setPairingCode(next.pairingCode);
+    setPairingQrPayload(next.pairingQrPayload);
+    setPairingExpires(next.pairingExpires);
+    writePairingDisplay(next);
+  }
 
   if (!settings) {
     return <p className="text-muted">Carregando configurações…</p>;
@@ -65,8 +126,13 @@ export default function ConfiguracoesPage() {
 
   return (
     <SettingsForm
-      key={`${settings.vendorId}:${settings.updatedAt}`}
+      key={`${settings.vendorId}:${restoreNonce}`}
       settings={settings}
+      pairingCode={pairingCode}
+      pairingQrPayload={pairingQrPayload}
+      pairingExpires={pairingExpires}
+      onPairingDisplay={setPairingDisplay}
+      onRestored={() => setRestoreNonce((n) => n + 1)}
     />
   );
 }
@@ -91,7 +157,21 @@ function DiagnosticIds({ vendorId }: { vendorId?: string }) {
   );
 }
 
-function SettingsForm({ settings }: { settings: Settings }) {
+function SettingsForm({
+  settings,
+  pairingCode,
+  pairingQrPayload,
+  pairingExpires,
+  onPairingDisplay,
+  onRestored,
+}: {
+  settings: Settings;
+  pairingCode: string;
+  pairingQrPayload: string;
+  pairingExpires: string;
+  onPairingDisplay: (next: PairingDisplay) => void;
+  onRestored: () => void;
+}) {
   const [storeName, setStoreName] = useState(settings.storeName);
   const [pixKey, setPixKey] = useState(settings.pixKey);
   const [merchantName, setMerchantName] = useState(settings.merchantName);
@@ -113,8 +193,6 @@ function SettingsForm({ settings }: { settings: Settings }) {
     null,
   );
   const [deleteAccount, setDeleteAccount] = useState(false);
-  const [pairCode, setPairCode] = useState("");
-  const [pairExpires, setPairExpires] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
   const [pairRole, setPairRole] = useState<StaffRole>("ajudante");
   const [allowHelperTotals, setAllowHelperTotals] = useState(
@@ -410,9 +488,18 @@ function SettingsForm({ settings }: { settings: Settings }) {
                 const created = await createPairingCode(
                   isOwnerDevice(settings) ? pairRole : "ajudante",
                 );
-                setPairCode(created.code);
-                setPairExpires(created.expiresAt);
+                const payload = created.url || inviteUrl(created.code);
+                onPairingDisplay({
+                  pairingCode: created.code,
+                  pairingQrPayload: payload,
+                  pairingExpires: created.expiresAt,
+                });
                 toast("Código de conexão gerado");
+                window.setTimeout(() => {
+                  document
+                    .getElementById("pairing-code-display")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 50);
               } catch (err) {
                 const message = err instanceof Error ? err.message : "";
                 if (message.startsWith("PLAN_LIMIT")) {
@@ -427,30 +514,45 @@ function SettingsForm({ settings }: { settings: Settings }) {
           >
             {pairBusy ? "Gerando…" : "Gerar Código de Conexão"}
           </Button>
-          {pairCode ? (
-            <div className="mt-4 flex flex-col items-center gap-3">
-              <p className="text-4xl font-black tracking-[0.28em] text-sun">{pairCode}</p>
-              <p className="text-center text-xs font-bold text-muted">
-                Expira em {new Date(pairExpires).toLocaleString("pt-BR")}
+          {pairingCode ? (
+            <div
+              id="pairing-code-display"
+              className="mt-4 flex flex-col items-center gap-3 rounded-2xl border-2 border-sun bg-ink p-4"
+            >
+              <p className="text-xs font-extrabold uppercase tracking-widest text-sun">
+                Código de conexão
               </p>
+              <p className="text-3xl font-bold tracking-widest text-yellow-400">
+                {pairingCode}
+              </p>
+              {pairingExpires ? (
+                <p className="text-center text-xs font-bold text-muted">
+                  Expira em {new Date(pairingExpires).toLocaleString("pt-BR")}
+                </p>
+              ) : null}
               <div className="rounded-2xl bg-white p-3">
-                <QRCodeSVG
-                  value={inviteUrl(pairCode)}
+                <QRCodeCanvas
+                  value={pairingQrPayload || inviteUrl(pairingCode)}
                   size={180}
                   bgColor="#ffffff"
                   fgColor="#000000"
                   level="M"
                 />
               </div>
+              <p className="text-center text-xs font-bold text-muted">
+                O ajudante aponta a câmera neste QR ou digita o código de 6 dígitos.
+              </p>
               <p className="break-all text-center text-xs font-bold text-muted">
-                {inviteUrl(pairCode)}
+                {pairingQrPayload || inviteUrl(pairingCode)}
               </p>
               <Button
                 variant="line"
                 className="w-full"
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(inviteUrl(pairCode));
+                    await navigator.clipboard.writeText(
+                      pairingQrPayload || inviteUrl(pairingCode),
+                    );
                     toast("Link copiado");
                   } catch {
                     toast("Não deu para copiar.", "err");
@@ -459,6 +561,14 @@ function SettingsForm({ settings }: { settings: Settings }) {
               >
                 <Copy className="h-5 w-5" />
                 Copiar link do convite
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => onPairingDisplay(EMPTY_PAIRING)}
+              >
+                <X className="h-5 w-5" />
+                Fechar código
               </Button>
             </div>
           ) : null}
@@ -575,6 +685,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
                 try {
                   await restoreBackupFromFile(file);
                   toast("Backup restaurado neste celular");
+                  onRestored();
                 } catch (err) {
                   toast(
                     err instanceof Error ? err.message : "Não deu para restaurar o backup.",
