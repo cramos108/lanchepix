@@ -909,32 +909,53 @@ export async function fetchOwnerBilling(): Promise<Settings> {
   return refetchOwnerSettings();
 }
 
-let chefePixOnce: Promise<string> | null = null;
-let chefePixOnceId = "";
+export type ChefeProfile = {
+  storeName: string;
+  city: string;
+  chavePix: string;
+  merchantName: string;
+};
 
-function pixFromRow(row: Record<string, unknown> | null | undefined): string {
-  if (!row) return "";
-  return String(row.pix_key ?? row.chave_pix ?? "").trim();
+const emptyChefeProfile = (): ChefeProfile => ({
+  storeName: "",
+  city: "",
+  chavePix: "",
+  merchantName: "",
+});
+
+let chefeProfileOnce: Promise<ChefeProfile> | null = null;
+let chefeProfileOnceId = "";
+
+function profileFromRow(row: Record<string, unknown>): ChefeProfile {
+  const storeName = String(row.store_name ?? row.name ?? "").trim();
+  const city = String(row.city ?? row.merchant_city ?? "").trim();
+  const chavePix = String(row.chave_pix ?? row.pix_key ?? "").trim();
+  const merchantName = String(row.merchant_name ?? storeName).trim();
+  return { storeName, city, chavePix, merchantName };
 }
 
 /**
- * One-shot Chefe Pix key lookup for Ajudante (Código de Conexão).
+ * One-shot Chefe profile lookup for Ajudante (pairedOwnerId / ownerId).
  * Not a live subscription — module-cached per owner id.
  */
-export async function fetchLinkedChefePixOnce(ownerId: string): Promise<string> {
+export async function fetchLinkedChefeProfileOnce(
+  ownerId: string,
+): Promise<ChefeProfile> {
   const id = ownerId?.trim() || "";
-  if (!id || !supabaseConfigured) return "";
-  if (chefePixOnce && chefePixOnceId === id) return chefePixOnce;
-  chefePixOnceId = id;
-  chefePixOnce = (async () => {
+  if (!id || !supabaseConfigured) return emptyChefeProfile();
+  if (chefeProfileOnce && chefeProfileOnceId === id) return chefeProfileOnce;
+  chefeProfileOnceId = id;
+  chefeProfileOnce = (async () => {
     const selects = [
-      "store_name, merchant_name, merchant_city, pix_key, chave_pix, whatsapp",
-      "store_name, merchant_name, merchant_city, pix_key, whatsapp",
+      "name, store_name, city, merchant_city, merchant_name, chave_pix, pix_key",
+      "store_name, merchant_city, merchant_name, chave_pix, pix_key",
+      "store_name, merchant_city, merchant_name, pix_key",
+      "store_name, pix_key, chave_pix",
       "pix_key, chave_pix",
-      "chave_pix",
       "pix_key",
+      "chave_pix",
     ];
-    const cols = ["vendor_id", "owner_id"] as const;
+    const cols = ["vendor_id", "owner_id", "user_id", "id"] as const;
     for (const col of cols) {
       for (const sel of selects) {
         try {
@@ -944,19 +965,24 @@ export async function fetchLinkedChefePixOnce(ownerId: string): Promise<string> 
             .eq(col, id)
             .maybeSingle();
           if (error || !data || typeof data !== "object") continue;
-          const key = pixFromRow(data as unknown as Record<string, unknown>);
-          if (key) {
-            cacheChefePixKey(key);
-            return key;
+          const profile = profileFromRow(data as unknown as Record<string, unknown>);
+          if (profile.chavePix || profile.storeName) {
+            if (profile.chavePix) cacheChefePixKey(profile.chavePix);
+            return profile;
           }
         } catch {
           continue;
         }
       }
     }
-    return "";
+    return emptyChefeProfile();
   })();
-  return chefePixOnce;
+  return chefeProfileOnce;
+}
+
+export async function fetchLinkedChefePixOnce(ownerId: string): Promise<string> {
+  const profile = await fetchLinkedChefeProfileOnce(ownerId);
+  return profile.chavePix;
 }
 
 function desktopOrLinkedOwnerId(settings: { vendorId: string; pairedOwnerId?: string }): string {

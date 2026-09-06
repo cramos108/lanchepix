@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Copy, MessageCircle, Printer } from "lucide-react";
@@ -12,7 +12,7 @@ import { sellableCatalogProducts } from "@/lib/unique";
 import { formatMoney } from "@/lib/money";
 import { normalizeCurrency, normalizeLang } from "@/lib/locale";
 import { isOwnerDevice, isStaffDevice, resolveActivePixKey } from "@/lib/account";
-import { useChefePixOnce } from "@/lib/chefePix";
+import { useChefeProfileOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { useLang, useT } from "@/lib/i18n";
 import { buildPixPayload, detectPixKeyType, normalizePixKey } from "@/lib/pix";
@@ -31,8 +31,7 @@ export default function PixPage() {
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
-  const dumped = useRef(false);
+  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
 
   useEffect(() => {
     if (master.isPaired) return;
@@ -46,28 +45,25 @@ export default function PixPage() {
     ajudanteLs = "";
   }
   const storeData = {
-    chave_pix: String(settings?.pixKey || chefePix || master.pixKey || "").trim(),
-    pixKey: settings?.pixKey || "",
-    masterPixKey: master.pixKey || "",
-    pairedOwnerId: settings?.pairedOwnerId || "",
-    deviceRole: settings?.deviceRole || "",
-    ownerId: master.ownerId || "",
-    storeName: settings?.storeName || master.storeName || "",
-    ajudante_chave_pix: ajudanteLs,
+    chave_pix: String(
+      chefe.chavePix || settings?.pixKey || master.pixKey || "",
+    ).trim(),
   };
-  const finalPixKey = storeData?.chave_pix || ajudanteLs || "";
-  if (helper && !dumped.current) {
-    dumped.current = true;
-    console.log("AJUDANTE SESSION DATA:", storeData);
-  }
+  const finalPixKey = storeData.chave_pix || ajudanteLs || "";
   const activePixKey =
     finalPixKey ||
-    resolveActivePixKey(settings, chefePix || master.pixKey || master.master?.pixKey);
+    resolveActivePixKey(settings, chefe.chavePix || master.pixKey || master.master?.pixKey);
   const pixKey = activePixKey;
   const whatsapp = (settings?.whatsapp || master.whatsapp || "").trim();
   const merchantName =
-    settings?.merchantName || master.merchantName || settings?.storeName || "";
-  const merchantCity = settings?.merchantCity || master.merchantCity || "";
+    chefe.merchantName ||
+    settings?.merchantName ||
+    master.merchantName ||
+    chefe.storeName ||
+    settings?.storeName ||
+    "";
+  const merchantCity =
+    chefe.city || settings?.merchantCity || master.merchantCity || "";
   const currency = normalizeCurrency(
     master.isPaired ? master.currency : settings?.currency,
   );
@@ -146,7 +142,7 @@ export default function PixPage() {
           </>
         ) : null}
         <p className="text-sm font-bold text-muted">
-          {master.storeName || settings.storeName || merchantName}
+          {chefe.storeName || master.storeName || settings.storeName || merchantName}
           {merchantCity ? ` · ${merchantCity}` : ""}
         </p>
       </section>
@@ -217,12 +213,6 @@ export default function PixPage() {
         <Printer className="h-5 w-5" />
         Imprimir etiquetas
       </Button>
-
-      {helper ? (
-        <p className="mt-2 break-all text-[9px] leading-tight text-muted/80">
-          {JSON.stringify(storeData)}
-        </p>
-      ) : null}
 
       <section className="print-labels hidden print:block">
         <div className="grid grid-cols-2 gap-4 text-black">

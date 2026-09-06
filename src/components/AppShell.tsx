@@ -41,6 +41,7 @@ import {
   getDevSimulateLimit,
   getStoredActivePlan,
 } from "@/lib/plan";
+import { useChefeProfileOnce } from "@/lib/chefePix";
 import { restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
@@ -117,6 +118,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return visibleSalesForDevice(rows, app).length;
     }, []) ?? 0;
   const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const helper = isStaffDevice(settings);
+  const chefeProfile = useChefeProfileOnce(
+    settings,
+    helper,
+    getActiveOwnerId(settings),
+  );
+  const chefeBadge =
+    [chefeProfile.storeName, chefeProfile.city].filter(Boolean).join(" · ") ||
+    staffRoleLabel(staffRole(settings));
 
   useEffect(() => {
     if (!settings) return;
@@ -218,8 +228,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             {isStaffDevice(settings) ? (
-              <span className="rounded-full border-2 border-mint bg-mint px-2 py-1 text-[11px] font-black uppercase text-sunink">
-                {staffRoleLabel(staffRole(settings))}
+              <span className="max-w-[11rem] truncate rounded-full border-2 border-mint bg-mint px-2 py-1 text-[11px] font-black uppercase text-sunink">
+                {chefeBadge}
               </span>
             ) : planBadge(settings) ? (
               <span className="rounded-full border-2 border-sun bg-sun px-2 py-1 text-[11px] font-black uppercase text-sunink">

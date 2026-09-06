@@ -20,7 +20,7 @@ import { removeProduct, saveProduct } from "@/lib/repo";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
-import { useChefePixOnce } from "@/lib/chefePix";
+import { useChefeProfileOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
 import { uniqueCatalogProducts, sellableCatalogProducts } from "@/lib/unique";
@@ -45,7 +45,7 @@ export default function ProdutosPage() {
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
+  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
   const canEdit = canEditCatalog(settings);
   const pricesUnlocked = canEditPrices(settings);
   const [open, setOpen] = useState(false);
@@ -98,15 +98,23 @@ export default function ProdutosPage() {
     ajudanteLs = "";
   }
   const storeData = {
-    chave_pix: String(settings?.pixKey || chefePix || master.pixKey || "").trim(),
+    chave_pix: String(
+      chefe.chavePix || settings?.pixKey || master.pixKey || "",
+    ).trim(),
   };
-  const finalPixKey = storeData?.chave_pix || ajudanteLs || "";
+  const finalPixKey = storeData.chave_pix || ajudanteLs || "";
   const activePixKey =
     finalPixKey ||
-    resolveActivePixKey(settings, chefePix || master.pixKey || master.master?.pixKey);
+    resolveActivePixKey(settings, chefe.chavePix || master.pixKey || master.master?.pixKey);
   const merchantName =
-    settings?.merchantName || master.merchantName || settings?.storeName || "MEU NEGOCIO";
-  const merchantCity = settings?.merchantCity || master.merchantCity || "SAO PAULO";
+    chefe.merchantName ||
+    settings?.merchantName ||
+    master.merchantName ||
+    chefe.storeName ||
+    settings?.storeName ||
+    "MEU NEGOCIO";
+  const merchantCity =
+    chefe.city || settings?.merchantCity || master.merchantCity || "SAO PAULO";
 
   function stickerPayload(product: Product): string {
     if (!activePixKey) return "";

@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CHEFE_PIX_KEY, getActiveOwnerId } from "./account";
-import { fetchLinkedChefePixOnce } from "./sync";
+import {
+  fetchLinkedChefeProfileOnce,
+  type ChefeProfile,
+} from "./sync";
 import type { Settings } from "./types";
 
 function readCachedChefePix(): string {
@@ -18,25 +21,42 @@ function readCachedChefePix(): string {
   }
 }
 
+const emptyProfile = (): ChefeProfile => ({
+  storeName: "",
+  city: "",
+  chavePix: readCachedChefePix(),
+  merchantName: "",
+});
+
 /**
- * Single mount fetch of the linked Chefe Pix key. Does not poll.
+ * Single mount fetch of the linked Chefe store profile. Does not poll.
  */
-export function useChefePixOnce(
+export function useChefeProfileOnce(
   settings: Settings | null | undefined,
   enabled: boolean,
   ownerId?: string,
-): string {
-  const [key, setKey] = useState(readCachedChefePix);
+): ChefeProfile {
+  const [profile, setProfile] = useState(emptyProfile);
   const started = useRef(false);
   const linked = ownerId || getActiveOwnerId(settings);
 
   useEffect(() => {
     if (!enabled || !linked || started.current) return;
     started.current = true;
-    void fetchLinkedChefePixOnce(linked).then((fetched) => {
-      if (fetched) setKey(fetched);
+    void fetchLinkedChefeProfileOnce(linked).then((fetched) => {
+      if (fetched.chavePix || fetched.storeName || fetched.city) {
+        setProfile(fetched);
+      }
     });
   }, [enabled, linked]);
 
-  return key;
+  return profile;
+}
+
+export function useChefePixOnce(
+  settings: Settings | null | undefined,
+  enabled: boolean,
+  ownerId?: string,
+): string {
+  return useChefeProfileOnce(settings, enabled, ownerId).chavePix;
 }

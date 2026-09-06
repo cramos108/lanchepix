@@ -8,7 +8,7 @@ import { PixQr } from "@/components/PixQr";
 import { Price } from "@/components/Money";
 import { Button, inputClass } from "@/components/ui";
 import { getAttendantNameLocal, isStaffDevice, resolveActivePixKey } from "@/lib/account";
-import { useChefePixOnce } from "@/lib/chefePix";
+import { useChefeProfileOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { db } from "@/lib/db";
 import { useLang, useT } from "@/lib/i18n";
@@ -43,16 +43,21 @@ export function CheckoutPay({
 
   const currency = normalizeCurrency(master.currency || settings.currency);
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefePix = useChefePixOnce(settings, helper, master.ownerId);
+  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
   const pixKey = resolveActivePixKey(
     settings,
-    chefePix || master.pixKey || master.master?.pixKey,
+    chefe.chavePix || master.pixKey || master.master?.pixKey,
   );
   const paymentLink = (settings.paymentLink || master.paymentLink || "").trim();
   const whatsapp = (settings.whatsapp || master.whatsapp || "").trim();
   const merchantName =
-    settings.merchantName || master.merchantName || settings.storeName;
-  const merchantCity = settings.merchantCity || master.merchantCity;
+    chefe.merchantName ||
+    settings.merchantName ||
+    master.merchantName ||
+    chefe.storeName ||
+    settings.storeName;
+  const merchantCity =
+    chefe.city || settings.merchantCity || master.merchantCity;
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [received, setReceived] = useState(centsToInput(sale.totalCents, currency));
   const [busy, setBusy] = useState(false);
