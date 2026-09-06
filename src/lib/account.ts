@@ -8,6 +8,7 @@ export const USER_ROLE_KEY = "user_role";
 export const PAIR_OWNER_KEY = "pair_owner_id";
 export const PAIR_NAME_KEY = "pair_attendant_name";
 export const CHEFE_PIX_KEY = "pix_confianca_chefe_key";
+export const AJUDANTE_CHAVE_PIX = "ajudante_chave_pix";
 const LEGACY_CHEFE_PIX_KEY = "chefe_pix_key";
 
 function readLs(key: string): string {
@@ -65,11 +66,15 @@ export function resolveActivePixKey(
   settings?: Pick<Settings, "pixKey"> | null,
   masterPixKey?: string | null,
 ): string {
-  const localChavePix = String(settings?.pixKey ?? "").trim();
-  const chefeChavePix =
-    readLs(CHEFE_PIX_KEY) || readLs(LEGACY_CHEFE_PIX_KEY);
-  const masterChavePix = String(masterPixKey ?? "").trim();
-  return localChavePix || chefeChavePix || masterChavePix;
+  const storeData = {
+    chave_pix:
+      String(settings?.pixKey ?? "").trim() ||
+      String(masterPixKey ?? "").trim(),
+  };
+  const finalPixKey =
+    storeData.chave_pix || readLs(AJUDANTE_CHAVE_PIX) || "";
+  if (finalPixKey) return finalPixKey;
+  return readLs(CHEFE_PIX_KEY) || readLs(LEGACY_CHEFE_PIX_KEY);
 }
 
 /** Cache Chefe Pix key once (pairing / one-shot settings fetch). Not a live listener. */
@@ -79,6 +84,7 @@ export function cacheChefePixKey(pixKey?: string | null): void {
   try {
     localStorage.setItem(CHEFE_PIX_KEY, key);
     localStorage.setItem(LEGACY_CHEFE_PIX_KEY, key);
+    localStorage.setItem(AJUDANTE_CHAVE_PIX, key);
   } catch {
     /* private mode */
   }

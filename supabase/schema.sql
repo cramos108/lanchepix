@@ -177,6 +177,7 @@ create table if not exists public.pairing_codes (
 alter table public.pairing_codes add column if not exists owner_id uuid;
 alter table public.pairing_codes add column if not exists metadata text;
 alter table public.pairing_codes add column if not exists role text;
+alter table public.pairing_codes add column if not exists chave_pix text not null default '';
 
 create table if not exists public.device_sessions (
   device_id uuid primary key,

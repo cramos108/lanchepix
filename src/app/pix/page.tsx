@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Copy, MessageCircle, Printer } from "lucide-react";
@@ -32,16 +32,37 @@ export default function PixPage() {
   const [selectedId, setSelectedId] = useState<string>("livre");
   const helper = master.isPaired || isStaffDevice(settings);
   const chefePix = useChefePixOnce(settings, helper, master.ownerId);
+  const dumped = useRef(false);
 
   useEffect(() => {
     if (master.isPaired) return;
     void refetchOwnerSettings().catch(() => undefined);
   }, [master.isPaired]);
 
-  const activePixKey = resolveActivePixKey(
-    settings,
-    chefePix || master.pixKey || master.master?.pixKey,
-  );
+  let ajudanteLs = "";
+  try {
+    ajudanteLs = localStorage.getItem("ajudante_chave_pix")?.trim() || "";
+  } catch {
+    ajudanteLs = "";
+  }
+  const storeData = {
+    chave_pix: String(settings?.pixKey || chefePix || master.pixKey || "").trim(),
+    pixKey: settings?.pixKey || "",
+    masterPixKey: master.pixKey || "",
+    pairedOwnerId: settings?.pairedOwnerId || "",
+    deviceRole: settings?.deviceRole || "",
+    ownerId: master.ownerId || "",
+    storeName: settings?.storeName || master.storeName || "",
+    ajudante_chave_pix: ajudanteLs,
+  };
+  const finalPixKey = storeData?.chave_pix || ajudanteLs || "";
+  if (helper && !dumped.current) {
+    dumped.current = true;
+    console.log("AJUDANTE SESSION DATA:", storeData);
+  }
+  const activePixKey =
+    finalPixKey ||
+    resolveActivePixKey(settings, chefePix || master.pixKey || master.master?.pixKey);
   const pixKey = activePixKey;
   const whatsapp = (settings?.whatsapp || master.whatsapp || "").trim();
   const merchantName =
@@ -196,6 +217,12 @@ export default function PixPage() {
         <Printer className="h-5 w-5" />
         Imprimir etiquetas
       </Button>
+
+      {helper ? (
+        <p className="mt-2 break-all text-[9px] leading-tight text-muted/80">
+          {JSON.stringify(storeData)}
+        </p>
+      ) : null}
 
       <section className="print-labels hidden print:block">
         <div className="grid grid-cols-2 gap-4 text-black">

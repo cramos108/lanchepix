@@ -91,10 +91,19 @@ export default function ProdutosPage() {
     (p) => filter === "Todos" || p.category === filter,
   );
 
-  const activePixKey = resolveActivePixKey(
-    settings,
-    chefePix || master.pixKey || master.master?.pixKey,
-  );
+  let ajudanteLs = "";
+  try {
+    ajudanteLs = localStorage.getItem("ajudante_chave_pix")?.trim() || "";
+  } catch {
+    ajudanteLs = "";
+  }
+  const storeData = {
+    chave_pix: String(settings?.pixKey || chefePix || master.pixKey || "").trim(),
+  };
+  const finalPixKey = storeData?.chave_pix || ajudanteLs || "";
+  const activePixKey =
+    finalPixKey ||
+    resolveActivePixKey(settings, chefePix || master.pixKey || master.master?.pixKey);
   const merchantName =
     settings?.merchantName || master.merchantName || settings?.storeName || "MEU NEGOCIO";
   const merchantCity = settings?.merchantCity || master.merchantCity || "SAO PAULO";

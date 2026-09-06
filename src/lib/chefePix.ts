@@ -8,6 +8,7 @@ import type { Settings } from "./types";
 function readCachedChefePix(): string {
   try {
     return (
+      localStorage.getItem("ajudante_chave_pix")?.trim() ||
       localStorage.getItem(CHEFE_PIX_KEY)?.trim() ||
       localStorage.getItem("chefe_pix_key")?.trim() ||
       ""

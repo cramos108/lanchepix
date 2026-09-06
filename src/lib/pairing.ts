@@ -35,6 +35,7 @@ type PairingCodeRow = {
   code: string;
   owner_id: string;
   metadata?: string | null;
+  chave_pix?: string | null;
 };
 
 type FallbackEntry = {
@@ -257,6 +258,7 @@ export function clearPairLocal(): void {
     localStorage.removeItem("staff_role");
     localStorage.removeItem(CHEFE_PIX_KEY);
     localStorage.removeItem("chefe_pix_key");
+    localStorage.removeItem("ajudante_chave_pix");
   } catch {
     /* private mode */
   }
@@ -279,27 +281,38 @@ export async function createPairingCode(
     assignedRole === "gerente" ? false : settings.hideStoreTotals !== false;
   const allowHelperEditPrices = settings.allowHelperEditPrices === true;
   const pixKey = String(settings.pixKey ?? "").trim();
-  const metadata = JSON.stringify({
+  const pairPayload = {
+    code,
+    business_id: ownerId,
+    chave_pix: pixKey,
     store_name: storeName,
     expires_at: expiresAt,
     hide_store_totals: hideStoreTotals,
     allow_helper_edit_prices: allowHelperEditPrices,
     role: assignedRole,
     pix_key: pixKey,
-    chave_pix: pixKey,
-  });
+  };
+  const metadata = JSON.stringify(pairPayload);
 
   try {
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
     const payload = { code, owner_id: ownerId };
-    const withRole = await supabase
-      .from("pairing_codes")
-      .insert({ ...payload, metadata, role: assignedRole });
-    if (withRole.error) {
-      const withMeta = await supabase.from("pairing_codes").insert({ ...payload, metadata });
-      if (withMeta.error) {
-        const second = await supabase.from("pairing_codes").insert(payload);
-        if (second.error) throw second.error;
+    const withPixCol = await supabase.from("pairing_codes").insert({
+      ...payload,
+      metadata,
+      role: assignedRole,
+      chave_pix: pixKey,
+    });
+    if (withPixCol.error) {
+      const withRole = await supabase
+        .from("pairing_codes")
+        .insert({ ...payload, metadata, role: assignedRole });
+      if (withRole.error) {
+        const withMeta = await supabase.from("pairing_codes").insert({ ...payload, metadata });
+        if (withMeta.error) {
+          const second = await supabase.from("pairing_codes").insert(payload);
+          if (second.error) throw second.error;
+        }
       }
     }
   } catch (err) {
@@ -350,7 +363,7 @@ export async function redeemPairingCode(
     if (!supabaseConfigured) throw new Error("Supabase não configurado");
     let query = await supabase
       .from("pairing_codes")
-      .select("code, owner_id, metadata, role")
+      .select("code, owner_id, metadata, role, chave_pix")
       .eq("code", code)
       .maybeSingle();
     if (query.error) {
@@ -378,7 +391,9 @@ export async function redeemPairingCode(
     role = normalizePairRole(row.role || extra.role);
     hideStoreTotals =
       role === "gerente" ? false : extra.hide_store_totals !== false;
-    pixKeyFromCode = String(extra.chave_pix || extra.pix_key || "").trim();
+    pixKeyFromCode = String(
+      extra.chave_pix || extra.pix_key || row.chave_pix || "",
+    ).trim();
   } catch (err) {
     console.error("Pairing code select failed, trying local fallback:", err);
     const local = lookupLocalFallback(code);
@@ -412,7 +427,14 @@ export async function redeemPairingCode(
     updatedAt: nowIso(),
     dirty: false,
   };
-  if (pixKeyFromCode) cacheChefePixKey(pixKeyFromCode);
+  if (pixKeyFromCode) {
+    cacheChefePixKey(pixKeyFromCode);
+    try {
+      localStorage.setItem("ajudante_chave_pix", pixKeyFromCode);
+    } catch {
+      /* private mode */
+    }
+  }
   persistPairLocal(
     ownerId,
     name,
