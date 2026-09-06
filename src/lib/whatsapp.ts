@@ -19,9 +19,24 @@ function payMethodLabel(lang: Lang, method: PayMethod): string {
   return "Pix";
 }
 
+/**
+ * Encode wa.me `text` once: real newlines become %0A, emojis stay UTF-8.
+ * Literal %0A in the source is treated as a newline so it is not double-encoded (%250A).
+ */
+export function encodeWhatsAppText(message: string): string {
+  const cleaned = message
+    .normalize("NFC")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\uFFFD/g, "")
+    .replace(/%0A/gi, "\n")
+    .replace(/%0D/gi, "");
+  return encodeURIComponent(cleaned);
+}
+
 /** wa.me uses E.164 digits only — strip +, spaces, dashes, parentheses. */
 export function waLink(phone: string | undefined, message: string): string {
-  const text = encodeURIComponent(message);
+  const text = encodeWhatsAppText(message);
   const n = digitsOnly(phone ?? "");
   if (n) return `https://wa.me/${n}?text=${text}`;
   return `https://wa.me/?text=${text}`;
@@ -40,25 +55,28 @@ export function paidSaleReceiptMessage(opts: {
   storeName?: string;
   productName: string;
   quantity?: number;
-  totalCents: number;
   paidAt?: string;
+  totalCents: number;
   sellerName?: string;
 }): string {
   const loja = opts.storeName?.trim() || "Meu Negócio";
-  const item =
+  const produto =
     (opts.quantity ?? 1) > 1
       ? `${opts.productName} (x${opts.quantity})`
       : opts.productName;
   const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const seller = opts.sellerName?.trim() || "Chefe";
-  return (
-    `Comprovante - *${loja}* 🧾\n\n` +
-    `Item: *${item}*\n` +
-    `Total: *R$ ${valor}*\n` +
-    `Data: ${receiptWhen(opts.paidAt)}\n` +
-    `Vendido por: ${seller}\n\n` +
-    `Obrigado pela preferência! 🙌`
-  );
+  return [
+    `*${loja}*`,
+    `*✅ Pagamento Confirmado!*`,
+    `_Valeu pela compra no Pix da Confiança!_`,
+    ``,
+    `• *${produto}* — *R$ ${valor}*`,
+    `• *Atendente:* ${seller}`,
+    `• *Data:* ${receiptWhen(opts.paidAt)}`,
+    ``,
+    `_Sua preferência faz a diferença! Até a próxima!_ `,
+  ].join("\n");
 }
 
 /** Opens WhatsApp only when a customer phone exists. Never blocks the sale save. */
