@@ -3,6 +3,7 @@ import {
   getActiveOwnerId,
   getAttendantNameLocal,
   isOwnerDevice,
+  resolveSellerName,
   LINKED_OWNER_KEY,
   staffRole,
 } from "./account";
@@ -196,7 +197,7 @@ function fromRemoteProduct(r: RemoteProduct): Product {
 }
 
 function saleHelperNote(s: Sale): string | null {
-  const helper = (getAttendantNameLocal() || s.attendantName || "").trim();
+  const helper = (s.attendantName || getAttendantNameLocal() || "").trim();
   let deviceId = "";
   try {
     deviceId = localStorage.getItem("device_id")?.trim() || "";
@@ -220,9 +221,11 @@ export function sellerNameFromSale(sale: {
   notes?: string;
 }): string {
   const named = sale.attendantName?.trim();
-  if (named) return named;
+  if (named && !/^desconhecido$/i.test(named)) return named;
   const fromNotes = sale.notes?.match(/(?:Vendido por|Ajudante):\s*(.+?)(?:\s·|$)/i);
-  return fromNotes?.[1]?.trim() || "";
+  const noteName = fromNotes?.[1]?.trim() || "";
+  if (noteName && !/^desconhecido$/i.test(noteName)) return noteName;
+  return "";
 }
 
 function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
@@ -704,12 +707,8 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       );
       throw new Error("owner_id (ID do Chefe) ausente. Emparelhe o aparelho de novo.");
     }
-    let attendantName = "Desconhecido";
-    try {
-      attendantName = localStorage.getItem("attendant_name")?.trim() || "Desconhecido";
-    } catch {
-      attendantName = getAttendantNameLocal(settings) || "Desconhecido";
-    }
+    const attendantName =
+      sale.attendantName?.trim() || resolveSellerName(settings);
     const payload = {
       id: sale.id,
       owner_id: ownerId,

@@ -24,7 +24,9 @@ export function paidSales(sales: Sale[]): Sale[] {
 export function attendantPerformance(sales: Sale[]): AttendantStats[] {
   const map = new Map<string, AttendantStats>();
   for (const sale of paidSales(sales)) {
-    const name = sale.attendantName?.trim() || "Sem nome";
+    const raw = sale.attendantName?.trim() || "";
+    const name =
+      raw && !/^desconhecido$/i.test(raw) ? raw : "Chefe";
     const current = map.get(name) ?? {
       name,
       salesCount: 0,

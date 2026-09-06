@@ -354,11 +354,9 @@ export default function PendentesPage() {
                             ? "PIX AGORA"
                             : "PIX CONFIANÇA · PAGO"}
                       </p>
-                      {sellerNameFromSale(sale) ? (
-                        <p className="text-xs font-bold text-mint">
-                          Vendido por: {sellerNameFromSale(sale)}
-                        </p>
-                      ) : null}
+                      <p className="text-xs font-bold text-mint">
+                        Vendido por: {sellerNameFromSale(sale) || "Chefe"}
+                      </p>
                     </div>
                     <p className="text-xl font-black text-sun">
                       <Money cents={sale.totalCents} />
@@ -407,11 +405,9 @@ export default function PendentesPage() {
                 ) : (
                   <p className="text-sm text-muted">Sem telefone</p>
                 )}
-                {sellerNameFromSale(sale) ? (
-                  <p className="text-xs font-bold text-mint">
-                    Vendido por: {sellerNameFromSale(sale)}
-                  </p>
-                ) : null}
+                <p className="text-xs font-bold text-mint">
+                  Vendido por: {sellerNameFromSale(sale) || "Chefe"}
+                </p>
               </div>
               <p className="text-2xl font-black text-sun">
                 <Price cents={sale.totalCents} />
@@ -476,11 +472,9 @@ export default function PendentesPage() {
             <p className="text-sm font-bold text-muted">
               {formatDateTime(detail.paidAt ?? detail.createdAt)}
             </p>
-            {sellerNameFromSale(detail) ? (
-              <p className="text-sm font-bold text-mint">
-                Vendido por: {sellerNameFromSale(detail)}
-              </p>
-            ) : null}
+            <p className="text-sm font-bold text-mint">
+              Vendido por: {sellerNameFromSale(detail) || "Chefe"}
+            </p>
             {(detail.extraCents ?? 0) !== 0 ? (
               <p className="text-sm font-extrabold text-mint">
                 Gorjeta / extra: <Money cents={detail.extraCents ?? 0} />

@@ -51,6 +51,21 @@ export function getAttendantNameLocal(
   );
 }
 
+/** Seller label written onto the sale at creation time. Never empty. */
+export function resolveSellerName(
+  settings?: Pick<Settings, "attendantName" | "storeName" | "deviceRole" | "pairedOwnerId"> | null,
+): string {
+  const role = staffRole(settings);
+  if (role === "ajudante") {
+    return getAttendantNameLocal(settings) || settings?.attendantName?.trim() || "Ajudante";
+  }
+  return (
+    settings?.attendantName?.trim() ||
+    settings?.storeName?.trim() ||
+    "Chefe"
+  );
+}
+
 /** Snapshot of the Pix key already stored on this device. No listeners. */
 export function readLocalPixKey(
   settings?: Pick<Settings, "pixKey"> | null,
@@ -192,9 +207,11 @@ export function saleSellerName(sale: {
   notes?: string;
 }): string {
   const named = sale.attendantName?.trim();
-  if (named) return named;
+  if (named && !/^desconhecido$/i.test(named)) return named;
   const fromNotes = sale.notes?.match(/(?:Vendido por|Ajudante):\s*(.+?)(?:\s·|$)/i);
-  return fromNotes?.[1]?.trim() || "";
+  const noteName = fromNotes?.[1]?.trim() || "";
+  if (noteName && !/^desconhecido$/i.test(noteName)) return noteName;
+  return "";
 }
 
 export function getLocalDeviceId(
