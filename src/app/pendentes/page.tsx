@@ -69,7 +69,6 @@ export default function PendentesPage() {
       toast("Marcado como pago. Estoque baixado.");
       setSettle(null);
       setPaying(updated ?? settle);
-      if (settle.customerPhone) setStampAsk(settle);
     } catch (err) {
       toast(
         err instanceof Error ? err.message : "Não deu pra marcar como pago.",

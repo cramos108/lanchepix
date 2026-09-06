@@ -37,8 +37,9 @@ export default function FidelidadePage() {
   const [lgpdOk, setLgpdOk] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const required = settings?.stampsRequired ?? 10;
+  const required = settings?.stampsRequired || 10;
   const digits = digitsOnly(query);
+  const readyRewards = (customers ?? []).filter((c) => c.stamps >= required);
 
   const matches = useMemo(() => {
     const list = customers ?? [];
@@ -135,9 +136,37 @@ export default function FidelidadePage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm font-bold text-muted">
-        {t("loyalty.search")}. {required} ·{" "}
+        {t("loyalty.search")}. {required} carimbos ·{" "}
         <span className="text-sun">{settings?.rewardLabel ?? "1 brinde grátis"}</span>.
       </p>
+
+      {readyRewards.map((c) => (
+        <section
+          key={`reward-${c.id}`}
+          className="flex flex-col gap-3 rounded-3xl border-2 border-sun bg-sun px-4 py-4 text-sunink"
+        >
+          <p className="text-[11px] font-extrabold uppercase tracking-widest">
+            Brinde Grátis Disponível
+          </p>
+          <p className="text-xl font-black leading-tight">
+            PARABÉNS! {c.name?.trim() || maskWhatsAppContactInput(c.phone)} GANHOU 1
+            BRINDE GRÁTIS!
+          </p>
+          <Button
+            variant="line"
+            className="bg-white text-sunink"
+            onClick={async () => {
+              const next = await redeemReward(c.id);
+              if (!next) return;
+              toast("Brinde resgatado. Cartão zerado.");
+              setSelectedId(next.id);
+            }}
+          >
+            <Trophy className="h-5 w-5" />
+            Resgatar Brinde
+          </Button>
+        </section>
+      ))}
       {!isPro(settings) ? (
         <p className="text-xs font-extrabold uppercase tracking-widest text-amber">
           {customers?.length ?? 0}/{FREE_LOYALTY_LIMIT}
@@ -202,12 +231,15 @@ export default function FidelidadePage() {
             </Button>
             {selected.stamps >= required ? (
               <>
+                <p className="text-sm font-extrabold uppercase tracking-wide text-sun">
+                  Brinde Grátis Disponível
+                </p>
                 <Button variant="sun" onClick={() => void redeem(true)}>
                   <Trophy className="h-5 w-5" />
-                  {t("btn.save")}
+                  Resgatar Brinde
                 </Button>
                 <Button variant="line" onClick={() => void redeem(false)}>
-                  {t("btn.save")}
+                  Resgatar sem WhatsApp
                 </Button>
               </>
             ) : null}
@@ -236,9 +268,11 @@ export default function FidelidadePage() {
                     setName(c.name);
                   }}
                   className={`flex w-full items-center justify-between rounded-2xl border-2 px-4 py-3 text-left ${
-                    c.id === selectedId
-                      ? "border-sun bg-sun/10"
-                      : "border-line bg-surface"
+                    c.stamps >= required
+                      ? "border-sun bg-sun/15"
+                      : c.id === selectedId
+                        ? "border-sun bg-sun/10"
+                        : "border-line bg-surface"
                   }`}
                 >
                   <span>

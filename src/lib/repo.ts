@@ -162,10 +162,16 @@ export async function createSale(input: {
     const { isOfflineError } = await import("./persist");
     if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
       scheduleSync();
+      if (sale.status === "paid" && sale.customerPhone) {
+        await awardSaleLoyaltyStamp(sale.customerPhone, sale.customerName);
+      }
       return sale;
     }
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(message);
+  }
+  if (sale.status === "paid" && sale.customerPhone) {
+    await awardSaleLoyaltyStamp(sale.customerPhone, sale.customerName);
   }
   return sale;
 }
@@ -208,9 +214,15 @@ export async function markSalePaid(
     const { isOfflineError } = await import("./persist");
     if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
       scheduleSync();
+      if (next.customerPhone) {
+        await awardSaleLoyaltyStamp(next.customerPhone, next.customerName);
+      }
       return next;
     }
     throw err;
+  }
+  if (next.customerPhone) {
+    await awardSaleLoyaltyStamp(next.customerPhone, next.customerName);
   }
   return next;
 }
@@ -428,11 +440,30 @@ export async function deleteAccountAndAllData(): Promise<void> {
   if (keepPaid) await restorePaidPlanIfNeeded();
 }
 
+/** Event-driven: enroll by WhatsApp and add 1 stamp when a sale is paid. */
+export async function awardSaleLoyaltyStamp(
+  phone?: string,
+  name?: string,
+): Promise<Customer | undefined> {
+  const { digitsOnly } = await import("./phone");
+  const digits = digitsOnly(phone ?? "");
+  if (digits.length < 8) return undefined;
+  try {
+    const customer = await upsertCustomer({ phone: digits, name });
+    return addStamp(customer.id);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("PLAN_LIMIT")) return undefined;
+    console.error("loyalty stamp", err);
+    return undefined;
+  }
+}
+
 export async function addStamp(customerId: string): Promise<Customer | undefined> {
   const customer = await db.customers.get(customerId);
   const settings = await ensureSettings();
   if (!customer) return undefined;
-  if (customer.stamps >= settings.stampsRequired) return customer;
+  const required = settings.stampsRequired || 10;
+  if (customer.stamps >= required) return customer;
   const next: Customer = {
     ...customer,
     stamps: customer.stamps + 1,
@@ -453,7 +484,8 @@ export async function addStamp(customerId: string): Promise<Customer | undefined
 export async function redeemReward(customerId: string): Promise<Customer | undefined> {
   const customer = await db.customers.get(customerId);
   const settings = await ensureSettings();
-  if (!customer || customer.stamps < settings.stampsRequired) return customer;
+  const required = settings.stampsRequired || 10;
+  if (!customer || customer.stamps < required) return customer;
   const next: Customer = {
     ...customer,
     stamps: 0,
@@ -463,6 +495,11 @@ export async function redeemReward(customerId: string): Promise<Customer | undef
   };
   await db.customers.put(next);
   scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushCustomerImmediate(next));
+  } catch (err) {
+    console.error("customers redeem", err);
+  }
   return next;
 }
 
