@@ -47,6 +47,7 @@ export const PLANS = {
       "Cartões Fidelidade Ilimitados",
       "Adesivos QR Code Premium com sua marca/Instagram",
       "Exportação de Relatórios de Vendas em PDF para MEI/Controle",
+      "Backup e restauração dos dados (JSON)",
     ],
   },
   equipe: {
@@ -58,6 +59,7 @@ export const PLANS = {
       "Tudo do Plano Pro +",
       "Acesso Multi-Dispositivo (Sincronização em tempo real para atendentes/ajudantes)",
       "Relatório de desempenho de vendas por ajudante/banca",
+      "Fechamento do dia com envio no WhatsApp",
     ],
   },
 } as const;
@@ -273,6 +275,13 @@ export function canSendWhatsAppReminders(
 
 /** Sales PDF export: Pro and Negócio. */
 export function canExportSalesPdf(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isPro(settings);
+}
+
+/** Local JSON backup/restore: Pro and Negócio. */
+export function canBackupData(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
   return isPro(settings);

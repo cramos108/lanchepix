@@ -1,5 +1,6 @@
-import { formatMoney } from "./money";
+import { formatBRL, formatMoney } from "./money";
 import { digitsOnly } from "./phone";
+import type { DailyClosing } from "./salesReport";
 import type { AppCurrency, Lang, PayMethod } from "./locale";
 
 function payMethodLabel(lang: Lang, method: PayMethod): string {
@@ -190,6 +191,32 @@ export function loyaltyStampMessage(opts: {
     `${oi} 🎉 Você ganhou um carimbo no cartão fidelidade da *${opts.storeName}*!\n\n` +
     `Cartão: *${opts.stamps}/${opts.required}*. ${faltam} para ganhar *${opts.rewardLabel}*.\n\n` +
     `Valeu pela preferência! 💛`
+  );
+}
+
+export function dailyClosingWhatsAppMessage(opts: {
+  storeName?: string;
+  closing: DailyClosing;
+}): string {
+  const loja = opts.storeName?.trim() || "Meu Negócio";
+  const c = opts.closing;
+  const helperLines =
+    c.helpers.length === 0
+      ? "Nenhuma venda de ajudante hoje."
+      : c.helpers
+          .map((h) => `• ${h.name}: *${formatBRL(h.totalCents)}* (${h.salesCount})`)
+          .join("\n");
+  const pendingLabel =
+    c.pendingCount === 1 ? "1 pedido" : `${c.pendingCount} pedidos`;
+  return (
+    `📦 *FECHAMENTO DO DIA*\n` +
+    `*${loja}*\n` +
+    `${c.dateLabel}\n\n` +
+    `💰 *Total Geral do Dia:* ${formatBRL(c.totalPaidCents)}\n` +
+    `👤 *Vendas do Chefe:* ${formatBRL(c.chefeCents)}\n\n` +
+    `👥 *Ajudantes:*\n${helperLines}\n\n` +
+    `⏳ *Pedidos A Receber:* ${formatBRL(c.pendingCents)} (${pendingLabel})\n\n` +
+    `Enviado pelo Pix da Confiança`
   );
 }
 

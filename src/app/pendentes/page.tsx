@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, FileDown, MessageCircle, RefreshCw, Star, X } from "lucide-react";
+import { Check, FileDown, Lock, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -25,11 +25,12 @@ import {
   unpaySale,
   upsertCustomer,
 } from "@/lib/repo";
-import { attendantPerformance, downloadMeiPdf } from "@/lib/salesReport";
+import { attendantPerformance, dailyClosing, downloadMeiPdf } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { CheckoutPay } from "@/components/CheckoutPay";
 import {
+  dailyClosingWhatsAppMessage,
   loyaltyStampMessage,
   openPaidSaleWhatsApp,
   paidSaleReceiptMessage,
@@ -135,10 +136,15 @@ export default function PendentesPage() {
   const historyCents = history.reduce((sum, s) => sum + s.totalCents, 0);
   const historyFilteredCents = filteredHistory.reduce((sum, s) => sum + s.totalCents, 0);
   const helpers = attendantPerformance(scoped);
+  const closing = useMemo(
+    () => dailyClosing(scoped, { storeName: settings?.storeName }),
+    [scoped, settings?.storeName],
+  );
   const canRemind = canSendWhatsAppReminders(settings);
   const canPdf = canExportSalesPdf(settings);
   const hideStore = !canSeeFinances(settings);
-  const showReports = isNegocio(settings) && canSeeFinances(settings);
+  const showReports = canSeeFinances(settings);
+  const showHelperReports = isNegocio(settings) && canSeeFinances(settings);
   const showHelperFilter = canFilterByHelper(settings);
   const tabTotalGeral = tab === "open" ? pendingCents : historyCents;
   const tabTotalAjudante = tab === "open" ? pendingFilteredCents : historyFilteredCents;
@@ -325,37 +331,160 @@ export default function PendentesPage() {
 
       {tab === "reports" && showReports ? (
         <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-lg font-black">Desempenho por Ajudante</h2>
-            <p className="text-sm font-bold text-muted">
-              Totais de vendas pagas neste negócio, por nome do aparelho/atendente.
+          <article className="rounded-3xl border-2 border-sun bg-surface p-4">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
+              Fechamento do dia
             </p>
-          </div>
-          {helpers.length === 0 ? (
-            <EmptyState
-              title="Sem dados de ajudante"
-              text="Cadastre o nome do atendente nas configurações e registre vendas neste aparelho."
-            />
-          ) : (
-            helpers.map((row) => (
-              <article
-                key={row.name}
-                className="rounded-3xl border-2 border-line bg-surface p-4"
+            <h2 className="text-2xl font-black leading-tight">FECHAMENTO DO DIA</h2>
+            <p className="text-sm font-bold text-muted">{closing.dateLabel}</p>
+            <div className="mt-3 grid gap-2">
+              <div className="rounded-2xl border-2 border-sun/70 bg-ink px-3 py-3">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
+                  Total Geral do Dia
+                </p>
+                <p className="text-2xl font-black tabular-nums text-sun">
+                  <Money cents={closing.totalPaidCents} />
+                </p>
+                <p className="text-xs font-bold text-muted">
+                  {closing.paidCount}{" "}
+                  {closing.paidCount === 1 ? "venda paga" : "vendas pagas"}
+                </p>
+              </div>
+              {showHelperReports ? (
+                <div className="rounded-2xl border-2 border-mint/70 bg-ink px-3 py-3">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-mint">
+                    Vendas do Chefe
+                  </p>
+                  <p className="text-xl font-black tabular-nums">
+                    <Money cents={closing.chefeCents} />
+                  </p>
+                  <p className="text-xs font-bold text-muted">
+                    {closing.chefeCount}{" "}
+                    {closing.chefeCount === 1 ? "venda" : "vendas"}
+                  </p>
+                </div>
+              ) : null}
+              <div className="rounded-2xl border-2 border-amber/70 bg-ink px-3 py-3">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber">
+                  Pedidos A Receber
+                </p>
+                <p className="text-xl font-black tabular-nums text-amber">
+                  <Money cents={closing.pendingCents} />
+                </p>
+                <p className="text-xs font-bold text-muted">
+                  {closing.pendingCount}{" "}
+                  {closing.pendingCount === 1 ? "pedido aberto hoje" : "pedidos abertos hoje"}
+                </p>
+              </div>
+            </div>
+            {showHelperReports ? (
+              <div className="mt-3 rounded-2xl border-2 border-line bg-ink px-3 py-3">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-sun">
+                  Por Ajudante (hoje)
+                </p>
+                {closing.helpers.length === 0 ? (
+                  <p className="mt-1 text-sm font-bold text-muted">
+                    Nenhuma venda de ajudante hoje.
+                  </p>
+                ) : (
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {closing.helpers.map((row) => (
+                      <li
+                        key={row.name}
+                        className="flex items-start justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-black">{row.name}</p>
+                          <p className="text-xs font-bold text-muted">
+                            {row.salesCount}{" "}
+                            {row.salesCount === 1 ? "venda" : "vendas"}
+                          </p>
+                        </div>
+                        <p className="text-lg font-black tabular-nums text-sun">
+                          <Money cents={row.totalCents} />
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+            {showHelperReports ? (
+              <Button
+                className="mt-3 w-full"
+                variant="mint"
+                onClick={() => {
+                  window.open(
+                    waLink(
+                      "",
+                      dailyClosingWhatsAppMessage({
+                        storeName: settings?.storeName,
+                        closing,
+                      }),
+                    ),
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                }}
               >
-                <p className="text-lg font-black">{row.name}</p>
+                <MessageCircle className="h-5 w-5" />
+                Enviar fechamento no WhatsApp
+              </Button>
+            ) : null}
+          </article>
+
+          {showHelperReports ? (
+            <>
+              <div>
+                <h2 className="text-lg font-black">Desempenho por Ajudante</h2>
                 <p className="text-sm font-bold text-muted">
-                  {row.salesCount} {row.salesCount === 1 ? "venda" : "vendas"} ·{" "}
-                  {row.quantity} un.
+                  Totais de vendas pagas neste negócio, por nome do aparelho/atendente.
                 </p>
-                <p className="mt-1 text-2xl font-black text-sun">
-                  <Money cents={row.totalCents} />
+              </div>
+              {helpers.length === 0 ? (
+                <EmptyState
+                  title="Sem dados de ajudante"
+                  text="Cadastre o nome do atendente nas configurações e registre vendas neste aparelho."
+                />
+              ) : (
+                helpers.map((row) => (
+                  <article
+                    key={row.name}
+                    className="rounded-3xl border-2 border-line bg-surface p-4"
+                  >
+                    <p className="text-lg font-black">{row.name}</p>
+                    <p className="text-sm font-bold text-muted">
+                      {row.salesCount} {row.salesCount === 1 ? "venda" : "vendas"} ·{" "}
+                      {row.quantity} un.
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-sun">
+                      <Money cents={row.totalCents} />
+                    </p>
+                    <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+                      PIX AGORA <Money cents={row.pixAgoraCents} /> · PIX CONFIANÇA{" "}
+                      <Money cents={row.pixConfiancaCents} />
+                    </p>
+                  </article>
+                ))
+              )}
+            </>
+          ) : (
+            <div className="relative overflow-hidden rounded-3xl border-2 border-sun bg-surface p-4">
+              <div className="pointer-events-none select-none blur-[2px] opacity-40" aria-hidden>
+                <h2 className="text-lg font-black">Desempenho por Ajudante</h2>
+                <p className="mt-3 text-lg font-black">Maria</p>
+                <p className="text-2xl font-black text-sun">R$ ●●●●</p>
+                <p className="mt-3 text-lg font-black">João</p>
+                <p className="text-2xl font-black text-sun">R$ ●●●●</p>
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink/80 px-4 text-center">
+                <Lock className="h-8 w-8 text-sun" />
+                <p className="text-sm font-extrabold leading-snug">
+                  Relatório de desempenho por Ajudante exclusivo do Plano Negócio
                 </p>
-                <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-                  PIX AGORA <Money cents={row.pixAgoraCents} /> · PIX CONFIANÇA{" "}
-                  <Money cents={row.pixConfiancaCents} />
-                </p>
-              </article>
-            ))
+                <Button onClick={openUpgradeModal}>Fazer upgrade</Button>
+              </div>
+            </div>
           )}
         </section>
       ) : null}

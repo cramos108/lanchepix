@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { QRCodeSVG } from "qrcode.react";
-import { Cloud, Copy, ShieldAlert, Trash2 } from "lucide-react";
+import { Cloud, Copy, Download, Lock, ShieldAlert, Trash2, Upload } from "lucide-react";
 import { HelperSessionView } from "@/components/HelperSessionView";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
@@ -20,7 +20,9 @@ import {
   staffRoleLabel,
   type StaffRole,
 } from "@/lib/account";
+import { downloadBackup, restoreBackupFromFile } from "@/lib/backup";
 import {
+  canBackupData,
   cycleDevPlan,
   effectivePlan,
   getDevPlanOverride,
@@ -61,7 +63,12 @@ export default function ConfiguracoesPage() {
     return <p className="text-muted">Carregando configurações…</p>;
   }
 
-  return <SettingsForm key={settings.vendorId} settings={settings} />;
+  return (
+    <SettingsForm
+      key={`${settings.vendorId}:${settings.updatedAt}`}
+      settings={settings}
+    />
+  );
 }
 
 function DiagnosticIds({ vendorId }: { vendorId?: string }) {
@@ -116,6 +123,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
   const [allowHelperEditPrices, setAllowHelperEditPrices] = useState(
     settings.allowHelperEditPrices === true,
   );
+  const [backupBusy, setBackupBusy] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
   const activePlan = useSyncExternalStore(
     subscribeDevPlan,
     () => effectivePlan(settings),
@@ -519,6 +528,87 @@ function SettingsForm({ settings }: { settings: Settings }) {
         Os dados ficam neste celular (IndexedDB) e sobem para o Supabase quando houver
         internet. Instale o app na tela inicial para usar como PWA.
       </p>
+
+      {canEditBilling(settings) ? (
+        canBackupData(settings) ? (
+          <section className="rounded-3xl border-2 border-sun bg-surface p-4">
+            <h2 className="text-lg font-black">Backup dos dados</h2>
+            <p className="mt-1 text-sm font-bold text-muted">
+              Exporta configurações, catálogo e histórico de vendas deste celular
+              em um arquivo JSON. Restaurar substitui os dados locais.
+            </p>
+            <Button
+              className="mt-3 w-full"
+              disabled={backupBusy}
+              onClick={async () => {
+                setBackupBusy(true);
+                try {
+                  await downloadBackup();
+                  toast("Backup baixado");
+                } catch (err) {
+                  toast(
+                    err instanceof Error ? err.message : "Não deu para exportar o backup.",
+                    "err",
+                  );
+                } finally {
+                  setBackupBusy(false);
+                }
+              }}
+            >
+              <Download className="h-5 w-5" />
+              {backupBusy ? "Exportando…" : "Fazer Backup (Exportar Dados)"}
+            </Button>
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                const ok = window.confirm(
+                  "Restaurar este backup substitui as configurações, o catálogo e o histórico de vendas deste celular. Continuar?",
+                );
+                if (!ok) return;
+                setBackupBusy(true);
+                try {
+                  await restoreBackupFromFile(file);
+                  toast("Backup restaurado neste celular");
+                } catch (err) {
+                  toast(
+                    err instanceof Error ? err.message : "Não deu para restaurar o backup.",
+                    "err",
+                  );
+                } finally {
+                  setBackupBusy(false);
+                }
+              }}
+            />
+            <Button
+              variant="line"
+              className="mt-2 w-full"
+              disabled={backupBusy}
+              onClick={() => restoreInputRef.current?.click()}
+            >
+              <Upload className="h-5 w-5" />
+              Restaurar Backup
+            </Button>
+          </section>
+        ) : (
+          <section className="rounded-3xl border-2 border-sun bg-surface p-4">
+            <h2 className="text-lg font-black">Backup dos dados</h2>
+            <p className="mt-1 text-sm font-bold text-muted">
+              Exportar e restaurar um JSON com configurações, catálogo e
+              histórico é exclusivo dos planos Pro e Negócio.
+            </p>
+            <Button className="mt-3 w-full" onClick={openUpgradeModal}>
+              <Lock className="h-5 w-5" />
+              Fazer Backup (Exportar Dados)
+            </Button>
+          </section>
+        )
+      ) : null}
 
       {showDevTools ? (
         <>

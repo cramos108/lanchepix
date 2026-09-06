@@ -13,13 +13,27 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Local calendar day start: device timezone midnight (00:00:00.000). */
+export function startOfLocalDay(ref = new Date()): Date {
+  return new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0, 0);
+}
+
+/** Exclusive end of the local calendar day (next midnight). */
+export function endOfLocalDay(ref = new Date()): Date {
+  const end = startOfLocalDay(ref);
+  end.setDate(end.getDate() + 1);
+  return end;
+}
+
+/** True when `iso` falls in [local midnight, next midnight) on `ref`'s device calendar day. */
+export function isWithinLocalDay(iso: string, ref = new Date()): boolean {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  return t >= startOfLocalDay(ref).getTime() && t < endOfLocalDay(ref).getTime();
+}
+
 export function isSameLocalDay(iso: string, ref = new Date()): boolean {
-  const d = new Date(iso);
-  return (
-    d.getFullYear() === ref.getFullYear() &&
-    d.getMonth() === ref.getMonth() &&
-    d.getDate() === ref.getDate()
-  );
+  return isWithinLocalDay(iso, ref);
 }
 
 export function isSameLocalMonth(iso: string, ref = new Date()): boolean {

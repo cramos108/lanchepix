@@ -1,4 +1,5 @@
-import { formatDateTime } from "./id";
+import { saleSellerName } from "./account";
+import { formatDateTime, isWithinLocalDay } from "./id";
 import { formatBRL } from "./money";
 import type { Sale } from "./types";
 
@@ -43,6 +44,83 @@ export function attendantPerformance(sales: Sale[]): AttendantStats[] {
     map.set(name, current);
   }
   return [...map.values()].sort((a, b) => b.totalCents - a.totalCents);
+}
+
+export type HelperSubtotal = {
+  name: string;
+  salesCount: number;
+  totalCents: number;
+};
+
+export type DailyClosing = {
+  dateLabel: string;
+  paidCount: number;
+  totalPaidCents: number;
+  chefeCents: number;
+  chefeCount: number;
+  helpers: HelperSubtotal[];
+  pendingCents: number;
+  pendingCount: number;
+};
+
+function isChefeSellerName(name: string, storeName?: string): boolean {
+  const n = name.trim();
+  if (!n || /^desconhecido$/i.test(n) || /^chefe$/i.test(n)) return true;
+  const store = storeName?.trim() || "";
+  if (!store) return false;
+  return n.toLocaleLowerCase("pt-BR") === store.toLocaleLowerCase("pt-BR");
+}
+
+function sellerLabel(sale: Sale): string {
+  return saleSellerName(sale) || sale.attendantName?.trim() || "";
+}
+
+/** Fechamento do dia: paid + pending in the local calendar day (device midnight). */
+export function dailyClosing(
+  sales: Sale[],
+  opts?: { now?: Date; storeName?: string },
+): DailyClosing {
+  const now = opts?.now ?? new Date();
+  const storeName = opts?.storeName;
+  const todayPaid = sales.filter((s) => {
+    if (s.status !== "paid") return false;
+    return isWithinLocalDay(s.paidAt ?? s.createdAt, now);
+  });
+  const todayPending = sales.filter((s) => {
+    if (s.status !== "pending") return false;
+    return isWithinLocalDay(s.createdAt, now);
+  });
+
+  let chefeCents = 0;
+  let chefeCount = 0;
+  const helperMap = new Map<string, HelperSubtotal>();
+  for (const sale of todayPaid) {
+    const name = sellerLabel(sale);
+    if (isChefeSellerName(name, storeName)) {
+      chefeCents += sale.totalCents;
+      chefeCount += 1;
+      continue;
+    }
+    const current = helperMap.get(name) ?? {
+      name,
+      salesCount: 0,
+      totalCents: 0,
+    };
+    current.salesCount += 1;
+    current.totalCents += sale.totalCents;
+    helperMap.set(name, current);
+  }
+
+  return {
+    dateLabel: now.toLocaleDateString("pt-BR"),
+    paidCount: todayPaid.length,
+    totalPaidCents: todayPaid.reduce((sum, s) => sum + s.totalCents, 0),
+    chefeCents,
+    chefeCount,
+    helpers: [...helperMap.values()].sort((a, b) => b.totalCents - a.totalCents),
+    pendingCents: todayPending.reduce((sum, s) => sum + s.totalCents, 0),
+    pendingCount: todayPending.length,
+  };
 }
 
 export async function downloadMeiPdf(sales: Sale[], storeName: string): Promise<void> {
