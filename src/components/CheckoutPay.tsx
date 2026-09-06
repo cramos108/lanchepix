@@ -43,7 +43,11 @@ export function CheckoutPay({
 
   const currency = normalizeCurrency(master.currency || settings.currency);
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
+  const chefe = useChefeProfileOnce(
+    settings,
+    helper,
+    settings?.pairedOwnerId || master.ownerId,
+  );
   const pixKey = resolveActivePixKey(
     settings,
     chefe.chavePix || master.pixKey || master.master?.pixKey,

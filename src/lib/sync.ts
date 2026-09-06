@@ -927,16 +927,31 @@ let chefeProfileOnce: Promise<ChefeProfile> | null = null;
 let chefeProfileOnceId = "";
 
 function profileFromRow(row: Record<string, unknown>): ChefeProfile {
-  const storeName = String(row.store_name ?? row.name ?? "").trim();
-  const city = String(row.city ?? row.merchant_city ?? "").trim();
+  const storeName =
+    String(row.store_name ?? row.name ?? "").trim() || "Conexão Brazusa";
+  const city =
+    String(row.city ?? row.merchant_city ?? "").trim() || "GAINESVILLE";
   const chavePix = String(row.chave_pix ?? row.pix_key ?? "").trim();
   const merchantName = String(row.merchant_name ?? storeName).trim();
   return { storeName, city, chavePix, merchantName };
 }
 
+async function querySettingsByColumn(
+  column: string,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("*")
+    .eq(column, id)
+    .maybeSingle();
+  if (error || !data || typeof data !== "object") return null;
+  return data as unknown as Record<string, unknown>;
+}
+
 /**
- * One-shot Chefe profile lookup for Ajudante (pairedOwnerId / ownerId).
- * Not a live subscription — module-cached per owner id.
+ * One-shot Chefe profile lookup for Ajudante (pairedOwnerId).
+ * Tries user_id, then id, then vendor_id. Not a live subscription.
  */
 export async function fetchLinkedChefeProfileOnce(
   ownerId: string,
@@ -946,36 +961,15 @@ export async function fetchLinkedChefeProfileOnce(
   if (chefeProfileOnce && chefeProfileOnceId === id) return chefeProfileOnce;
   chefeProfileOnceId = id;
   chefeProfileOnce = (async () => {
-    const selects = [
-      "name, store_name, city, merchant_city, merchant_name, chave_pix, pix_key",
-      "store_name, merchant_city, merchant_name, chave_pix, pix_key",
-      "store_name, merchant_city, merchant_name, pix_key",
-      "store_name, pix_key, chave_pix",
-      "pix_key, chave_pix",
-      "pix_key",
-      "chave_pix",
-    ];
-    const cols = ["vendor_id", "owner_id", "user_id", "id"] as const;
-    for (const col of cols) {
-      for (const sel of selects) {
-        try {
-          const { data, error } = await supabase
-            .from("settings")
-            .select(sel)
-            .eq(col, id)
-            .maybeSingle();
-          if (error || !data || typeof data !== "object") continue;
-          const profile = profileFromRow(data as unknown as Record<string, unknown>);
-          if (profile.chavePix || profile.storeName) {
-            if (profile.chavePix) cacheChefePixKey(profile.chavePix);
-            return profile;
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-    return emptyChefeProfile();
+    let row =
+      (await querySettingsByColumn("user_id", id)) ||
+      (await querySettingsByColumn("id", id)) ||
+      (await querySettingsByColumn("vendor_id", id)) ||
+      (await querySettingsByColumn("owner_id", id));
+    if (!row) return emptyChefeProfile();
+    const profile = profileFromRow(row);
+    if (profile.chavePix) cacheChefePixKey(profile.chavePix);
+    return profile;
   })();
   return chefeProfileOnce;
 }

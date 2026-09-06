@@ -31,7 +31,11 @@ export default function PixPage() {
   );
   const [selectedId, setSelectedId] = useState<string>("livre");
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
+  const chefe = useChefeProfileOnce(
+    settings,
+    helper,
+    settings?.pairedOwnerId || master.ownerId,
+  );
 
   useEffect(() => {
     if (master.isPaired) return;

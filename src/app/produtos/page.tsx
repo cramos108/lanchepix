@@ -45,7 +45,11 @@ export default function ProdutosPage() {
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const helper = master.isPaired || isStaffDevice(settings);
-  const chefe = useChefeProfileOnce(settings, helper, master.ownerId);
+  const chefe = useChefeProfileOnce(
+    settings,
+    helper,
+    settings?.pairedOwnerId || master.ownerId,
+  );
   const canEdit = canEditCatalog(settings);
   const pricesUnlocked = canEditPrices(settings);
   const [open, setOpen] = useState(false);

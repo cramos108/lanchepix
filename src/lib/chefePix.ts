@@ -38,17 +38,20 @@ export function useChefeProfileOnce(
 ): ChefeProfile {
   const [profile, setProfile] = useState(emptyProfile);
   const started = useRef(false);
-  const linked = ownerId || getActiveOwnerId(settings);
+  const pairedOwnerId =
+    ownerId ||
+    settings?.pairedOwnerId ||
+    getActiveOwnerId(settings);
 
   useEffect(() => {
-    if (!enabled || !linked || started.current) return;
+    if (!enabled || !pairedOwnerId || started.current) return;
     started.current = true;
-    void fetchLinkedChefeProfileOnce(linked).then((fetched) => {
+    void fetchLinkedChefeProfileOnce(pairedOwnerId).then((fetched) => {
       if (fetched.chavePix || fetched.storeName || fetched.city) {
         setProfile(fetched);
       }
     });
-  }, [enabled, linked]);
+  }, [enabled, pairedOwnerId]);
 
   return profile;
 }

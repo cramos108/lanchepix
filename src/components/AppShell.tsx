@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const chefeProfile = useChefeProfileOnce(
     settings,
     helper,
-    getActiveOwnerId(settings),
+    settings?.pairedOwnerId || getActiveOwnerId(settings),
   );
   const chefeBadge =
     [chefeProfile.storeName, chefeProfile.city].filter(Boolean).join(" · ") ||
