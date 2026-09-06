@@ -57,7 +57,7 @@ export function ProductSticker({
         />
       </div>
       <p className="mt-4 text-sm font-extrabold leading-snug">
-        {APP_NAME} • Gostou? Pague depois pelo Pix!
+        {APP_NAME} • Escaneie e fale no WhatsApp para pagar no Pix!
       </p>
     </div>
   );

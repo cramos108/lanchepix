@@ -15,8 +15,8 @@ import { Price } from "@/components/Money";
 import { centsToInput, parseMoneyToCents } from "@/lib/money";
 import { useT } from "@/lib/i18n";
 import { getCurrency } from "@/lib/prefs";
-import { buildPixPayload } from "@/lib/pix";
 import { removeProduct, saveProduct } from "@/lib/repo";
+import { stickerWhatsAppLink } from "@/lib/whatsapp";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
@@ -110,34 +110,21 @@ export default function ProdutosPage() {
   const activePixKey =
     finalPixKey ||
     resolveActivePixKey(settings, chefe.chavePix || master.pixKey || master.master?.pixKey);
-  const merchantName =
-    chefe.merchantName ||
-    settings?.merchantName ||
-    master.merchantName ||
-    chefe.storeName ||
-    settings?.storeName ||
-    "MEU NEGOCIO";
-  const merchantCity =
-    chefe.city || settings?.merchantCity || master.merchantCity || "SAO PAULO";
-
   function stickerPayload(product: Product): string {
-    if (!activePixKey) return "";
-    try {
-      return buildPixPayload({
-        pixKey: activePixKey,
-        merchantName,
-        merchantCity,
-        amountCents:
-          product.priceMode === "suggested" ? undefined : product.priceCents,
-        description: product.name,
-      });
-    } catch {
-      return "";
-    }
+    const loja =
+      chefe.storeName || settings?.storeName || master.storeName || "Meu Negócio";
+    const phone = settings?.whatsapp || master.whatsapp || "";
+    return stickerWhatsAppLink({
+      sellerPhone: phone,
+      storeName: loja,
+      productName: product.name,
+      totalCents: product.priceCents,
+      pixKey: activePixKey,
+    });
   }
 
   function openSticker(product: Product) {
-    if (!activePixKey && !isStaffDevice(settings)) {
+    if (!stickerPayload(product) && !isStaffDevice(settings)) {
       setNeedPixKey(true);
       return;
     }
@@ -568,12 +555,14 @@ export default function ProdutosPage() {
       >
         {sticker ? (
           <div className="flex flex-col gap-4">
-            {activePixKey && stickerPayload(sticker) ? (
+            {stickerPayload(sticker) ? (
               <ProductSticker
                 name={sticker.name}
                 priceCents={sticker.priceCents}
                 payload={stickerPayload(sticker)}
-                storeName={settings?.storeName || master.storeName}
+                storeName={
+                  chefe.storeName || settings?.storeName || master.storeName
+                }
                 suggested={sticker.priceMode === "suggested"}
                 imageData={sticker.imageData}
                 category={sticker.category}

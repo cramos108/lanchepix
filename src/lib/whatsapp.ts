@@ -26,6 +26,21 @@ export function waLink(phone: string | undefined, message: string): string {
   return `https://wa.me/?text=${text}`;
 }
 
+/** Printed catalog sticker: camera scan opens WhatsApp to the seller. */
+export function stickerWhatsAppLink(opts: {
+  sellerPhone?: string;
+  storeName?: string;
+  productName: string;
+  totalCents: number;
+  pixKey?: string;
+}): string {
+  const loja = opts.storeName?.trim() || "Meu Negócio";
+  const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
+  const chave = opts.pixKey?.trim() || "";
+  const message = `Oi, ${loja}! Peguei ${opts.productName} (R$ ${valor}) no Pix da Confiança. Chave Pix: ${chave}`;
+  return waLink(opts.sellerPhone, message);
+}
+
 export function orderReceiptMessage(opts: {
   lang: Lang;
   currency: AppCurrency;

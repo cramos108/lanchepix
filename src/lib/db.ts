@@ -2,7 +2,6 @@ import "fake-indexeddb/auto";
 import Dexie, { type Table } from "dexie";
 import type { Customer, Product, Sale, Settings } from "./types";
 import { newId, nowIso } from "./id";
-import { detectBrowserLang } from "./locale";
 
 export class AppDB extends Dexie {
   products!: Table<Product, string>;
@@ -30,7 +29,7 @@ export async function ensureSettings(): Promise<Settings> {
       ...existing,
       plan: existing.plan || ("free" as const),
       currency: existing.currency || ("BRL" as const),
-      language: existing.language || detectBrowserLang(),
+      language: "pt" as const,
       paymentLink: existing.paymentLink || "",
     };
     if (
@@ -52,7 +51,7 @@ export async function ensureSettings(): Promise<Settings> {
     merchantCity: "SAO PAULO",
     whatsapp: "",
     currency: "BRL",
-    language: detectBrowserLang(),
+    language: "pt",
     paymentLink: "",
     rewardLabel: "1 brinde grátis",
     stampsRequired: 10,

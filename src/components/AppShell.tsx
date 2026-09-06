@@ -46,7 +46,6 @@ import { restorePairFromLocal, subscribePairingJoinModal } from "@/lib/pairing";
 import { scheduleSync, startSalesRealtime, subscribeSync, getSyncState } from "@/lib/sync";
 import { subscribeToast, type Toast } from "@/lib/toast";
 import { useT } from "@/lib/i18n";
-import { detectBrowserLang } from "@/lib/locale";
 import { setPrefs } from "@/lib/prefs";
 
 const NAV = [
@@ -132,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!settings) return;
     setPrefs({
       currency: settings.currency || "BRL",
-      language: settings.language || detectBrowserLang(),
+      language: "pt",
     });
   }, [settings, settings?.currency, settings?.language]);
 

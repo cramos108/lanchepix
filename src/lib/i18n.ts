@@ -1,8 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import type { Lang, PayMethod } from "./locale";
-import { getLanguage, subscribePrefs } from "./prefs";
 
 const DICT: Record<Lang, Record<string, string>> = {
   pt: {
@@ -343,7 +341,7 @@ export function payMethodLabel(lang: Lang, method: PayMethod): string {
 }
 
 export function useLang(): Lang {
-  return useSyncExternalStore(subscribePrefs, getLanguage, () => "pt");
+  return "pt";
 }
 
 export function useT(): (key: string) => string {
