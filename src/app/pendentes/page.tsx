@@ -33,7 +33,6 @@ import {
   dailyClosingWhatsAppMessage,
   loyaltyStampMessage,
   openPaidSaleWhatsApp,
-  paidSaleReceiptMessage,
   paymentReminderMessage,
   waLink,
 } from "@/lib/whatsapp";
@@ -81,18 +80,21 @@ export default function PendentesPage() {
       await refetchOwnerSales().catch(() => undefined);
       toast("Marcado como pago. Estoque baixado.");
       const paid = updated ?? settle;
+      const receiptPhone = paid.customerPhone;
+      const receipt = receiptPhone
+        ? {
+            phone: receiptPhone,
+            storeName: settings?.storeName,
+            productName: paid.productName,
+            quantity: paid.quantity,
+            totalCents: paid.totalCents,
+            paidAt: paid.paidAt ?? paid.createdAt,
+            sellerName: sellerNameFromSale(paid) || "Chefe",
+          }
+        : null;
       setSettle(null);
-      if (paid.customerPhone) {
-        openPaidSaleWhatsApp({
-          phone: paid.customerPhone,
-          storeName: settings?.storeName,
-          productName: paid.productName,
-          quantity: paid.quantity,
-          totalCents: paid.totalCents,
-          paidAt: paid.paidAt ?? paid.createdAt,
-          sellerName: sellerNameFromSale(paid) || "Chefe",
-        });
-      }
+      setPaying(null);
+      if (receipt) openPaidSaleWhatsApp(receipt);
     } catch (err) {
       toast(
         err instanceof Error ? err.message : "Não deu pra marcar como pago.",
@@ -557,25 +559,26 @@ export default function PendentesPage() {
                   </div>
                 </button>
                 {sale.status === "paid" && sale.customerPhone ? (
-                  <a
-                    href={waLink(
-                      sale.customerPhone,
-                      paidSaleReceiptMessage({
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openPaidSaleWhatsApp({
+                        phone: sale.customerPhone,
                         storeName: settings?.storeName,
                         productName: sale.productName,
                         quantity: sale.quantity,
                         totalCents: sale.totalCents,
                         paidAt: sale.paidAt ?? sale.createdAt,
                         sellerName: sellerNameFromSale(sale) || "Chefe",
-                      }),
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
+                      });
+                    }}
                     className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-extrabold uppercase text-mint"
                   >
                     <MessageCircle className="h-4 w-4" />
                     Reenviar Comprovante
-                  </a>
+                  </button>
                 ) : null}
               </li>
             ))

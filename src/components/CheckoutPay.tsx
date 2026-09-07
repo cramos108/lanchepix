@@ -111,11 +111,12 @@ export function CheckoutPay({
   async function confirmCash() {
     if (busy) return;
     setBusy(true);
+    const wasUnpaid = sale.status !== "paid";
     try {
-      if (sale.status !== "paid") {
+      if (wasUnpaid) {
         await markSalePaid(sale.id);
       }
-      if (sale.customerPhone) {
+      if (wasUnpaid && sale.customerPhone) {
         openPaidSaleWhatsApp({
           phone: sale.customerPhone,
           storeName: settings.storeName,

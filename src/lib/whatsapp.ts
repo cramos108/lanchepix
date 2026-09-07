@@ -62,26 +62,42 @@ export function paidSaleReceiptMessage(opts: {
   totalCents: number;
   sellerName?: string;
 }): string {
-  const loja = opts.storeName?.trim() || "Meu Negócio";
-  const produto =
+  const storeName = opts.storeName?.trim() || "Meu Negócio";
+  const itemDetails =
     (opts.quantity ?? 1) > 1
       ? `${opts.productName} (x${opts.quantity})`
       : opts.productName;
-  const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
+  const totalAmount = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const seller = opts.sellerName?.trim() || "Chefe";
-  const rawMessage = [
-    `*${loja}*`,
-    `*✅ Pagamento Confirmado!*`,
-    `_Valeu pela compra no Pix da Confiança!_`,
-    ``,
-    `• *${produto}* — *R$ ${valor}*`,
-    `• *Atendente:* ${seller}`,
-    `• *Data:* ${receiptWhen(opts.paidAt)}`,
-    ``,
-    `_Sua preferência faz a diferença! Até a próxima!_ `,
-  ].join("\n");
+  const dateStr = receiptWhen(opts.paidAt);
+  const rawMessage =
+    `*${storeName}* \n` +
+    `*✅ Pagamento Confirmado!*\n` +
+    `_Valeu pela compra no Pix da Confiança!_\n\n` +
+    `• *${itemDetails}* — *R$ ${totalAmount}*\n` +
+    `• *Atendente:* ${seller}\n` +
+    `• *Data:* ${dateStr}\n\n` +
+    `_Sua preferência faz a diferença! Até a próxima!_ `;
   return rawMessage;
 }
+
+export function paidSaleReceiptUrl(opts: {
+  phone?: string;
+  storeName?: string;
+  productName: string;
+  quantity?: number;
+  totalCents: number;
+  paidAt?: string;
+  sellerName?: string;
+}): string {
+  const cleanPhone = digitsOnly(opts.phone ?? "");
+  const rawMessage = paidSaleReceiptMessage(opts);
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(rawMessage)}`;
+  return whatsappUrl;
+}
+
+let lastReceiptUrl = "";
+let lastReceiptOpenAt = 0;
 
 /** Opens WhatsApp only when a customer phone exists. Never blocks the sale save. */
 export function openPaidSaleWhatsApp(opts: {
@@ -93,11 +109,14 @@ export function openPaidSaleWhatsApp(opts: {
   paidAt?: string;
   sellerName?: string;
 }): void {
-  const n = digitsOnly(opts.phone ?? "");
-  if (!n) return;
+  const cleanPhone = digitsOnly(opts.phone ?? "");
+  if (!cleanPhone) return;
   try {
-    const rawMessage = paidSaleReceiptMessage(opts);
-    const whatsappUrl = waLink(n, rawMessage);
+    const whatsappUrl = paidSaleReceiptUrl({ ...opts, phone: cleanPhone });
+    const now = Date.now();
+    if (whatsappUrl === lastReceiptUrl && now - lastReceiptOpenAt < 2000) return;
+    lastReceiptUrl = whatsappUrl;
+    lastReceiptOpenAt = now;
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   } catch {
     /* popup blocked / ssr */
