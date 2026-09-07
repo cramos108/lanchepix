@@ -1,11 +1,12 @@
 import { saleSellerName } from "./account";
 import { formatDateTime } from "./id";
-import type { Sale } from "./types";
+import { isLossStatus, isPaidStatus, isReceivableStatus, type Sale } from "./types";
 
 function paymentForm(sale: Sale): string {
+  if (isLossStatus(sale.status)) return "Perda / Fiado não pago";
   if (sale.paymentMethod === "cash") return "Dinheiro";
   if (sale.paymentMethod === "link") return "Link / Cartão";
-  if (sale.status === "pending") return "PIX CONFIANÇA · ABERTO";
+  if (isReceivableStatus(sale.status)) return "PIX CONFIANÇA · ABERTO";
   if (sale.paidAt === sale.createdAt) return "PIX AGORA";
   return "PIX CONFIANÇA · PAGO";
 }
@@ -164,7 +165,10 @@ function sheetXml(rows: Array<Array<string | number>>): string {
 export function salesHistoryRows(sales: Sale[]): Array<Array<string | number>> {
   const header = ["Data", "Pedido", "Produto", "Forma de Pagamento", "Valor", "Vendedor"];
   const body = sales
-    .filter((s) => s.status === "pending" || s.status === "paid")
+    .filter(
+      (s) =>
+        isReceivableStatus(s.status) || isPaidStatus(s.status) || isLossStatus(s.status),
+    )
     .sort((a, b) => (b.paidAt ?? b.createdAt).localeCompare(a.paidAt ?? a.createdAt))
     .map((s) => [
       formatDateTime(s.paidAt ?? s.createdAt),

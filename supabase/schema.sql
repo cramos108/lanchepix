@@ -33,7 +33,7 @@ create table if not exists public.sales (
   total_cents integer not null check (total_cents >= 0),
   extra_cents integer not null default 0,
   price_mode text,
-  status text not null check (status in ('pending', 'paid', 'cancelled')),
+  status text not null check (status in ('pending', 'paid', 'cancelled', 'perda', 'pago', 'a_receber', 'cancelado')),
   customer_phone text,
   customer_name text,
   notes text,
@@ -83,6 +83,9 @@ alter table public.products add column if not exists image_data text;
 alter table public.sales add column if not exists extra_cents integer not null default 0;
 alter table public.sales add column if not exists price_mode text;
 alter table public.sales add column if not exists attendant_name text;
+alter table public.sales drop constraint if exists sales_status_check;
+alter table public.sales add constraint sales_status_check
+  check (status in ('pending', 'paid', 'cancelled', 'perda', 'pago', 'a_receber', 'cancelado'));
 -- products, sales, and customers are fetched/written by owner_id.
 -- settings uses vendor_id as its primary key. pairing_codes also uses owner_id.
 alter table public.products add column if not exists owner_id uuid;

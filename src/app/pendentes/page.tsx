@@ -31,9 +31,10 @@ import {
   markSalePaid,
   unpaySale,
   upsertCustomer,
+  writeOffSale,
 } from "@/lib/repo";
 import { downloadSalesXlsx } from "@/lib/excelExport";
-import { attendantPerformance, dailyClosing, downloadMeiPdf } from "@/lib/salesReport";
+import { attendantPerformance, dailyClosing, downloadMeiPdf, lossTotalCents } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { CheckoutPay } from "@/components/CheckoutPay";
@@ -45,7 +46,12 @@ import {
   waLink,
 } from "@/lib/whatsapp";
 import { useT } from "@/lib/i18n";
-import type { Sale } from "@/lib/types";
+import {
+  isLossStatus,
+  isPaidStatus,
+  isReceivableStatus,
+  type Sale,
+} from "@/lib/types";
 
 export default function PendentesPage() {
   const t = useT();
@@ -60,9 +66,14 @@ export default function PendentesPage() {
   );
   const settings = useLiveQuery(() => db.settings.get("app"), []);
   const scoped = visibleSalesForDevice(allSales, settings);
-  const sales = scoped.filter((s) => s.status === "pending");
+  const sales = scoped.filter((s) => isReceivableStatus(s.status));
   const history = scoped
-    .filter((s) => s.status === "pending" || s.status === "paid")
+    .filter(
+      (s) =>
+        isReceivableStatus(s.status) ||
+        isPaidStatus(s.status) ||
+        isLossStatus(s.status),
+    )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const [tab, setTab] = useState<"open" | "history" | "reports">("open");
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -76,6 +87,8 @@ export default function PendentesPage() {
   const [historyBusy, setHistoryBusy] = useState(false);
   const [helperFilter, setHelperFilter] = useState("");
   const [duePeriod, setDuePeriod] = useState<DuePeriod>("all");
+  const [writeOff, setWriteOff] = useState<Sale | null>(null);
+  const [writingOff, setWritingOff] = useState(false);
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -112,6 +125,24 @@ export default function PendentesPage() {
       );
     } finally {
       setSettling(false);
+    }
+  }
+
+  async function confirmWriteOff() {
+    if (!writeOff || writingOff) return;
+    setWritingOff(true);
+    try {
+      await writeOffSale(writeOff.id);
+      await refetchOwnerSales().catch(() => undefined);
+      toast("Baixa por perda registrada. Saiu do total a receber.");
+      setWriteOff(null);
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Não deu para registrar a perda.",
+        "err",
+      );
+    } finally {
+      setWritingOff(false);
     }
   }
 
@@ -498,6 +529,10 @@ export default function PendentesPage() {
                 {duePending.length}{" "}
                 {duePending.length === 1 ? "pedido em aberto" : "pedidos em aberto"}
               </p>
+              <p className="mt-1 text-xs font-bold text-alert">
+                Perdas / Fiado Não Pago:{" "}
+                <Money cents={lossTotalCents(scoped)} />
+              </p>
             </div>
             {duePending.length === 0 ? (
               <p className="mt-3 text-sm font-bold text-muted">
@@ -512,6 +547,7 @@ export default function PendentesPage() {
                     canRemind={canRemind}
                     onPaid={() => startSettle(sale)}
                     onCharge={() => chargeSale(sale)}
+                    onWriteOff={() => setWriteOff(sale)}
                   />
                 ))}
               </ul>
@@ -623,14 +659,20 @@ export default function PendentesPage() {
                       </p>
                       <p
                         className={`text-xs font-extrabold uppercase ${
-                          sale.status === "pending" ? "text-amber" : "text-mint"
+                          isReceivableStatus(sale.status)
+                            ? "text-amber"
+                            : isLossStatus(sale.status)
+                              ? "text-alert"
+                              : "text-mint"
                         }`}
                       >
-                        {sale.status === "pending"
+                        {isReceivableStatus(sale.status)
                           ? "PIX CONFIANÇA · ABERTO"
-                          : sale.paidAt === sale.createdAt
-                            ? "PIX AGORA"
-                            : "PIX CONFIANÇA · PAGO"}
+                          : isLossStatus(sale.status)
+                            ? "BAIXADO · PERDA"
+                            : sale.paidAt === sale.createdAt
+                              ? "PIX AGORA"
+                              : "PIX CONFIANÇA · PAGO"}
                       </p>
                       <p className="text-xs font-bold text-mint">
                         Vendido por: {sellerNameFromSale(sale) || "Chefe"}
@@ -641,7 +683,7 @@ export default function PendentesPage() {
                     </p>
                   </div>
                 </button>
-                {sale.status === "paid" && sale.customerPhone ? (
+                {isPaidStatus(sale.status) && sale.customerPhone ? (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -720,6 +762,7 @@ export default function PendentesPage() {
               canRemind={canRemind}
               onPaid={() => startSettle(sale)}
               onCharge={() => chargeSale(sale)}
+              onWriteOff={() => setWriteOff(sale)}
               onCancel={async () => {
                 await cancelSale(sale.id);
                 await refetchOwnerSales().catch(() => undefined);
@@ -733,7 +776,13 @@ export default function PendentesPage() {
 
       <Modal
         open={Boolean(detail)}
-        title={detail?.status === "pending" ? "Pix Confiança" : "Venda"}
+        title={
+          isReceivableStatus(detail?.status)
+            ? "Pix Confiança"
+            : isLossStatus(detail?.status)
+              ? "Baixado · Perda"
+              : "Venda"
+        }
         onClose={() => setDetail(null)}
       >
         {detail ? (
@@ -757,6 +806,7 @@ export default function PendentesPage() {
             ) : null}
             {isAttendantDevice(settings) ? null : (
               <>
+            {isPaidStatus(detail.status) ? (
             <Button
               variant="amber"
               onClick={async () => {
@@ -768,6 +818,7 @@ export default function PendentesPage() {
             >
               Desfazer pagamento
             </Button>
+            ) : null}
             <Button
               variant="alert"
               onClick={async () => {
@@ -817,6 +868,33 @@ export default function PendentesPage() {
             </Button>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={Boolean(writeOff)}
+        title="Baixa por perda"
+        onClose={() => !writingOff && setWriteOff(null)}
+      >
+        <p className="mb-4 font-bold text-muted">
+          Confirmar baixa por inadimplência? Este valor será registrado como
+          perda e removido do total a receber.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="ghost"
+            disabled={writingOff}
+            onClick={() => setWriteOff(null)}
+          >
+            Voltar
+          </Button>
+          <Button
+            variant="alert"
+            disabled={writingOff}
+            onClick={() => void confirmWriteOff()}
+          >
+            {writingOff ? "Salvando…" : "Confirmar baixa"}
+          </Button>
+        </div>
       </Modal>
 
       <Modal open={Boolean(paying)} title={t("pay.title")} onClose={() => setPaying(null)}>
@@ -905,12 +983,14 @@ function PendingTicket({
   canRemind,
   onPaid,
   onCharge,
+  onWriteOff,
   onCancel,
 }: {
   sale: Sale;
   canRemind: boolean;
   onPaid: () => void;
   onCharge: () => void;
+  onWriteOff?: () => void;
   onCancel?: () => void;
 }) {
   const t = useT();
@@ -948,6 +1028,11 @@ function PendingTicket({
           </Button>
         ) : null}
       </div>
+      {onWriteOff ? (
+        <Button variant="line" className="mt-2 w-full" onClick={onWriteOff}>
+          Dar Baixa (Perda)
+        </Button>
+      ) : null}
       {sale.customerPhone ? (
         <Button variant="line" className="mt-2 w-full" onClick={onCharge}>
           <MessageCircle className="h-5 w-5" />

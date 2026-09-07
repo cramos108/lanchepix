@@ -1,7 +1,7 @@
 import { saleSellerName } from "./account";
 import { formatDateTime, isWithinLocalDay } from "./id";
 import { formatBRL } from "./money";
-import type { Sale } from "./types";
+import { isLossStatus, isPaidStatus, isReceivableStatus, type Sale } from "./types";
 
 function pdfSafe(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -18,8 +18,16 @@ export type AttendantStats = {
 
 export function paidSales(sales: Sale[]): Sale[] {
   return sales
-    .filter((s) => s.status === "paid")
+    .filter((s) => isPaidStatus(s.status))
     .sort((a, b) => (b.paidAt ?? b.createdAt).localeCompare(a.paidAt ?? a.createdAt));
+}
+
+export function lossSales(sales: Sale[]): Sale[] {
+  return sales.filter((s) => isLossStatus(s.status));
+}
+
+export function lossTotalCents(sales: Sale[]): number {
+  return lossSales(sales).reduce((sum, s) => sum + s.totalCents, 0);
 }
 
 export function attendantPerformance(sales: Sale[]): AttendantStats[] {
@@ -83,11 +91,11 @@ export function dailyClosing(
   const now = opts?.now ?? new Date();
   const storeName = opts?.storeName;
   const todayPaid = sales.filter((s) => {
-    if (s.status !== "paid") return false;
+    if (!isPaidStatus(s.status)) return false;
     return isWithinLocalDay(s.paidAt ?? s.createdAt, now);
   });
   const todayPending = sales.filter((s) => {
-    if (s.status !== "pending") return false;
+    if (!isReceivableStatus(s.status)) return false;
     return isWithinLocalDay(s.createdAt, now);
   });
 
@@ -153,6 +161,8 @@ export async function downloadMeiPdf(sales: Sale[], storeName: string): Promise<
   line(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 10);
   line(`Vendas pagas: ${rows.length}  |  Total: ${formatBRL(total)}`, 11, true);
   line(`PIX AGORA: ${formatBRL(agora)}  |  PIX CONFIANCA: ${formatBRL(confianca)}`, 10);
+  const perdas = lossTotalCents(sales);
+  line(`Perdas / Fiado Nao Pago: ${formatBRL(perdas)}`, 10);
   y += 2;
 
   for (const sale of rows) {

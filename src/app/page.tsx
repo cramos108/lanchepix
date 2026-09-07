@@ -43,7 +43,7 @@ import {
   isPro,
   openUpgradeModal,
 } from "@/lib/plan";
-import type { Product, Sale } from "@/lib/types";
+import { isPaidStatus, isReceivableStatus, type Product, type Sale } from "@/lib/types";
 
 function paidInPeriod(
   sales: Sale[] | undefined,
@@ -53,7 +53,7 @@ function paidInPeriod(
   const active = periodCut(cut, inPeriod);
   return (sales ?? [])
     .filter((s) => {
-      if (s.status !== "paid") return false;
+      if (!isPaidStatus(s.status)) return false;
       const when = s.paidAt ?? s.createdAt;
       return inPeriod(when) && isAfterCut(when, active);
     })
@@ -68,7 +68,7 @@ function tipsInPeriod(
   const active = periodCut(cut, inPeriod);
   return (sales ?? [])
     .filter((s) => {
-      if (s.status !== "paid" || (s.extraCents ?? 0) <= 0) return false;
+      if (!isPaidStatus(s.status) || (s.extraCents ?? 0) <= 0) return false;
       const when = s.paidAt ?? s.createdAt;
       return inPeriod(when) && isAfterCut(when, active);
     })
@@ -125,7 +125,7 @@ export default function VenderPage() {
   );
   const scopedSales = visibleSalesForDevice(sales, settings);
   const hideStore = !canSeeFinances(settings);
-  const pendingSales = scopedSales.filter((s) => s.status === "pending");
+  const pendingSales = scopedSales.filter((s) => isReceivableStatus(s.status));
   const pendingCount = pendingSales.length;
   const pendingCents = pendingSales.reduce((sum, s) => sum + s.totalCents, 0);
   const todayTips = useMemo(

@@ -1,6 +1,14 @@
 import { db, ensureSettings } from "./db";
 import { newId, nowIso } from "./id";
-import type { Customer, Product, Sale, Settings } from "./types";
+import {
+  isCancelledStatus,
+  isPaidStatus,
+  isReceivableStatus,
+  type Customer,
+  type Product,
+  type Sale,
+  type Settings,
+} from "./types";
 
 function scheduleSync() {
   void import("./sync").then((m) => m.scheduleSync());
@@ -178,7 +186,7 @@ export async function markSalePaid(
   extraCents = 0,
 ): Promise<Sale | undefined> {
   const sale = await db.sales.get(id);
-  if (!sale || sale.status === "paid") return sale;
+  if (!sale || isPaidStatus(sale.status)) return sale;
   const now = nowIso();
   const base = sale.unitPriceCents * sale.quantity;
   const next: Sale = {
@@ -192,7 +200,7 @@ export async function markSalePaid(
   };
   await db.transaction("rw", db.sales, db.products, async () => {
     await db.sales.put(next);
-    if (sale.status === "pending") {
+    if (isReceivableStatus(sale.status)) {
       const product = await db.products.get(sale.productId);
       if (product) {
         await db.products.put({
@@ -226,7 +234,7 @@ export async function markSalePaid(
 
 export async function unpaySale(id: string): Promise<Sale | undefined> {
   const sale = await db.sales.get(id);
-  if (!sale || sale.status !== "paid") return sale;
+  if (!sale || !isPaidStatus(sale.status)) return sale;
   const now = nowIso();
   const next: Sale = {
     ...sale,
@@ -265,9 +273,36 @@ export async function deleteSale(id: string): Promise<void> {
   await cancelSale(id);
 }
 
+/** Write-off unpaid debt. Does not restore stock — the item was handed out. */
+export async function writeOffSale(id: string): Promise<Sale | undefined> {
+  const sale = await db.sales.get(id);
+  if (!sale) return sale;
+  if (!isReceivableStatus(sale.status)) return sale;
+  const now = nowIso();
+  const next: Sale = {
+    ...sale,
+    status: "perda",
+    updatedAt: now,
+    dirty: true,
+  };
+  await db.sales.put(next);
+  scheduleSync();
+  try {
+    await import("./sync").then((m) => m.pushSaleImmediate(next));
+  } catch (err) {
+    const { isOfflineError } = await import("./persist");
+    if (isOfflineError(err) || (err instanceof Error && err.message === "OFFLINE_QUEUED")) {
+      scheduleSync();
+      return next;
+    }
+    throw err;
+  }
+  return next;
+}
+
 export async function cancelSale(id: string): Promise<void> {
   const sale = await db.sales.get(id);
-  if (!sale || sale.status === "cancelled") return;
+  if (!sale || isCancelledStatus(sale.status)) return;
   const now = nowIso();
   try {
     await import("./sync").then((m) => m.deleteRemoteSale(id));
@@ -279,7 +314,7 @@ export async function cancelSale(id: string): Promise<void> {
   }
   await db.transaction("rw", db.sales, db.products, async () => {
     await db.sales.delete(id);
-    if (sale.status === "paid") {
+    if (isPaidStatus(sale.status)) {
       const product = await db.products.get(sale.productId);
       if (product) {
         await db.products.put({

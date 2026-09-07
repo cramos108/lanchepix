@@ -30,6 +30,7 @@ import {
 import { toggleHideBalances } from "@/lib/privacy";
 import { APP_NAME } from "@/lib/brand";
 import { db, ensureSettings } from "@/lib/db";
+import { isReceivableStatus } from "@/lib/types";
 import {
   openUpgradeModal,
   planBadge,
@@ -110,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pendingCount =
     useLiveQuery(async () => {
       const app = await db.settings.get("app");
-      const rows = await db.sales.filter((s) => s.status === "pending").toArray();
+      const rows = await db.sales.filter((s) => isReceivableStatus(s.status)).toArray();
       return visibleSalesForDevice(rows, app).length;
     }, []) ?? 0;
   const settings = useLiveQuery(() => db.settings.get("app"), []);

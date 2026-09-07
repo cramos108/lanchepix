@@ -19,7 +19,7 @@ import { markSalePaid } from "@/lib/repo";
 import { refetchOwnerSettings } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { openPaidSaleWhatsApp, orderReceiptMessage, waLink } from "@/lib/whatsapp";
-import type { Sale, Settings } from "@/lib/types";
+import { isPaidStatus, type Sale, type Settings } from "@/lib/types";
 
 export function CheckoutPay({
   sale,
@@ -111,7 +111,7 @@ export function CheckoutPay({
   async function confirmCash() {
     if (busy) return;
     setBusy(true);
-    const wasUnpaid = sale.status !== "paid";
+    const wasUnpaid = !isPaidStatus(sale.status);
     try {
       if (wasUnpaid) {
         await markSalePaid(sale.id);

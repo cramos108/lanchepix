@@ -12,7 +12,15 @@ import { backupCatalog, clearCatalogBackup, isOfflineError } from "./persist";
 import { supabase, supabaseConfigured } from "./supabase";
 import { normalizeCurrency, normalizeLang } from "./locale";
 import { setPrefs } from "./prefs";
-import { normalizeBusinessType, type Customer, type Product, type Sale, type Settings } from "./types";
+import {
+  isReceivableStatus,
+  normalizeBusinessType,
+  normalizeSaleStatus,
+  type Customer,
+  type Product,
+  type Sale,
+  type Settings,
+} from "./types";
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let running = false;
@@ -238,7 +246,7 @@ function toRemoteSale(ownerId: string, s: Sale): RemoteSale {
     quantity: s.quantity,
     unit_price_cents: s.unitPriceCents,
     total_cents: s.totalCents,
-    status: s.status,
+    status: normalizeSaleStatus(s.status),
     customer_phone: s.customerPhone ?? null,
     customer_name: s.customerName ?? null,
     notes: saleHelperNote(s),
@@ -258,7 +266,7 @@ function fromRemoteSale(r: RemoteSale): Sale {
     totalCents: r.total_cents,
     extraCents: 0,
     priceMode: r.price_mode === "suggested" ? "suggested" : "fixed",
-    status: r.status,
+    status: normalizeSaleStatus(r.status),
     customerPhone: r.customer_phone ?? undefined,
     customerName: r.customer_name ?? undefined,
     attendantName:
@@ -718,7 +726,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       quantity: sale.quantity,
       unit_price_cents: sale.unitPriceCents,
       total_cents: sale.totalCents,
-      status: sale.status,
+      status: normalizeSaleStatus(sale.status),
       customer_phone: sale.customerPhone ?? null,
       customer_name: sale.customerName ?? null,
       notes: saleHelperNote({ ...sale, attendantName }),
@@ -735,7 +743,7 @@ export async function pushSaleImmediate(sale: Sale): Promise<void> {
       throw new Error("OFFLINE_QUEUED");
     }
     const writePayload = { ...payload, owner_id: ownerId };
-    if (sale.status === "pending") {
+    if (isReceivableStatus(sale.status)) {
       const inserted = await supabase.from("sales").insert(writePayload);
       if (!inserted.error) return;
       const stripped = {

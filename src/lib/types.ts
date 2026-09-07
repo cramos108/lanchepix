@@ -2,7 +2,39 @@ export { CATEGORIES } from "./catalog";
 
 export type Category = string;
 
-export type SaleStatus = "pending" | "paid" | "cancelled";
+export type SaleStatus =
+  | "pending"
+  | "paid"
+  | "cancelled"
+  | "perda"
+  | "pago"
+  | "a_receber"
+  | "cancelado";
+
+/** Canonical: pending (a_receber), paid (pago), cancelled (cancelado), perda. */
+export function normalizeSaleStatus(status?: string | null): SaleStatus {
+  const s = String(status ?? "").toLowerCase().trim();
+  if (s === "paid" || s === "pago") return "paid";
+  if (s === "cancelled" || s === "canceled" || s === "cancelado") return "cancelled";
+  if (s === "perda" || s === "baixado") return "perda";
+  return "pending";
+}
+
+export function isReceivableStatus(status?: string | null): boolean {
+  return normalizeSaleStatus(status) === "pending";
+}
+
+export function isPaidStatus(status?: string | null): boolean {
+  return normalizeSaleStatus(status) === "paid";
+}
+
+export function isCancelledStatus(status?: string | null): boolean {
+  return normalizeSaleStatus(status) === "cancelled";
+}
+
+export function isLossStatus(status?: string | null): boolean {
+  return normalizeSaleStatus(status) === "perda";
+}
 export type PriceMode = "fixed" | "suggested";
 
 export type Product = {
