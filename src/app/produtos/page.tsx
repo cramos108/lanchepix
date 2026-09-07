@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Camera, Pencil, Printer, Trash2, Upload } from "lucide-react";
+import { Camera, Pencil, Plus, Printer, Trash2, Upload } from "lucide-react";
 import { CatalogImportModal } from "@/components/CatalogImportModal";
 import { ProductSticker } from "@/components/ProductSticker";
 import { ProductThumb } from "@/components/ProductThumb";
@@ -287,14 +287,19 @@ export default function ProdutosPage() {
   return (
     <div className="flex flex-col gap-4">
       {canEdit ? (
-        <button
-          type="button"
-          onClick={openImport}
-          className="flex min-h-16 w-full items-center justify-center gap-3 rounded-3xl border-2 border-[#FACC15] bg-[#1E293B] px-4 text-base font-black uppercase tracking-wide text-white"
-        >
-          <Upload className="h-6 w-6 shrink-0 text-[#FACC15]" />
-          Importar Catálogo
-        </button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            className="w-full border-[#FACC15] bg-[#FACC15] text-slate-950"
+            onClick={startCreate}
+          >
+            <Plus className="h-5 w-5" />
+            Cadastrar Novo Produto
+          </Button>
+          <Button variant="line" className="w-full" onClick={openImport}>
+            <Upload className="h-5 w-5" />
+            Importar Catálogo
+          </Button>
+        </div>
       ) : null}
       {productError ? (
         <p className="break-all rounded-2xl border-2 border-alert bg-surface px-3 py-2 text-xs font-bold text-alert">
@@ -324,7 +329,7 @@ export default function ProdutosPage() {
       {products && products.length === 0 ? (
         <EmptyState
           title={t("catalog.empty")}
-          text="Importe uma planilha CSV/XLSX ou cadastre produtos pelo Vender."
+          text="Cadastre um produto ou importe uma planilha CSV/XLSX."
         />
       ) : null}
 

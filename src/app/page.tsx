@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Plus, RefreshCw } from "lucide-react";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { CheckoutPay } from "@/components/CheckoutPay";
 import { LgpdConsent } from "@/components/LgpdConsent";
@@ -385,10 +385,9 @@ export default function VenderPage() {
               <div className="flex flex-col items-center gap-3">
                 <Button
                   className="w-full border-[#FACC15] bg-[#FACC15] text-slate-950"
-                  onClick={() => router.push("/produtos?novo=1")}
+                  onClick={() => router.push("/produtos")}
                 >
-                  <Plus className="h-5 w-5" />
-                  Cadastrar Novo Produto
+                  Ir para o Catálogo
                 </Button>
                 <button
                   type="button"
@@ -475,16 +474,6 @@ export default function VenderPage() {
           );
         })}
       </div>
-
-      {products && products.length > 0 && !isStaffDevice(settings) ? (
-        <button
-          type="button"
-          onClick={() => void seed()}
-          className="cursor-pointer text-center text-xs text-slate-400 underline transition-colors hover:text-yellow-400"
-        >
-          Carregar catálogo de exemplo
-        </button>
-      ) : null}
 
       <Modal
         open={Boolean(draft)}
