@@ -39,8 +39,8 @@ export default function TermosPage() {
         funcionamento do app. Não vendemos seus dados e você tem controle total
         para excluí-los quando quiser.
       </p>
-      <Link href="/" className="mt-2 text-sun underline font-extrabold">
-        Voltar para vender
+      <Link href="/" className="mt-2 font-extrabold text-sun underline">
+        Voltar
       </Link>
     </article>
   );

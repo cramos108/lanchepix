@@ -206,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sync = getSyncState();
   void syncTick;
 
-  if (pathname === "/campanha") {
+  if (pathname === "/campanha" || pathname === "/site") {
     return <>{children}</>;
   }
 
