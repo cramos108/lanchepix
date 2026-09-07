@@ -48,6 +48,7 @@ export const PLANS = {
       "Adesivos QR Code Premium com sua marca/Instagram",
       "Exportação de Relatórios de Vendas em PDF para MEI/Controle",
       "Backup e restauração dos dados (JSON)",
+      "Importação em massa de produtos via planilha (CSV/XLSX)",
     ],
   },
   equipe: {
@@ -290,6 +291,13 @@ export function canExportSalesExcel(
 
 /** Local JSON backup/restore: Pro and Negócio. */
 export function canBackupData(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isPro(settings);
+}
+
+/** Bulk catalog CSV/XLSX import: Pro and Negócio. */
+export function canImportCatalog(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
 ): boolean {
   return isPro(settings);

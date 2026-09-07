@@ -4,11 +4,13 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Camera, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Camera, Pencil, Plus, Printer, Trash2, Upload } from "lucide-react";
+import { CatalogImportModal } from "@/components/CatalogImportModal";
 import { ProductSticker } from "@/components/ProductSticker";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
+import { loadCustomCategories } from "@/lib/catalogImport";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
 import { Price } from "@/components/Money";
@@ -20,6 +22,7 @@ import { stickerWhatsAppLink } from "@/lib/whatsapp";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
+import { canImportCatalog, openUpgradeModal } from "@/lib/plan";
 import { useChefeProfileOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
@@ -62,6 +65,7 @@ export default function ProdutosPage() {
   const [filter, setFilter] = useState("Todos");
   const [productError, setProductError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const savingRef = useRef(false);
 
   function returnToCatalog() {
@@ -88,9 +92,20 @@ export default function ProdutosPage() {
     Array.from(new Map((products ?? []).map((item) => [item.id, item])).values()),
   );
   const chips = useMemo(() => {
-    const cats = [...new Set(catalogProducts.map((p) => p.category))];
+    const cats = [
+      ...new Set([
+        ...catalogProducts.map((p) => p.category),
+        ...loadCustomCategories(),
+      ]),
+    ].filter(Boolean);
     return ["Todos", ...cats];
-  }, [catalogProducts]);
+  }, [catalogProducts, importOpen]);
+  const categoryOptions = useMemo(() => {
+    const extra = loadCustomCategories().filter((c) => !niche.categories.includes(c));
+    const opts = [...niche.categories, ...extra];
+    if (form.category && !opts.includes(form.category)) opts.push(form.category);
+    return opts;
+  }, [niche, form.category, importOpen]);
   const visible = catalogProducts.filter(
     (p) => filter === "Todos" || p.category === filter,
   );
@@ -255,10 +270,26 @@ export default function ProdutosPage() {
   return (
     <div className="flex flex-col gap-4">
       {canEdit ? (
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={startCreate}>
+      <div className="flex flex-col gap-2">
+        <Button className="w-full" onClick={startCreate}>
           <Plus className="h-5 w-5" />
           {t("btn.newProduct")}
+        </Button>
+        <Button
+          variant="line"
+          className="w-full"
+          onClick={() => {
+            if (!canImportCatalog(settings)) {
+              openUpgradeModal(
+                "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
+              );
+              return;
+            }
+            setImportOpen(true);
+          }}
+        >
+          <Upload className="h-5 w-5" />
+          Importar Catálogo (CSV/XLSX)
         </Button>
       </div>
       ) : null}
@@ -521,13 +552,13 @@ export default function ProdutosPage() {
             <select
               className={inputClass}
               value={
-                niche.categories.includes(form.category)
+                categoryOptions.includes(form.category)
                   ? form.category
-                  : niche.categories[0]
+                  : categoryOptions[0]
               }
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             >
-              {niche.categories.map((c) => (
+              {categoryOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -547,6 +578,8 @@ export default function ProdutosPage() {
           </Button>
         </form>
       </Modal>
+
+      <CatalogImportModal open={importOpen} onClose={() => setImportOpen(false)} />
 
       <Modal
         open={Boolean(sticker)}
