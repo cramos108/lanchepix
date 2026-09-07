@@ -349,7 +349,7 @@ export default function ProdutosPage() {
           action={
             canEdit ? (
               <Button onClick={startCreate}>{t("btn.newProduct")}</Button>
-            ) : undefined}
+            ) : undefined
           }
         />
       ) : null}
