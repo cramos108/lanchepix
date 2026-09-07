@@ -19,7 +19,7 @@ import { useT } from "@/lib/i18n";
 import { getCurrency } from "@/lib/prefs";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { stickerWhatsAppLink } from "@/lib/whatsapp";
-import { seedNiche } from "@/lib/seed";
+import { seedDemoProducts, seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
 import { canImportCatalog, openUpgradeModal } from "@/lib/plan";
@@ -275,22 +275,46 @@ export default function ProdutosPage() {
           <Plus className="h-5 w-5" />
           {t("btn.newProduct")}
         </Button>
-        <Button
-          variant="line"
-          className="w-full"
-          onClick={() => {
-            if (!canImportCatalog(settings)) {
-              openUpgradeModal(
-                "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
-              );
-              return;
-            }
-            setImportOpen(true);
-          }}
-        >
-          <Upload className="h-5 w-5" />
-          Importar Catálogo (CSV/XLSX)
-        </Button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            variant="line"
+            className="w-full"
+            disabled={saving}
+            onClick={async () => {
+              if (savingRef.current) return;
+              savingRef.current = true;
+              setSaving(true);
+              try {
+                const n = await seedDemoProducts(settings?.businessType);
+                setProductError(null);
+                toast(`${n} produtos de exemplo no catálogo`);
+              } catch (err) {
+                showProductError(err);
+              } finally {
+                savingRef.current = false;
+                setSaving(false);
+              }
+            }}
+          >
+            Carregar catálogo de exemplo
+          </Button>
+          <Button
+            variant="line"
+            className="w-full"
+            onClick={() => {
+              if (!canImportCatalog(settings)) {
+                openUpgradeModal(
+                  "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
+                );
+                return;
+              }
+              setImportOpen(true);
+            }}
+          >
+            <Upload className="h-5 w-5" />
+            Importar Catálogo (CSV/XLSX)
+          </Button>
+        </div>
       </div>
       ) : null}
       {productError ? (
@@ -323,7 +347,9 @@ export default function ProdutosPage() {
           title={t("catalog.empty")}
           text="Escolha o nicho e cadastre lanches, capinhas, meias, sabonetes…"
           action={
-            canEdit ? <Button onClick={startCreate}>Começar pelo nicho</Button> : undefined
+            canEdit ? (
+              <Button onClick={startCreate}>{t("btn.newProduct")}</Button>
+            ) : undefined}
           }
         />
       ) : null}

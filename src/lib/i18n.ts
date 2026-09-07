@@ -31,7 +31,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     "helper.session": "Sessão da banca",
     "helper.connectedTo": "Conectado a",
     "helper.yourRole": "Sua função",
-    "btn.newProduct": "Novo produto",
+    "btn.newProduct": "Cadastrar Novo Produto",
     "btn.printQr": "Imprimir QR",
     "filter.all": "Todos",
     "filter.helper": "Filtrar por ajudante",

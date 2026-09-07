@@ -383,25 +383,29 @@ export default function VenderPage() {
               </Button>
             ) : (
             <div className="flex flex-col gap-2">
-              <Button onClick={() => void seed()}>Carregar catálogo de exemplo</Button>
-              <Link href="/produtos" className="text-sm font-bold text-sun underline">
-                Cadastrar na mão
+              <Link href="/produtos">
+                <Button className="w-full">Cadastrar Novo Produto</Button>
               </Link>
-              <Button
-                variant="line"
-                onClick={() => {
-                  if (!canImportCatalog(settings)) {
-                    openUpgradeModal(
-                      "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
-                    );
-                    return;
-                  }
-                  setImportOpen(true);
-                }}
-              >
-                <Upload className="h-5 w-5" />
-                Importar Catálogo (CSV/XLSX)
-              </Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="line" onClick={() => void seed()}>
+                  Carregar catálogo de exemplo
+                </Button>
+                <Button
+                  variant="line"
+                  onClick={() => {
+                    if (!canImportCatalog(settings)) {
+                      openUpgradeModal(
+                        "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
+                      );
+                      return;
+                    }
+                    setImportOpen(true);
+                  }}
+                >
+                  <Upload className="h-5 w-5" />
+                  Importar Catálogo (CSV/XLSX)
+                </Button>
+              </div>
             </div>
             )
           }
