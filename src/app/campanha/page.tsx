@@ -7,13 +7,12 @@ import { MessageCircle, QrCode, Smartphone, Zap } from "lucide-react";
 const WA = process.env.NEXT_PUBLIC_ADS_WHATSAPP ?? "";
 
 function waHref() {
-  const text = encodeURIComponent(
-    "Oi! Vi o anúncio do Pix da Confiança. Quero anotar Pix Confiança e cobrar no Zap.",
-  );
-  if (!WA) return `https://wa.me/?text=${text}`;
+  const rawMessage =
+    "Oi! Vi o anúncio do Pix da Confiança. Quero anotar Pix Confiança e cobrar no Zap.";
   const digits = WA.replace(/\D/g, "");
-  const n = digits.startsWith("55") ? digits : `55${digits}`;
-  return `https://wa.me/${n}?text=${text}`;
+  const phone = !digits ? "" : digits.startsWith("55") ? digits : `55${digits}`;
+  const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(rawMessage)}`;
+  return whatsappUrl;
 }
 
 export default function CampanhaPage() {

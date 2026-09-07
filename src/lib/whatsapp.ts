@@ -19,27 +19,30 @@ function payMethodLabel(lang: Lang, method: PayMethod): string {
   return "Pix";
 }
 
-/**
- * Encode wa.me `text` once: real newlines become %0A, emojis stay UTF-8.
- * Literal %0A in the source is treated as a newline so it is not double-encoded (%250A).
- */
-export function encodeWhatsAppText(message: string): string {
-  const cleaned = message
+/** NFC + drop U+FFFD so mobile wa.me does not show broken glyphs. */
+function utf8SafeMessage(message: string): string {
+  return message
     .normalize("NFC")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
     .replace(/\uFFFD/g, "")
-    .replace(/%0A/gi, "\n")
-    .replace(/%0D/gi, "");
-  return encodeURIComponent(cleaned);
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
 }
 
-/** wa.me uses E.164 digits only — strip +, spaces, dashes, parentheses. */
+/** Encode wa.me `text` once. Newlines become %0A; emojis stay UTF-8. */
+export function encodeWhatsAppText(message: string): string {
+  const rawMessage = utf8SafeMessage(message);
+  return encodeURIComponent(rawMessage);
+}
+
+/**
+ * All WhatsApp deep links go through here:
+ * `https://wa.me/${phone}?text=${encodeURIComponent(rawMessage)}`
+ */
 export function waLink(phone: string | undefined, message: string): string {
-  const text = encodeWhatsAppText(message);
+  const rawMessage = utf8SafeMessage(message);
   const n = digitsOnly(phone ?? "");
-  if (n) return `https://wa.me/${n}?text=${text}`;
-  return `https://wa.me/?text=${text}`;
+  const whatsappUrl = `https://wa.me/${n}?text=${encodeURIComponent(rawMessage)}`;
+  return whatsappUrl;
 }
 
 function receiptWhen(iso?: string): string {
@@ -66,7 +69,7 @@ export function paidSaleReceiptMessage(opts: {
       : opts.productName;
   const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const seller = opts.sellerName?.trim() || "Chefe";
-  return [
+  const rawMessage = [
     `*${loja}*`,
     `*✅ Pagamento Confirmado!*`,
     `_Valeu pela compra no Pix da Confiança!_`,
@@ -77,6 +80,7 @@ export function paidSaleReceiptMessage(opts: {
     ``,
     `_Sua preferência faz a diferença! Até a próxima!_ `,
   ].join("\n");
+  return rawMessage;
 }
 
 /** Opens WhatsApp only when a customer phone exists. Never blocks the sale save. */
@@ -92,11 +96,9 @@ export function openPaidSaleWhatsApp(opts: {
   const n = digitsOnly(opts.phone ?? "");
   if (!n) return;
   try {
-    window.open(
-      waLink(n, paidSaleReceiptMessage(opts)),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const rawMessage = paidSaleReceiptMessage(opts);
+    const whatsappUrl = waLink(n, rawMessage);
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   } catch {
     /* popup blocked / ssr */
   }
@@ -113,8 +115,8 @@ export function stickerWhatsAppLink(opts: {
   const loja = opts.storeName?.trim() || "Meu Negócio";
   const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const chave = opts.pixKey?.trim() || "";
-  const message = `Oi, ${loja}! Peguei ${opts.productName} (R$ ${valor}) no Pix da Confiança. Chave Pix: ${chave}`;
-  return waLink(opts.sellerPhone, message);
+  const rawMessage = `Oi, ${loja}! Peguei ${opts.productName} (R$ ${valor}) no Pix da Confiança. Chave Pix: ${chave}`;
+  return waLink(opts.sellerPhone, rawMessage);
 }
 
 export function orderReceiptMessage(opts: {
@@ -136,10 +138,10 @@ export function orderReceiptMessage(opts: {
   const total = formatMoney(opts.totalCents, opts.currency);
   const loja = opts.sellerName?.trim() || "Meu Negócio";
   const chave = opts.pixKey?.trim() || "";
-  if (chave) {
-    return `Oi, ${loja}! Peguei ${item} por ${total} e paguei agora pelo Pix da Confiança (${chave}). Obrigado! `;
-  }
-  return `Oi, ${loja}! Peguei ${item} por ${total} no Pix da Confiança. Pode me mandar sua chave Pix para eu te pagar? Valeu!`;
+  const rawMessage = chave
+    ? `Oi, ${loja}! Peguei ${item} por ${total} e paguei agora pelo Pix da Confiança (${chave}). Obrigado! `
+    : `Oi, ${loja}! Peguei ${item} por ${total} no Pix da Confiança. Pode me mandar sua chave Pix para eu te pagar? Valeu!`;
+  return rawMessage;
 }
 
 /** Buyer-to-seller text so the customer opens WhatsApp already speaking. */
@@ -181,10 +183,20 @@ export function paymentReminderMessage(opts: {
     opts.quantity > 1 ? `${opts.productName} (x${opts.quantity})` : opts.productName;
   const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
   const chave = opts.pixKey?.trim() || "";
-  if (chave) {
-    return `Oi! Muito obrigado(a) pela confiança!  Passando só pra te mandar a chave Pix do *${item}* (R$ *${valor}*): *${chave}*. Pode pagar por aqui quando puder. Tmj! `;
-  }
-  return `Oi! Passando pra confirmar seu pedido do *${item}* (R$ *${valor}*). Me avisa quando quiser o Pix para pagamento! Valeu! `;
+  const rawMessage = chave
+    ? [
+        `Oi! Muito obrigado(a) pela confiança!`,
+        ``,
+        `Passando só pra te mandar a chave Pix do *${item}* (R$ *${valor}*): *${chave}*.`,
+        ``,
+        `Pode pagar por aqui quando puder. Tmj! `,
+      ].join("\n")
+    : [
+        `Oi! Passando pra confirmar seu pedido do *${item}* (R$ *${valor}*).`,
+        ``,
+        `Me avisa quando quiser o Pix para pagamento! Valeu! `,
+      ].join("\n");
+  return rawMessage;
 }
 
 export function loyaltyStampMessage(opts: {
@@ -194,22 +206,23 @@ export function loyaltyStampMessage(opts: {
   required: number;
   rewardLabel: string;
 }): string {
-  const oi = opts.customerName ? `Oi, ${opts.customerName}!` : "Oi!";
-  const remaining = Math.max(0, opts.required - opts.stamps);
+  const customerName = opts.customerName?.trim() || "cliente";
+  const storeName = opts.storeName?.trim() || "Meu Negócio";
+  const stampsCount = opts.stamps;
+  const maxStamps = opts.required;
+  const remaining = Math.max(0, maxStamps - stampsCount);
   if (remaining === 0) {
-    return (
-      `${oi} 🥳 Seu cartão fidelidade da *${opts.storeName}* está completo!\n\n` +
-      `Você ganhou *${opts.rewardLabel}*. É só apresentar esta mensagem na hora de retirar.\n\n` +
-      `Obrigado pela preferência! 💛`
-    );
+    const rawLoyaltyMsg =
+      `Oi, ${customerName}! Seu cartão fidelidade da ${storeName} está completo!\n\n` +
+      `Você ganhou ${opts.rewardLabel}. É só apresentar esta mensagem na hora de retirar.\n\n` +
+      `Valeu pela preferência! `;
+    return rawLoyaltyMsg;
   }
-  const faltam =
-    remaining === 1 ? "Falta *1 carimbo*" : `Faltam *${remaining} carimbos*`;
-  return (
-    `${oi} 🎉 Você ganhou um carimbo no cartão fidelidade da *${opts.storeName}*!\n\n` +
-    `Cartão: *${opts.stamps}/${opts.required}*. ${faltam} para ganhar *${opts.rewardLabel}*.\n\n` +
-    `Valeu pela preferência! 💛`
-  );
+  const rawLoyaltyMsg =
+    `Oi, ${customerName}!  Você ganhou um carimbo no cartão fidelidade da ${storeName}!\n\n` +
+    `Cartão: ${stampsCount}/${maxStamps}. Faltam ${remaining} carimbos para ganhar 1 brinde grátis! \n\n` +
+    `Valeu pela preferência! `;
+  return rawLoyaltyMsg;
 }
 
 export function dailyClosingWhatsAppMessage(opts: {
@@ -226,7 +239,7 @@ export function dailyClosingWhatsAppMessage(opts: {
           .join("\n");
   const pendingLabel =
     c.pendingCount === 1 ? "1 pedido" : `${c.pendingCount} pedidos`;
-  return (
+  const rawMessage =
     `📦 *FECHAMENTO DO DIA*\n` +
     `*${loja}*\n` +
     `${c.dateLabel}\n\n` +
@@ -234,8 +247,8 @@ export function dailyClosingWhatsAppMessage(opts: {
     `👤 *Vendas do Chefe:* ${formatBRL(c.chefeCents)}\n\n` +
     `👥 *Ajudantes:*\n${helperLines}\n\n` +
     `⏳ *Pedidos A Receber:* ${formatBRL(c.pendingCents)} (${pendingLabel})\n\n` +
-    `Enviado pelo Pix da Confiança`
-  );
+    `Enviado pelo Pix da Confiança`;
+  return rawMessage;
 }
 
 export function loyaltyRewardMessage(opts: {
@@ -243,10 +256,11 @@ export function loyaltyRewardMessage(opts: {
   customerName?: string;
   rewardLabel: string;
 }): string {
-  const oi = opts.customerName ? `Oi, ${opts.customerName}!` : "Oi!";
-  return (
-    `${oi} 🏆 Prêmio resgatado na *${opts.storeName}*!\n\n` +
-    `*${opts.rewardLabel}* já foi registrado. Seu cartão zerou e você já pode começar a juntar carimbos de novo.\n\n` +
-    `Obrigado! Volte sempre 😊`
-  );
+  const customerName = opts.customerName?.trim() || "cliente";
+  const storeName = opts.storeName?.trim() || "Meu Negócio";
+  const rawMessage =
+    `Oi, ${customerName}! Prêmio resgatado na ${storeName}!\n\n` +
+    `${opts.rewardLabel} já foi registrado. Seu cartão zerou e você já pode começar a juntar carimbos de novo.\n\n` +
+    `Obrigado! Volte sempre `;
+  return rawMessage;
 }
