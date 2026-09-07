@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MessageCircle, Plus, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { CheckoutPay } from "@/components/CheckoutPay";
 import { LgpdConsent } from "@/components/LgpdConsent";
@@ -81,6 +82,7 @@ type Draft = {
 
 export default function VenderPage() {
   const t = useT();
+  const router = useRouter();
   const products = useLiveQuery(
     () => db.products.toArray().then(sellableCatalogProducts),
     [],
@@ -380,13 +382,22 @@ export default function VenderPage() {
                 {refreshing ? "…" : t("btn.update")}
               </Button>
             ) : (
-              <button
-                type="button"
-                onClick={() => void seed()}
-                className="cursor-pointer text-xs text-slate-400 underline transition-colors hover:text-yellow-400"
-              >
-                Carregar catálogo de exemplo
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <Button
+                  className="w-full border-[#FACC15] bg-[#FACC15] text-slate-950"
+                  onClick={() => router.push("/produtos?novo=1")}
+                >
+                  <Plus className="h-5 w-5" />
+                  Cadastrar Novo Produto
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => void seed()}
+                  className="cursor-pointer text-xs text-slate-400 underline transition-colors hover:text-yellow-400"
+                >
+                  Carregar catálogo de exemplo
+                </button>
+              </div>
             )
           }
         />
