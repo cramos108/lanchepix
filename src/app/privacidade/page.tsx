@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { APP_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -30,9 +29,9 @@ export default function PrivacidadePage() {
         anúncio. Esta política descreve o app público e o workspace em
         app.pixdaconfianca.com.
       </p>
-      <Link href="/" className="mt-2 font-extrabold text-sun underline">
+      <a href="/" className="mt-2 font-extrabold text-[#FACC15] underline">
         Voltar
-      </Link>
+      </a>
     </article>
   );
 }

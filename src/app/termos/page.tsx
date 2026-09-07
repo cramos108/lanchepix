@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { APP_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -39,9 +38,9 @@ export default function TermosPage() {
         funcionamento do app. Não vendemos seus dados e você tem controle total
         para excluí-los quando quiser.
       </p>
-      <Link href="/" className="mt-2 font-extrabold text-sun underline">
+      <a href="/" className="mt-2 font-extrabold text-[#FACC15] underline">
         Voltar
-      </Link>
+      </a>
     </article>
   );
 }

@@ -2,14 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { AppShell } from "@/components/AppShell";
-import { LandingPage, MarketingShell } from "@/components/LandingPage";
+import { DomainGate } from "@/components/DomainGate";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
-import {
-  hostnameFromHost,
-  shouldShowLanding,
-  shouldShowMarketingChrome,
-} from "@/lib/site";
+import { hostnameFromHost } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070707",
+  themeColor: "#0F172A",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -56,29 +51,14 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const h = await headers();
   const hostname = hostnameFromHost(h.get("x-hostname") || h.get("host"));
-  const pathname = h.get("x-pathname") || "/";
-  const landing = shouldShowLanding(hostname, pathname);
-  const marketingLegal = shouldShowMarketingChrome(hostname, pathname);
 
   return (
     <html
       lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${
-        landing ? "scroll-smooth" : ""
-      }`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
-      <body
-        className={`min-h-full text-white ${
-          landing || marketingLegal ? "bg-[#0F172A]" : "bg-ink"
-        }`}
-      >
-        {landing ? (
-          <LandingPage />
-        ) : marketingLegal ? (
-          <MarketingShell>{children}</MarketingShell>
-        ) : (
-          <AppShell>{children}</AppShell>
-        )}
+      <body className="min-h-full bg-[#0F172A] text-white">
+        <DomainGate serverHostname={hostname}>{children}</DomainGate>
         <Analytics />
       </body>
     </html>

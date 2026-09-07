@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import {
   ChevronDown,
   FileSpreadsheet,
@@ -14,7 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/brand";
-import { APP_ORIGIN } from "@/lib/site";
+import { APP_ORIGIN, goToApp } from "@/lib/site";
 
 const CARD = "#1E293B";
 
@@ -36,8 +36,8 @@ const FEATURES = [
   },
   {
     icon: Shield,
-    title: "Modo NuBank (Privacidade)",
-    text: "Oculte seus saldos em locais públicos com 1 toque. Ninguém na fila vê o seu caixa.",
+    title: "Modo Privacidade Total",
+    text: "Oculte seus saldos e faturamento da tela com 1 toque para trabalhar com segurança em locais públicos.",
   },
   {
     icon: Users,
@@ -70,11 +70,59 @@ const FAQ = [
   },
 ] as const;
 
+function AppCta({
+  className,
+  children,
+}: {
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={APP_ORIGIN}
+      className={className}
+      onClick={(e) => {
+        e.preventDefault();
+        goToApp();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function HashLink({
+  hash,
+  className,
+  children,
+}: {
+  hash: "#recursos" | "#precos" | "#faq" | "#topo";
+  className?: string;
+  children: ReactNode;
+}) {
+  const pathname = usePathname();
+  return (
+    <a
+      href={`/${hash}`}
+      className={className}
+      onClick={(e) => {
+        if (pathname === "/" || pathname === "/site") {
+          e.preventDefault();
+          document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+          window.history.replaceState(null, "", hash);
+        }
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 export function LandingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0F172A]/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <a href="#topo" className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <img
             src="/icons/icon-192.png"
             alt=""
@@ -85,22 +133,19 @@ export function LandingHeader() {
           </span>
         </a>
         <nav className="hidden items-center gap-5 text-sm font-bold text-slate-300 md:flex">
-          <a href="#recursos" className="hover:text-white">
+          <HashLink hash="#recursos" className="hover:text-white">
             Recursos
-          </a>
-          <a href="#precos" className="hover:text-white">
+          </HashLink>
+          <HashLink hash="#precos" className="hover:text-white">
             Planos
-          </a>
-          <a href="#faq" className="hover:text-white">
+          </HashLink>
+          <HashLink hash="#faq" className="hover:text-white">
             FAQ
-          </a>
+          </HashLink>
         </nav>
-        <a
-          href={APP_ORIGIN}
-          className="inline-flex min-h-11 items-center rounded-2xl border-2 border-[#FACC15] bg-[#FACC15] px-4 text-sm font-black uppercase tracking-wide text-slate-950"
-        >
+        <AppCta className="inline-flex min-h-11 items-center rounded-2xl border-2 border-[#FACC15] bg-[#FACC15] px-4 text-sm font-black uppercase tracking-wide text-slate-950">
           Ir para o App / Entrar
-        </a>
+        </AppCta>
       </div>
     </header>
   );
@@ -114,15 +159,15 @@ export function LandingFooter() {
           © 2026 {APP_NAME} — O parceiro do vendedor brasileiro.
         </p>
         <div className="flex flex-wrap gap-4 text-sm font-extrabold">
-          <a href={APP_ORIGIN} className="text-[#FACC15] hover:underline">
+          <AppCta className="text-[#FACC15] hover:underline">
             Entrar no App
-          </a>
-          <Link href="/termos" className="text-slate-300 hover:text-white">
+          </AppCta>
+          <a href="/termos" className="text-slate-300 hover:text-white">
             Termos de Uso
-          </Link>
-          <Link href="/privacidade" className="text-slate-300 hover:text-white">
+          </a>
+          <a href="/privacidade" className="text-slate-300 hover:text-white">
             Política de Privacidade
-          </Link>
+          </a>
         </div>
       </div>
     </footer>
@@ -152,6 +197,14 @@ export function LandingPage() {
     { name: "Pastel", price: "R$ 10,00" },
   ];
 
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    window.requestAnimationFrame(() => {
+      document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+    });
+  }, []);
+
   return (
     <div id="topo" className="min-h-dvh bg-[#0F172A] text-white">
       <LandingHeader />
@@ -171,18 +224,15 @@ export function LandingPage() {
             feira e MEI. Sem mensalidade obrigatória, sem taxas por venda.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href={APP_ORIGIN}
-              className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950"
-            >
+            <AppCta className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950">
               Começar Grátis Agora
-            </a>
-            <a
-              href="#precos"
+            </AppCta>
+            <HashLink
+              hash="#precos"
               className="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-white/20 px-6 text-base font-black uppercase tracking-wide text-white hover:border-[#FACC15] hover:text-[#FACC15]"
             >
               Ver Planos
-            </a>
+            </HashLink>
           </div>
           <p className="mt-4 text-sm font-bold text-slate-400">
             Grátis para sempre no básico. Instala na tela inicial como app.
@@ -249,7 +299,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="recursos" className="mx-auto max-w-6xl px-4 py-16">
+      <section id="recursos" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16">
         <h2 className="text-3xl font-black">Tudo que a banca precisa, no bolso</h2>
         <p className="mt-2 max-w-2xl font-semibold text-slate-300">
           Do QR na hora até o relatório do MEI. Sem maquininha, sem taxa por
@@ -275,7 +325,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="precos" className="mx-auto max-w-6xl px-4 py-16">
+      <section id="precos" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h2 className="text-3xl font-black">Planos claros, sem surpresa</h2>
@@ -315,7 +365,6 @@ export function LandingPage() {
               "Até 100 clientes no fidelidade",
             ]}
             cta="Usar Grátis"
-            href={APP_ORIGIN}
           />
           <PlanCard
             name="PRO"
@@ -328,7 +377,6 @@ export function LandingPage() {
               "Backup na nuvem",
             ]}
             cta="Testar Pro"
-            href={APP_ORIGIN}
           />
           <PlanCard
             name="NEGÓCIO"
@@ -342,12 +390,11 @@ export function LandingPage() {
               "Relatórios por Vendedor",
             ]}
             cta="Assinar Negócio"
-            href={APP_ORIGIN}
           />
         </div>
       </section>
 
-      <section id="faq" className="mx-auto max-w-3xl px-4 py-16">
+      <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-4 py-16">
         <h2 className="text-3xl font-black">Perguntas rápidas</h2>
         <div className="mt-6 flex flex-col gap-2">
           {FAQ.map((item, i) => {
@@ -394,7 +441,6 @@ function PlanCard({
   hint,
   points,
   cta,
-  href,
   popular,
 }: {
   name: string;
@@ -403,7 +449,6 @@ function PlanCard({
   hint?: string;
   points: string[];
   cta: string;
-  href: string;
   popular?: boolean;
 }) {
   return (
@@ -435,8 +480,7 @@ function PlanCard({
           </li>
         ))}
       </ul>
-      <a
-        href={href}
+      <AppCta
         className={`mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-4 text-sm font-black uppercase ${
           popular
             ? "bg-[#FACC15] text-slate-950"
@@ -444,7 +488,7 @@ function PlanCard({
         }`}
       >
         {cta}
-      </a>
+      </AppCta>
     </article>
   );
 }
