@@ -5,14 +5,16 @@ import { Check, Sparkles } from "lucide-react";
 import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
 import { Button, Modal } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
-import { PLANS, subscribeUpgradeModal, type PaidPlan } from "@/lib/plan";
+import { getUpgradeReason, PLANS, subscribeUpgradeModal, type PaidPlan } from "@/lib/plan";
 
 export function UpgradeModal() {
   const [open, setOpen] = useState(false);
   const [checkout, setCheckout] = useState<PaidPlan | null>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => subscribeUpgradeModal(() => {
     setCheckout(null);
+    setReason(getUpgradeReason());
     setOpen(true);
   }), []);
 
@@ -21,6 +23,7 @@ export function UpgradeModal() {
       setCheckout(null);
       return;
     }
+    setReason("");
     setOpen(false);
   }
 
@@ -42,6 +45,11 @@ export function UpgradeModal() {
         />
       ) : (
         <div className="flex flex-col gap-3">
+          {reason ? (
+            <p className="rounded-2xl border-2 border-sun bg-ink px-3 py-2 text-sm font-extrabold leading-snug text-sun">
+              {reason}
+            </p>
+          ) : null}
           <p className="text-sm font-bold text-muted">
             Escolha o plano do {APP_NAME}. O Pix Confiança básico continua
             ilimitado no grátis.

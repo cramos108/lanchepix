@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, FileDown, Lock, MessageCircle, RefreshCw, Star, X } from "lucide-react";
+import { Check, FileDown, FileSpreadsheet, Lock, MessageCircle, RefreshCw, Star, X } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -11,6 +11,7 @@ import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
 import {
+  canExportSalesExcel,
   canExportSalesPdf,
   canFilterByHelper,
   canSendWhatsAppReminders,
@@ -25,6 +26,7 @@ import {
   unpaySale,
   upsertCustomer,
 } from "@/lib/repo";
+import { downloadSalesXlsx } from "@/lib/excelExport";
 import { attendantPerformance, dailyClosing, downloadMeiPdf } from "@/lib/salesReport";
 import { fetchVendorSalesFromSupabase, pushAndPull, refetchOwnerSales, sellerNameFromSale } from "@/lib/sync";
 import { toast } from "@/lib/toast";
@@ -58,6 +60,7 @@ export default function PendentesPage() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const [tab, setTab] = useState<"open" | "history" | "reports">("open");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [xlsxBusy, setXlsxBusy] = useState(false);
   const [paying, setPaying] = useState<Sale | null>(null);
   const [settle, setSettle] = useState<Sale | null>(null);
   const [settleExtra, setSettleExtra] = useState(0);
@@ -144,6 +147,7 @@ export default function PendentesPage() {
   );
   const canRemind = canSendWhatsAppReminders(settings);
   const canPdf = canExportSalesPdf(settings);
+  const canExcel = canExportSalesExcel(settings);
   const hideStore = !canSeeFinances(settings);
   const showReports = canSeeFinances(settings);
   const showHelperReports = isNegocio(settings) && canSeeFinances(settings);
@@ -227,6 +231,24 @@ export default function PendentesPage() {
       toast("Não deu para gerar o PDF.", "err");
     } finally {
       setPdfBusy(false);
+    }
+  }
+
+  function downloadExcel() {
+    if (!canExcel) {
+      openUpgradeModal(
+        "Exportação em Excel e planilhas é exclusiva do Plano Negócio",
+      );
+      return;
+    }
+    setXlsxBusy(true);
+    try {
+      downloadSalesXlsx(scoped, settings?.storeName);
+      toast("Planilha Excel salva");
+    } catch {
+      toast("Não deu para gerar o Excel.", "err");
+    } finally {
+      setXlsxBusy(false);
     }
   }
 
@@ -333,6 +355,35 @@ export default function PendentesPage() {
 
       {tab === "reports" && showReports ? (
         <section className="flex flex-col gap-3">
+          <div className="rounded-3xl border-2 border-sun/70 bg-surface p-4">
+            <Button
+              className="w-full"
+              variant={canPdf ? "sun" : "line"}
+              disabled={pdfBusy}
+              onClick={() => void downloadReport()}
+            >
+              <FileDown className="h-5 w-5" />
+              {pdfBusy ? "Gerando PDF…" : "Exportar PDF"}
+            </Button>
+            <Button
+              className="mt-2 w-full"
+              variant={canExcel ? "mint" : "line"}
+              disabled={xlsxBusy}
+              onClick={downloadExcel}
+            >
+              {canExcel ? (
+                <FileSpreadsheet className="h-5 w-5" />
+              ) : (
+                <Lock className="h-5 w-5" />
+              )}
+              {xlsxBusy ? "Gerando Excel…" : "Baixar Excel (XLSX)"}
+            </Button>
+            {!canExcel ? (
+              <p className="mt-2 text-center text-xs font-bold text-muted">
+                Exportação em Excel e planilhas é exclusiva do Plano Negócio
+              </p>
+            ) : null}
+          </div>
           <article className="rounded-3xl border-2 border-sun bg-surface p-4">
             <p className="text-[11px] font-extrabold uppercase tracking-widest text-sun">
               Fechamento do dia

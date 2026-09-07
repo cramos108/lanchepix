@@ -60,6 +60,7 @@ export const PLANS = {
       "Acesso Multi-Dispositivo (Sincronização em tempo real para atendentes/ajudantes)",
       "Relatório de desempenho de vendas por ajudante/banca",
       "Fechamento do dia com envio no WhatsApp",
+      "Exportação de vendas em Excel (XLSX)",
     ],
   },
 } as const;
@@ -280,6 +281,13 @@ export function canExportSalesPdf(
   return isPro(settings);
 }
 
+/** Excel / XLSX export: Negócio only. Pro stays locked. */
+export function canExportSalesExcel(
+  settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
+): boolean {
+  return isNegocio(settings);
+}
+
 /** Local JSON backup/restore: Pro and Negócio. */
 export function canBackupData(
   settings?: Pick<Settings, "plan" | "deviceRole" | "pairedOwnerId"> | null,
@@ -336,8 +344,14 @@ export async function canAddFiadoThisMonth(): Promise<boolean> {
 }
 
 const listeners = new Set<() => void>();
+let upgradeReasonMemory = "";
 
-export function openUpgradeModal(): void {
+export function getUpgradeReason(): string {
+  return upgradeReasonMemory;
+}
+
+export function openUpgradeModal(reason?: unknown): void {
+  upgradeReasonMemory = typeof reason === "string" ? reason.trim() : "";
   listeners.forEach((l) => l());
 }
 
