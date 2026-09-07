@@ -13,7 +13,13 @@ import {
   WifiOff,
   Zap,
 } from "lucide-react";
+import { BillingToggle } from "@/components/BillingToggle";
 import { APP_NAME } from "@/lib/brand";
+import {
+  planAnnualSaveHint,
+  planPriceLabel,
+  type BillingInterval,
+} from "@/lib/plan";
 import { APP_ORIGIN, goToApp } from "@/lib/site";
 
 const CARD = "#1E293B";
@@ -187,7 +193,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 }
 
 export function LandingPage() {
-  const [annual, setAnnual] = useState(false);
+  const [interval, setInterval] = useState<BillingInterval>("month");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [hide, setHide] = useState(true);
   const [picked, setPicked] = useState(0);
@@ -333,32 +339,14 @@ export function LandingPage() {
               Comece grátis. Suba de plano só quando a banca pedir.
             </p>
           </div>
-          <div className="flex rounded-2xl border border-white/15 bg-[#1E293B] p-1">
-            <button
-              type="button"
-              onClick={() => setAnnual(false)}
-              className={`rounded-xl px-4 py-2 text-sm font-black uppercase ${
-                !annual ? "bg-[#FACC15] text-slate-950" : "text-slate-300"
-              }`}
-            >
-              Mensal
-            </button>
-            <button
-              type="button"
-              onClick={() => setAnnual(true)}
-              className={`rounded-xl px-4 py-2 text-sm font-black uppercase ${
-                annual ? "bg-[#FACC15] text-slate-950" : "text-slate-300"
-              }`}
-            >
-              Anual
-            </button>
+          <div className="w-full max-w-md">
+            <BillingToggle value={interval} onChange={setInterval} dark />
           </div>
         </div>
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           <PlanCard
             name="GRÁTIS"
-            price={annual ? "R$ 0" : "R$ 0"}
-            period={annual ? "/ano" : "/mês"}
+            price={planPriceLabel("free", interval)}
             points={[
               "Vendas ilimitadas",
               "QR Code Pix",
@@ -368,9 +356,8 @@ export function LandingPage() {
           />
           <PlanCard
             name="PRO"
-            price={annual ? "R$ 99" : "R$ 9,90"}
-            period={annual ? "/ano" : "/mês"}
-            hint={annual ? "2 meses grátis no anual" : undefined}
+            price={planPriceLabel("pro", interval)}
+            hint={interval === "year" ? planAnnualSaveHint("pro") : undefined}
             points={[
               "Relatórios em PDF",
               "Cobrança via WhatsApp",
@@ -380,9 +367,12 @@ export function LandingPage() {
           />
           <PlanCard
             name="NEGÓCIO"
-            price={annual ? "R$ 249" : "R$ 24,90"}
-            period={annual ? "/ano" : "/mês"}
-            hint={annual ? "2 meses grátis no anual" : "Mais Popular"}
+            price={planPriceLabel("equipe", interval)}
+            hint={
+              interval === "year"
+                ? `Mais Popular · ${planAnnualSaveHint("equipe")}`
+                : "Mais Popular"
+            }
             popular
             points={[
               "Multi-dispositivo (Ajudantes)",
@@ -437,7 +427,6 @@ export function LandingPage() {
 function PlanCard({
   name,
   price,
-  period,
   hint,
   points,
   cta,
@@ -445,7 +434,6 @@ function PlanCard({
 }: {
   name: string;
   price: string;
-  period: string;
   hint?: string;
   points: string[];
   cta: string;
@@ -468,10 +456,7 @@ function PlanCard({
         </p>
       )}
       <h3 className="mt-1 text-2xl font-black">{name}</h3>
-      <p className="mt-2 text-3xl font-black text-[#FACC15]">
-        {price}
-        <span className="text-base text-slate-400">{period}</span>
-      </p>
+      <p className="mt-2 text-3xl font-black text-[#FACC15]">{price}</p>
       <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm font-semibold text-slate-300">
         {points.map((p) => (
           <li key={p} className="flex gap-2">

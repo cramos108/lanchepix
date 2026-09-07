@@ -9,6 +9,10 @@ export const STRIPE_PRICE_PRO =
   process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO?.trim() ?? "";
 export const STRIPE_PRICE_NEGOCIO =
   process.env.NEXT_PUBLIC_STRIPE_PRICE_NEGOCIO?.trim() ?? "";
+export const STRIPE_PRICE_PRO_YEAR =
+  process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_YEAR?.trim() ?? "";
+export const STRIPE_PRICE_NEGOCIO_YEAR =
+  process.env.NEXT_PUBLIC_STRIPE_PRICE_NEGOCIO_YEAR?.trim() ?? "";
 export const FREE_LOYALTY_LIMIT = 100;
 /** Grátis: Pix Confiança ilimitado. Mantido por compatibilidade. */
 export const FREE_CONFIANCA_LIMIT = Number.POSITIVE_INFINITY;
@@ -67,6 +71,22 @@ export const PLANS = {
 } as const;
 
 export type PaidPlan = "pro" | "equipe";
+export type BillingInterval = "month" | "year";
+
+export function planPriceLabel(
+  plan: "free" | "pro" | "equipe",
+  interval: BillingInterval,
+): string {
+  if (plan === "free") return interval === "year" ? "R$ 0/ano" : "R$ 0/mês";
+  if (plan === "pro") return interval === "year" ? "R$ 99,00/ano" : "R$ 9,90/mês";
+  return interval === "year" ? "R$ 249,00/ano" : "R$ 24,90/mês";
+}
+
+export function planAnnualSaveHint(plan: "pro" | "equipe"): string {
+  return plan === "pro"
+    ? "2 meses grátis / Economize R$ 19,80"
+    : "2 meses grátis / Economize R$ 49,80";
+}
 
 const DEV_PLAN_KEY = "dev_plan_override";
 const DEV_LIMIT_KEY = "dev_simulate_free_limit";

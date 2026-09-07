@@ -18,6 +18,7 @@ import { useHideBalances } from "@/components/Money";
 import { MasterSettingsProvider } from "@/components/MasterSettingsProvider";
 import { PairingJoinModal } from "@/components/PairingJoinModal";
 import { TutorialModal, useTutorial } from "@/components/TutorialModal";
+import { PwaInstallBanner } from "@/components/PwaInstallBanner";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import {
   accountVendorId,
@@ -63,11 +64,6 @@ const TITLE_KEYS: Record<string, string> = {
   "/configuracoes": "title.settings",
 };
 
-type InstallEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useT();
@@ -75,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
+
   const [syncTick, setSyncTick] = useState(0);
   const [pairManual, setPairManual] = useState(false);
   const [pairDismissed, setPairDismissed] = useState(false);
@@ -188,14 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallEvent(event as InstallEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, []);
+
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
@@ -331,21 +320,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      {installEvent ? (
-        <div className="print-hidden mx-4 mt-3 flex items-center justify-between gap-3 rounded-2xl border-2 border-sun bg-surface px-3 py-2">
-          <p className="text-sm font-bold">Instale o app na tela inicial.</p>
-          <button
-            type="button"
-            className="rounded-xl bg-sun px-3 py-2 text-xs font-black uppercase text-sunink"
-            onClick={async () => {
-              await installEvent.prompt();
-              setInstallEvent(null);
-            }}
-          >
-            Instalar
-          </button>
-        </div>
-      ) : null}
+      <PwaInstallBanner />
 
       <main className="flex-1 px-4 pb-28 pt-4">
         {children}

@@ -2,15 +2,25 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, Sparkles } from "lucide-react";
+import { BillingToggle } from "@/components/BillingToggle";
 import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
 import { Button, Modal } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
-import { getUpgradeReason, PLANS, subscribeUpgradeModal, type PaidPlan } from "@/lib/plan";
+import {
+  getUpgradeReason,
+  PLANS,
+  planAnnualSaveHint,
+  planPriceLabel,
+  subscribeUpgradeModal,
+  type BillingInterval,
+  type PaidPlan,
+} from "@/lib/plan";
 
 export function UpgradeModal() {
   const [open, setOpen] = useState(false);
   const [checkout, setCheckout] = useState<PaidPlan | null>(null);
   const [reason, setReason] = useState("");
+  const [interval, setInterval] = useState<BillingInterval>("month");
 
   useEffect(() => subscribeUpgradeModal(() => {
     setCheckout(null);
@@ -37,6 +47,7 @@ export function UpgradeModal() {
       {checkout ? (
         <StripeEmbeddedCheckout
           planId={checkout}
+          interval={interval}
           onBack={() => setCheckout(null)}
           onDone={() => {
             setCheckout(null);
@@ -54,9 +65,10 @@ export function UpgradeModal() {
             Escolha o plano do {APP_NAME}. O Pix Confiança básico continua
             ilimitado no grátis.
           </p>
+          <BillingToggle value={interval} onChange={setInterval} />
           <PlanCard
             name={PLANS.free.name}
-            price={PLANS.free.priceLabel}
+            price={planPriceLabel("free", interval)}
             features={[...PLANS.free.features]}
             tone="free"
             action={
@@ -67,7 +79,8 @@ export function UpgradeModal() {
           />
           <PlanCard
             name={PLANS.pro.name}
-            price={PLANS.pro.priceLabel}
+            price={planPriceLabel("pro", interval)}
+            hint={interval === "year" ? planAnnualSaveHint("pro") : undefined}
             features={[...PLANS.pro.features]}
             tone="pro"
             action={
@@ -79,7 +92,12 @@ export function UpgradeModal() {
           />
           <PlanCard
             name={PLANS.equipe.name}
-            price={PLANS.equipe.priceLabel}
+            price={planPriceLabel("equipe", interval)}
+            hint={
+              interval === "year"
+                ? `Mais Popular · ${planAnnualSaveHint("equipe")}`
+                : "Mais Popular"
+            }
             features={[...PLANS.equipe.features]}
             tone="equipe"
             action={
@@ -98,12 +116,14 @@ export function UpgradeModal() {
 function PlanCard({
   name,
   price,
+  hint,
   features,
   tone,
   action,
 }: {
   name: string;
   price: string;
+  hint?: string;
   features: string[];
   tone: "free" | "pro" | "equipe";
   action: ReactNode;
@@ -122,6 +142,11 @@ function PlanCard({
         {name}
       </p>
       <p className={`mt-1 text-2xl font-black ${priceColor}`}>{price}</p>
+      {hint ? (
+        <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-sun">
+          {hint}
+        </p>
+      ) : null}
       <ul className="mt-3 flex flex-col gap-1.5">
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm font-bold leading-snug">

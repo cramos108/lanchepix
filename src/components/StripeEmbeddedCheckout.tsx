@@ -6,6 +6,8 @@ import { Button } from "@/components/ui";
 import {
   PLANS,
   STRIPE_PUBLISHABLE_KEY,
+  planPriceLabel,
+  type BillingInterval,
   type PaidPlan,
 } from "@/lib/plan";
 import { activatePlan } from "@/lib/repo";
@@ -18,15 +20,18 @@ function errorLabel(message: string): string {
 
 export function StripeEmbeddedCheckout({
   planId,
+  interval = "month",
   onBack,
   onDone,
 }: {
   planId: PaidPlan;
+  interval?: BillingInterval;
   onBack: () => void;
   onDone: () => void;
 }) {
   const plan = PLANS[planId];
   const publicPlan = planId === "equipe" ? "negocio" : "pro";
+  const priceLabel = planPriceLabel(planId === "equipe" ? "equipe" : "pro", interval);
   const checkoutRef = useRef<StripeEmbeddedCheckout | null>(null);
   const onDoneRef = useRef(onDone);
   const [loading, setLoading] = useState(true);
@@ -64,7 +69,7 @@ export function StripeEmbeddedCheckout({
         const response = await fetch("/api/create-checkout-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: publicPlan }),
+          body: JSON.stringify({ plan: publicPlan, interval }),
         });
         const data = (await response.json().catch(() => ({}))) as {
           clientSecret?: string;
@@ -126,14 +131,14 @@ export function StripeEmbeddedCheckout({
       cancelled = true;
       destroyCheckout();
     };
-  }, [destroyCheckout, planId, publicPlan, retry]);
+  }, [destroyCheckout, interval, planId, publicPlan, retry]);
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-center text-lg font-black leading-tight">
         {plan.name}
         <span className="mt-1 block text-sm font-bold text-muted">
-          {plan.priceLabel} · Pix ou cartão, sem sair do app
+          {priceLabel} · Pix ou cartão, sem sair do app
         </span>
       </p>
 
