@@ -6,6 +6,7 @@ import type { Product } from "./types";
 
 const CUSTOM_CATS_KEY = "lanchepix_custom_categories";
 export const DEFAULT_IMPORT_CATEGORY = "Geral";
+export const NEW_CATEGORY_VALUE = "__nova__";
 
 export type CatalogImportRow = {
   name: string;
@@ -253,7 +254,10 @@ function headerIndex(headers: string[], kind: "name" | "price" | "category"): nu
     );
     return i >= 0 ? i : 1;
   }
-  const i = match((h) => h.includes("categoria") || h.includes("category"));
+  const i = match(
+    (h) =>
+      h.includes("categoria") || h.includes("category") || h.includes("nicho"),
+  );
   return i >= 0 ? i : 2;
 }
 

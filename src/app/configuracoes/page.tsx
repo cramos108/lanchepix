@@ -48,7 +48,9 @@ import { getSyncState, pushAndPull, subscribeSync } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import {
   BUSINESS_TYPES,
+  customBusinessTypeLabel,
   normalizeBusinessType,
+  persistBusinessType,
   type BusinessType,
   type Settings,
 } from "@/lib/types";
@@ -188,6 +190,9 @@ function SettingsForm({
   const [businessType, setBusinessType] = useState<BusinessType>(
     normalizeBusinessType(settings.businessType),
   );
+  const [customBusiness, setCustomBusiness] = useState(
+    customBusinessTypeLabel(settings.businessType),
+  );
   const [syncLabel, setSyncLabel] = useState("Sincronizar agora");
   const [wipe, setWipe] = useState<null | "day" | "week" | "month" | "year" | "all">(
     null,
@@ -236,7 +241,7 @@ function SettingsForm({
       language,
       paymentLink: paymentLink.trim(),
       rewardLabel: rewardLabel.trim() || "1 brinde grátis",
-      businessType,
+      businessType: persistBusinessType(businessType, customBusiness),
       attendantName: attendantName.trim(),
       hideStoreTotals: !allowHelperTotals,
       allowHelperEditPrices,
@@ -291,7 +296,11 @@ function SettingsForm({
         <select
           className={inputClass}
           value={businessType}
-          onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+          onChange={(e) => {
+            const next = e.target.value as BusinessType;
+            setBusinessType(next);
+            if (next !== "outros") setCustomBusiness("");
+          }}
         >
           {BUSINESS_TYPES.map((t) => (
             <option key={t.id} value={t.id}>
@@ -300,6 +309,16 @@ function SettingsForm({
           ))}
         </select>
       </Field>
+      {businessType === "outros" ? (
+        <Field label="Qual é o seu tipo de negócio?">
+          <input
+            className={inputClass}
+            value={customBusiness}
+            onChange={(e) => setCustomBusiness(e.target.value)}
+            placeholder="Ex: Pet Shop Móvel, Açaí, Biju..."
+          />
+        </Field>
+      ) : null}
       <Field label={t("settings.store")}>
         <input
           className={inputClass}

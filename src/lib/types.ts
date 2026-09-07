@@ -107,10 +107,16 @@ export const BUSINESS_TYPES: Array<{ id: BusinessType; label: string }> = [
   { id: "vestuario", label: "Vestuário" },
   { id: "consultora", label: "Consultora / Revendedora" },
   { id: "lar", label: "Utilidades e Lar" },
-  { id: "outros", label: "Outros" },
+  { id: "outros", label: "Outros / Geral" },
 ];
 
-/** Maps legacy Tipo de Negócio values to the current picker ids. */
+const KNOWN_BUSINESS_TYPES = new Set<string>(BUSINESS_TYPES.map((t) => t.id));
+
+export function isKnownBusinessType(value?: string | null): value is BusinessType {
+  return Boolean(value && KNOWN_BUSINESS_TYPES.has(value));
+}
+
+/** Picker id. Custom labels (e.g. "Pet Shop") map to Outros / Geral. */
 export function normalizeBusinessType(value?: string | null): BusinessType {
   if (value === "celular") return "celular";
   if (value === "vestuario") return "vestuario";
@@ -119,7 +125,24 @@ export function normalizeBusinessType(value?: string | null): BusinessType {
   if (value === "outros") return "outros";
   if (value === "loja") return "vestuario";
   if (value === "alimentacao" || value === "ambulante") return "alimentacao";
+  if (value && value.trim()) return "outros";
   return "alimentacao";
+}
+
+/** Value stored in settings.businessType / Supabase business_type. */
+export function persistBusinessType(
+  picker: BusinessType,
+  customLabel?: string,
+): string {
+  if (picker !== "outros") return picker;
+  const custom = customLabel?.trim() || "";
+  return custom || "outros";
+}
+
+export function customBusinessTypeLabel(value?: string | null): string {
+  const raw = (value ?? "").trim();
+  if (!raw || isKnownBusinessType(raw)) return "";
+  return raw;
 }
 
 export type Settings = {
@@ -136,7 +159,7 @@ export type Settings = {
   rewardLabel: string;
   stampsRequired: number;
   plan: Plan;
-  businessType?: BusinessType;
+  businessType?: BusinessType | string;
   attendantName?: string;
   pairedOwnerId?: string;
   deviceRole?: "dono" | "gerente" | "ajudante" | "owner" | "attendant";

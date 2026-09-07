@@ -321,7 +321,7 @@ function toRemoteSettings(s: Settings): Record<string, unknown> {
     reward_label: s.rewardLabel,
     stamps_required: s.stampsRequired,
     plan: s.plan ?? "free",
-    business_type: normalizeBusinessType(s.businessType),
+    business_type: (s.businessType || "alimentacao").trim() || "alimentacao",
     allow_helper_edit_prices: s.allowHelperEditPrices === true,
     currency: s.currency || "BRL",
     language: s.language || "pt",
@@ -554,7 +554,9 @@ export async function pushAndPull(): Promise<void> {
               : remote.plan === "pro"
                 ? "pro"
                 : "free",
-          businessType: normalizeBusinessType(remote.business_type),
+          businessType:
+            (remote.business_type || "").trim() ||
+            normalizeBusinessType(remote.business_type),
           updatedAt: staff ? local.updatedAt : remote.updated_at,
           dirty: staff ? false : false,
           pairedOwnerId: local.pairedOwnerId,

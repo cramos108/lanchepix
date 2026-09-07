@@ -10,7 +10,11 @@ import { ProductSticker } from "@/components/ProductSticker";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
-import { loadCustomCategories } from "@/lib/catalogImport";
+import {
+  loadCustomCategories,
+  NEW_CATEGORY_VALUE,
+  rememberCategory,
+} from "@/lib/catalogImport";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/id";
 import { Price } from "@/components/Money";
@@ -59,6 +63,7 @@ export default function ProdutosPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [nicheId, setNicheId] = useState(defaultNiche().id);
   const [form, setForm] = useState(emptyForm);
+  const [customCategory, setCustomCategory] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sticker, setSticker] = useState<Product | null>(null);
   const [needPixKey, setNeedPixKey] = useState(false);
@@ -149,9 +154,16 @@ export default function ProdutosPage() {
   function selectNiche(id: string) {
     const next = NICHES.find((n) => n.id === id) ?? defaultNiche();
     setNicheId(next.id);
+    if (next.id === "outros") {
+      setForm((f) => ({ ...f, category: NEW_CATEGORY_VALUE }));
+      return;
+    }
+    setCustomCategory("");
     setForm((f) => ({
       ...f,
-      category: next.categories.includes(f.category) ? f.category : next.categories[0],
+      category: next.categories.includes(f.category)
+        ? f.category
+        : next.categories[0],
     }));
   }
 
@@ -159,6 +171,7 @@ export default function ProdutosPage() {
     setEditing(null);
     setNicheId(defaultNiche().id);
     setForm(emptyForm);
+    setCustomCategory("");
     setOpen(true);
   }
 
@@ -173,10 +186,12 @@ export default function ProdutosPage() {
     setEditing(p);
     const found = nicheOfCategory(p.category);
     setNicheId(found?.id ?? "outros");
+    const custom = !found || found.id === "outros";
+    setCustomCategory(custom ? p.category : "");
     setForm({
       name: p.name,
       price: centsToInput(p.priceCents, getCurrency()),
-      category: p.category,
+      category: custom ? NEW_CATEGORY_VALUE : p.category,
       stock: String(p.stock),
       priceMode: p.priceMode === "suggested" ? "suggested" : "fixed",
       imageData: p.imageData ?? "",
@@ -222,6 +237,15 @@ export default function ProdutosPage() {
       toast("Informe um preço válido.", "err");
       return;
     }
+    const needsCustom =
+      form.category === NEW_CATEGORY_VALUE || nicheId === "outros";
+    const category = needsCustom
+      ? rememberCategory(customCategory, catalogProducts.map((p) => p.category))
+      : form.category;
+    if (needsCustom && !customCategory.trim()) {
+      toast("Informe o nome da categoria.", "err");
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     try {
@@ -231,7 +255,7 @@ export default function ProdutosPage() {
         priceCents,
         priceMode: form.priceMode,
         imageData: form.imageData,
-        category: form.category,
+        category,
         stock: Number.isFinite(stock) ? stock : 0,
         active: true,
       });
@@ -421,7 +445,7 @@ export default function ProdutosPage() {
             </select>
           </Field>
 
-          {!editing ? (
+          {!editing && nicheId !== "outros" ? (
             <div>
               <p className="mb-2 text-xs font-extrabold uppercase tracking-widest text-sun">
                 Adicionar rápido
@@ -557,19 +581,36 @@ export default function ProdutosPage() {
             <select
               className={inputClass}
               value={
-                categoryOptions.includes(form.category)
-                  ? form.category
-                  : categoryOptions[0]
+                form.category === NEW_CATEGORY_VALUE
+                  ? NEW_CATEGORY_VALUE
+                  : categoryOptions.includes(form.category)
+                    ? form.category
+                    : NEW_CATEGORY_VALUE
               }
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              onChange={(e) => {
+                const next = e.target.value;
+                setForm((f) => ({ ...f, category: next }));
+                if (next !== NEW_CATEGORY_VALUE) setCustomCategory("");
+              }}
             >
               {categoryOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
+              <option value={NEW_CATEGORY_VALUE}>+ Nova categoria</option>
             </select>
           </Field>
+          {form.category === NEW_CATEGORY_VALUE || nicheId === "outros" ? (
+            <Field label="Nome da categoria">
+              <input
+                className={inputClass}
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="Ex: Pet Shop, Açaí, Biju..."
+              />
+            </Field>
+          ) : null}
           <Field label="Estoque (unidades)">
             <input
               className={inputClass}

@@ -13,6 +13,7 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Modal, QuantityStepper } from "@/components/ui";
 import { db } from "@/lib/db";
 import { createSale, upsertCustomer } from "@/lib/repo";
+import { loadCustomCategories } from "@/lib/catalogImport";
 import { seedDemoProducts } from "@/lib/seed";
 
 import {
@@ -139,7 +140,12 @@ export default function VenderPage() {
 
   const categoryChips = [
     "Todos",
-    ...[...new Set((products ?? []).map((p) => p.category))],
+    ...[
+      ...new Set([
+        ...(products ?? []).map((p) => p.category),
+        ...loadCustomCategories(),
+      ]),
+    ].filter(Boolean),
   ];
   const visible = uniqueById(products).filter(
     (p) => category === "Todos" || p.category === category,
