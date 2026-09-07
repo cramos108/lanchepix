@@ -6,7 +6,13 @@ import { Check, FileDown, FileSpreadsheet, Lock, MessageCircle, RefreshCw, Star,
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { Button, EmptyState, Modal, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { formatDateTime } from "@/lib/id";
+import {
+  DUE_PERIODS,
+  duePeriodLabel,
+  formatDateTime,
+  isInDuePeriod,
+  type DuePeriod,
+} from "@/lib/id";
 import { Money, Price } from "@/components/Money";
 import { formatBrPhone } from "@/lib/phone";
 import { canSeeFinances, isAttendantDevice, visibleSalesForDevice } from "@/lib/account";
@@ -35,7 +41,7 @@ import {
   dailyClosingWhatsAppMessage,
   loyaltyStampMessage,
   openPaidSaleWhatsApp,
-  paymentReminderMessage,
+  pendingPixReminderMessage,
   waLink,
 } from "@/lib/whatsapp";
 import { useT } from "@/lib/i18n";
@@ -69,6 +75,7 @@ export default function PendentesPage() {
   const [settling, setSettling] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [helperFilter, setHelperFilter] = useState("");
+  const [duePeriod, setDuePeriod] = useState<DuePeriod>("all");
 
   function startSettle(sale: Sale) {
     setSettle(sale);
@@ -135,6 +142,8 @@ export default function PendentesPage() {
   const matchHelper = (sale: Sale) =>
     !helperFilter || sellerNameFromSale(sale) === helperFilter;
   const filteredPending = sales.filter(matchHelper);
+  const duePending = filteredPending.filter((s) => isInDuePeriod(s.createdAt, duePeriod));
+  const duePendingCents = duePending.reduce((sum, s) => sum + s.totalCents, 0);
   const filteredHistory = history.filter(matchHelper);
   const pendingCents = sales.reduce((sum, s) => sum + s.totalCents, 0);
   const pendingFilteredCents = filteredPending.reduce((sum, s) => sum + s.totalCents, 0);
@@ -177,17 +186,13 @@ export default function PendentesPage() {
   }
 
   function reminderHref(sale: Sale): string {
-    return waLink(
-      sale.customerPhone ?? "",
-      paymentReminderMessage({
-        storeName: settings?.storeName ?? "Meu Negócio",
-        customerName: sale.customerName,
-        productName: sale.productName,
-        quantity: sale.quantity,
-        totalCents: sale.totalCents,
-        pixKey: settings?.pixKey,
-      }),
-    );
+    const rawMessage = pendingPixReminderMessage({
+      customerName: sale.customerName,
+      storeName: settings?.storeName,
+      totalCents: sale.totalCents,
+      pixKey: settings?.pixKey,
+    });
+    return waLink(sale.customerPhone ?? "", rawMessage);
   }
 
   function chargeSale(sale: Sale) {
@@ -203,7 +208,7 @@ export default function PendentesPage() {
       openUpgradeModal();
       return;
     }
-    const due = filteredPending.filter((s) => s.customerPhone);
+    const due = duePending.filter((s) => s.customerPhone);
     if (!due.length) {
       toast("Nenhum pedido com WhatsApp");
       return;
@@ -417,18 +422,6 @@ export default function PendentesPage() {
                   </p>
                 </div>
               ) : null}
-              <div className="rounded-2xl border-2 border-amber/70 bg-ink px-3 py-3">
-                <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber">
-                  Pedidos A Receber
-                </p>
-                <p className="text-xl font-black tabular-nums text-amber">
-                  <Money cents={closing.pendingCents} />
-                </p>
-                <p className="text-xs font-bold text-muted">
-                  {closing.pendingCount}{" "}
-                  {closing.pendingCount === 1 ? "pedido aberto hoje" : "pedidos abertos hoje"}
-                </p>
-              </div>
             </div>
             {showHelperReports ? (
               <div className="mt-3 rounded-2xl border-2 border-line bg-ink px-3 py-3">
@@ -485,6 +478,45 @@ export default function PendentesPage() {
               </Button>
             ) : null}
           </article>
+
+          <section className="rounded-3xl border-2 border-amber bg-surface p-4">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber">
+              Pedidos a receber
+            </p>
+            <h2 className="text-xl font-black leading-tight">PEDIDOS A RECEBER</h2>
+            <div className="mt-3">
+              <DueFilterBar value={duePeriod} onChange={setDuePeriod} />
+            </div>
+            <div className="mt-3 rounded-2xl border-2 border-amber/70 bg-ink px-3 py-3">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber">
+                Total a receber ({duePeriodLabel(duePeriod)})
+              </p>
+              <p className="text-2xl font-black tabular-nums text-amber">
+                <Money cents={duePendingCents} />
+              </p>
+              <p className="text-sm font-bold text-muted">
+                {duePending.length}{" "}
+                {duePending.length === 1 ? "pedido em aberto" : "pedidos em aberto"}
+              </p>
+            </div>
+            {duePending.length === 0 ? (
+              <p className="mt-3 text-sm font-bold text-muted">
+                Nenhum pedido em aberto neste período.
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-3">
+                {duePending.map((sale) => (
+                  <PendingTicket
+                    key={sale.id}
+                    sale={sale}
+                    canRemind={canRemind}
+                    onPaid={() => startSettle(sale)}
+                    onCharge={() => chargeSale(sale)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
 
           {showHelperReports ? (
             <>
@@ -637,15 +669,23 @@ export default function PendentesPage() {
         </ul>
       ) : null}
 
-      {tab === "open" && filteredPending.length === 0 ? (
-        <EmptyState
-          title={t("history.empty")}
-          text="Quando alguém levar e pagar depois, a venda aparece aqui."
-        />
-      ) : null}
-
       {tab === "open" ? (
       <ul className="flex flex-col gap-3">
+        <li className="rounded-3xl border-2 border-amber bg-surface p-4">
+          <DueFilterBar value={duePeriod} onChange={setDuePeriod} />
+          <div className="mt-3 rounded-2xl border-2 border-amber/70 bg-ink px-3 py-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber">
+              Total a receber ({duePeriodLabel(duePeriod)})
+            </p>
+            <p className="text-2xl font-black tabular-nums text-amber">
+              <Money cents={duePendingCents} />
+            </p>
+            <p className="text-sm font-bold text-muted">
+              {duePending.length}{" "}
+              {duePending.length === 1 ? "pedido em aberto" : "pedidos em aberto"}
+            </p>
+          </div>
+        </li>
         <li>
           <Button
             variant="line"
@@ -665,59 +705,29 @@ export default function PendentesPage() {
             Lembrar todos no WhatsApp
           </Button>
         </li>
-        {filteredPending.map((sale) => (
-          <li key={sale.id} className="rounded-3xl border-2 border-amber bg-surface p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xl font-black leading-tight">
-                  {sale.productName} × {sale.quantity}
-                </p>
-                <p className="text-sm font-bold text-muted">{formatDateTime(sale.createdAt)}</p>
-                {sale.customerPhone ? (
-                  <p className="text-sm font-bold text-sky">
-                    {sale.customerName ? `${sale.customerName} · ` : ""}
-                    {formatBrPhone(sale.customerPhone)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted">Sem telefone</p>
-                )}
-                <p className="text-xs font-bold text-mint">
-                  Vendido por: {sellerNameFromSale(sale) || "Chefe"}
-                </p>
-              </div>
-              <p className="text-2xl font-black text-sun">
-                <Price cents={sale.totalCents} />
-              </p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="mint" onClick={() => startSettle(sale)}>
-                <Check className="h-5 w-5" />
-                {t("btn.paid")}
-              </Button>
-              <Button
-                variant="alert"
-                onClick={async () => {
-                  await cancelSale(sale.id);
-                  await refetchOwnerSales().catch(() => undefined);
-                  toast("Venda cancelada");
-                }}
-              >
-                <X className="h-5 w-5" />
-                {t("btn.cancel")}
-              </Button>
-            </div>
-            {sale.customerPhone ? (
-              <Button
-                variant="line"
-                className="mt-2 w-full"
-                onClick={() => chargeSale(sale)}
-              >
-                <MessageCircle className="h-5 w-5" />
-                {t("wa.charge")}
-              </Button>
-            ) : null}
+        {duePending.length === 0 ? (
+          <li>
+            <EmptyState
+              title={t("history.empty")}
+              text="Nenhum pedido em aberto neste período."
+            />
           </li>
-        ))}
+        ) : (
+          duePending.map((sale) => (
+            <PendingTicket
+              key={sale.id}
+              sale={sale}
+              canRemind={canRemind}
+              onPaid={() => startSettle(sale)}
+              onCharge={() => chargeSale(sale)}
+              onCancel={async () => {
+                await cancelSale(sale.id);
+                await refetchOwnerSales().catch(() => undefined);
+                toast("Venda cancelada");
+              }}
+            />
+          ))
+        )}
       </ul>
       ) : null}
 
@@ -860,5 +870,90 @@ export default function PendentesPage() {
         ) : null}
       </Modal>
     </div>
+  );
+}
+
+function DueFilterBar({
+  value,
+  onChange,
+}: {
+  value: DuePeriod;
+  onChange: (next: DuePeriod) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {DUE_PERIODS.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onChange(p.id)}
+          className={`min-h-10 rounded-2xl border-2 px-3 text-[11px] font-extrabold uppercase ${
+            value === p.id
+              ? "border-sun bg-sun text-sunink"
+              : "border-line bg-surface2 text-white"
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PendingTicket({
+  sale,
+  canRemind,
+  onPaid,
+  onCharge,
+  onCancel,
+}: {
+  sale: Sale;
+  canRemind: boolean;
+  onPaid: () => void;
+  onCharge: () => void;
+  onCancel?: () => void;
+}) {
+  const t = useT();
+  const contact = sale.customerPhone
+    ? `${sale.customerName ? `${sale.customerName} · ` : ""}${formatBrPhone(sale.customerPhone)}`
+    : sale.customerName?.trim() || "Sem telefone";
+  return (
+    <li className="rounded-3xl border-2 border-amber bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-sky">{contact}</p>
+          <p className="text-xl font-black leading-tight">
+            {sale.productName} × {sale.quantity}
+          </p>
+          <p className="text-sm font-bold text-muted">
+            {formatDateTime(sale.createdAt)}
+          </p>
+          <p className="text-xs font-bold text-mint">
+            Vendido por: {sellerNameFromSale(sale) || "Chefe"}
+          </p>
+        </div>
+        <p className="text-2xl font-black text-sun">
+          <Price cents={sale.totalCents} />
+        </p>
+      </div>
+      <div className={`mt-3 grid gap-2 ${onCancel ? "grid-cols-2" : "grid-cols-1"}`}>
+        <Button variant="mint" onClick={onPaid}>
+          <Check className="h-5 w-5" />
+          {t("btn.paid")}
+        </Button>
+        {onCancel ? (
+          <Button variant="alert" onClick={() => void onCancel()}>
+            <X className="h-5 w-5" />
+            {t("btn.cancel")}
+          </Button>
+        ) : null}
+      </div>
+      {sale.customerPhone ? (
+        <Button variant="line" className="mt-2 w-full" onClick={onCharge}>
+          <MessageCircle className="h-5 w-5" />
+          {t("wa.charge")}
+        </Button>
+      ) : null}
+    </li>
   );
 }

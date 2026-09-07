@@ -36,6 +36,40 @@ export function isSameLocalDay(iso: string, ref = new Date()): boolean {
   return isWithinLocalDay(iso, ref);
 }
 
+export function startOfYesterday(ref = new Date()): Date {
+  const d = startOfLocalDay(ref);
+  d.setDate(d.getDate() - 1);
+  return d;
+}
+
+export function isYesterday(iso: string, ref = new Date()): boolean {
+  return isWithinLocalDay(iso, startOfYesterday(ref));
+}
+
+export type DuePeriod = "today" | "yesterday" | "week" | "month" | "all";
+
+export const DUE_PERIODS: Array<{ id: DuePeriod; label: string }> = [
+  { id: "today", label: "Hoje" },
+  { id: "yesterday", label: "Ontem" },
+  { id: "week", label: "Esta Semana" },
+  { id: "month", label: "Este Mês" },
+  { id: "all", label: "TODOS (Geral)" },
+];
+
+export function duePeriodLabel(period: DuePeriod): string {
+  return DUE_PERIODS.find((p) => p.id === period)?.label ?? "TODOS (Geral)";
+}
+
+/** Pending tickets: sold timestamp vs local calendar filter. `all` = no date bound. */
+export function isInDuePeriod(iso: string, period: DuePeriod, ref = new Date()): boolean {
+  if (period === "all") return true;
+  if (period === "today") return isWithinLocalDay(iso, ref);
+  if (period === "yesterday") return isYesterday(iso, ref);
+  if (period === "week") return isSameLocalWeek(iso, ref);
+  if (period === "month") return isSameLocalMonth(iso, ref);
+  return true;
+}
+
 export function isSameLocalMonth(iso: string, ref = new Date()): boolean {
   const d = new Date(iso);
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();

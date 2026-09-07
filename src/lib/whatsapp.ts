@@ -186,6 +186,22 @@ export function buyerConfirmPixMessage(opts: {
   });
 }
 
+export function pendingPixReminderMessage(opts: {
+  customerName?: string;
+  storeName?: string;
+  totalCents: number;
+  pixKey?: string;
+}): string {
+  const name = opts.customerName?.trim() || "cliente";
+  const loja = opts.storeName?.trim() || "Meu Negócio";
+  const valor = (opts.totalCents / 100).toFixed(2).replace(".", ",");
+  const chave = opts.pixKey?.trim() || "";
+  const rawMessage =
+    `Oi, ${name}! 👋 Passando só pra lembrar do Pix pendente no valor de *R$ ${valor}* na *${loja}*. ` +
+    `Quando puder, o Pix é: ${chave}. Obrigado!`;
+  return rawMessage;
+}
+
 export function paymentReminderMessage(opts: {
   storeName: string;
   customerName?: string;
