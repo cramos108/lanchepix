@@ -19,7 +19,7 @@ import { useT } from "@/lib/i18n";
 import { getCurrency } from "@/lib/prefs";
 import { removeProduct, saveProduct } from "@/lib/repo";
 import { stickerWhatsAppLink } from "@/lib/whatsapp";
-import { seedDemoProducts, seedNiche } from "@/lib/seed";
+import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
 import { canImportCatalog, openUpgradeModal } from "@/lib/plan";
@@ -267,22 +267,6 @@ export default function ProdutosPage() {
     }
   }
 
-  async function loadSampleCatalog() {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      const n = await seedDemoProducts(settings?.businessType);
-      setProductError(null);
-      toast(`${n} produtos de exemplo no catálogo`);
-    } catch (err) {
-      showProductError(err);
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }
-
   function openImport() {
     if (!canImportCatalog(settings)) {
       openUpgradeModal(
@@ -296,28 +280,18 @@ export default function ProdutosPage() {
   return (
     <div className="flex flex-col gap-4">
       {canEdit ? (
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              className="w-full border-[#FACC15] bg-[#FACC15] text-slate-950"
-              onClick={startCreate}
-            >
-              <Plus className="h-5 w-5" />
-              {t("btn.newProduct")}
-            </Button>
-            <Button variant="line" className="w-full" onClick={openImport}>
-              <Upload className="h-5 w-5" />
-              Importar Catálogo
-            </Button>
-          </div>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void loadSampleCatalog()}
-            className="cursor-pointer text-center text-sm text-slate-400 underline hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            className="w-full border-[#FACC15] bg-[#FACC15] text-slate-950"
+            onClick={startCreate}
           >
-            Carregar catálogo de exemplo
-          </button>
+            <Plus className="h-5 w-5" />
+            {t("btn.newProduct")}
+          </Button>
+          <Button variant="line" className="w-full" onClick={openImport}>
+            <Upload className="h-5 w-5" />
+            Importar Catálogo
+          </Button>
         </div>
       ) : null}
       {productError ? (
@@ -349,16 +323,6 @@ export default function ProdutosPage() {
         <EmptyState
           title={t("catalog.empty")}
           text="Escolha o nicho e cadastre lanches, capinhas, meias, sabonetes…"
-          action={
-            canEdit ? (
-              <Button
-                className="border-[#FACC15] bg-[#FACC15] text-slate-950"
-                onClick={startCreate}
-              >
-                {t("btn.newProduct")}
-              </Button>
-            ) : undefined
-          }
         />
       ) : null}
 

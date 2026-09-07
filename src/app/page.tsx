@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessageCircle, RefreshCw, Upload } from "lucide-react";
-import { CatalogImportModal } from "@/components/CatalogImportModal";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import { AmountAdjuster } from "@/components/AmountAdjuster";
 import { CheckoutPay } from "@/components/CheckoutPay";
 import { LgpdConsent } from "@/components/LgpdConsent";
@@ -39,7 +38,6 @@ import { uniqueById, sellableCatalogProducts } from "@/lib/unique";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
-  canImportCatalog,
   isPro,
   openUpgradeModal,
 } from "@/lib/plan";
@@ -101,7 +99,7 @@ export default function VenderPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+
 
   useEffect(() => {
     saveCartQty(qtyById);
@@ -382,31 +380,13 @@ export default function VenderPage() {
                 {refreshing ? "…" : t("btn.update")}
               </Button>
             ) : (
-            <div className="flex flex-col gap-2">
-              <Link href="/produtos">
-                <Button className="w-full">Cadastrar Novo Produto</Button>
-              </Link>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <Button variant="line" onClick={() => void seed()}>
-                  Carregar catálogo de exemplo
-                </Button>
-                <Button
-                  variant="line"
-                  onClick={() => {
-                    if (!canImportCatalog(settings)) {
-                      openUpgradeModal(
-                        "Importação em massa de produtos via planilha é exclusiva dos Planos Pro e Negócio",
-                      );
-                      return;
-                    }
-                    setImportOpen(true);
-                  }}
-                >
-                  <Upload className="h-5 w-5" />
-                  Importar Catálogo (CSV/XLSX)
-                </Button>
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={() => void seed()}
+                className="cursor-pointer text-xs text-slate-400 underline transition-colors hover:text-yellow-400"
+              >
+                Carregar catálogo de exemplo
+              </button>
             )
           }
         />
@@ -484,6 +464,16 @@ export default function VenderPage() {
           );
         })}
       </div>
+
+      {products && products.length > 0 && !isStaffDevice(settings) ? (
+        <button
+          type="button"
+          onClick={() => void seed()}
+          className="cursor-pointer text-center text-xs text-slate-400 underline transition-colors hover:text-yellow-400"
+        >
+          Carregar catálogo de exemplo
+        </button>
+      ) : null}
 
       <Modal
         open={Boolean(draft)}
@@ -576,7 +566,6 @@ export default function VenderPage() {
           <CheckoutPay sale={paidSale} settings={settings} onClose={() => setPaidSale(null)} />
         ) : null}
       </Modal>
-      <CatalogImportModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
