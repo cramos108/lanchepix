@@ -37,6 +37,7 @@ export const PLANS = {
     cents: 0,
     features: [
       "Registro ilimitado de vendas no Pix Confiança",
+      "Recibos e Comprovantes via WhatsApp (Manual)",
       "Até 100 cartões fidelidade ativos",
       "Adesivos QR Code simples",
     ],
@@ -47,9 +48,8 @@ export const PLANS = {
     priceLabel: "R$ 9,90 / mês",
     cents: 990,
     features: [
-      "Lembretes de cobrança no WhatsApp em lote (1 toque)",
+      "Automação de Fiado via WhatsApp + Marca e Instagram no QR",
       "Cartões Fidelidade Ilimitados",
-      "Adesivos QR Code Premium com sua marca/Instagram",
       "Exportação de Relatórios de Vendas em PDF para MEI/Controle",
       "Backup e restauração dos dados (JSON)",
       "Importação em massa de produtos via planilha (CSV/XLSX)",
@@ -62,6 +62,7 @@ export const PLANS = {
     cents: 2490,
     features: [
       "Tudo do Plano Pro +",
+      "Automação de Fiado via WhatsApp + Marca e Instagram no QR",
       "Acesso Multi-Dispositivo (Sincronização em tempo real para atendentes/ajudantes)",
       "Relatório de desempenho de vendas por ajudante/banca",
       "Fechamento do dia com envio no WhatsApp",

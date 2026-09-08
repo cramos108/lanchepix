@@ -409,6 +409,7 @@ export function LandingPage() {
             points={[
               "Vendas ilimitadas",
               "QR Code Pix",
+              "Comprovantes de pagamento no WhatsApp",
               "Até 100 clientes no fidelidade",
             ]}
             cta="Usar Grátis"
@@ -419,7 +420,7 @@ export function LandingPage() {
             hint={interval === "year" ? planAnnualSaveHint("pro") : undefined}
             points={[
               "Relatórios em PDF",
-              "Cobrança via WhatsApp",
+              "Cobrança de Fiado automatizada + Lembretes no Zap",
               "Backup na nuvem",
             ]}
             cta="Testar Pro"
@@ -435,6 +436,7 @@ export function LandingPage() {
             popular
             points={[
               "Multi-dispositivo (Ajudantes)",
+              "Cobrança de Fiado automatizada + Lembretes no Zap",
               "Exportação em Excel (.xlsx)",
               "Relatórios por Vendedor",
             ]}
