@@ -359,16 +359,16 @@ export function LandingPage() {
                 );
               })}
             </ul>
-            <AppCta className="mt-8 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950 sm:w-auto">
+            <AppCta className="mt-8 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950 md:w-auto">
               USE GRÁTIS NO CELULAR
             </AppCta>
           </div>
-          <div className="flex justify-center bg-transparent md:justify-end">
-            <figure className="flex w-full max-w-[320px] flex-col items-center md:max-w-[380px]">
+          <div className="flex w-full justify-center bg-transparent md:justify-end">
+            <figure className="flex w-full max-w-full flex-col items-center md:max-w-[400px]">
               <img
                 src="/images/celio-founder-app.jpg"
                 alt="Célio, fundador do Pix da Confiança, mostrando o app no celular"
-                className="h-auto w-full bg-transparent object-contain"
+                className="h-auto w-full max-w-full bg-transparent object-contain"
                 style={{
                   filter: "drop-shadow(0 20px 30px rgba(250, 204, 21, 0.15))",
                 }}
