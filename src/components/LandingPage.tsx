@@ -364,14 +364,28 @@ export function LandingPage() {
             </AppCta>
           </div>
           <div className="flex justify-center bg-transparent md:justify-end">
-            <img
-              src="/images/celio-founder-app.jpg"
-              alt="Célio, fundador do Pix da Confiança, mostrando o app no celular"
-              className="mx-auto h-auto w-full max-w-[280px] bg-transparent object-contain md:mx-0 md:max-w-md"
-              style={{
-                filter: "drop-shadow(0 20px 30px rgba(250, 204, 21, 0.15))",
-              }}
-            />
+            <figure className="flex w-full max-w-[320px] flex-col items-center md:max-w-[380px]">
+              <img
+                src="/images/celio-founder-app.jpg"
+                alt="Célio, fundador do Pix da Confiança, mostrando o app no celular"
+                className="h-auto w-full bg-transparent object-contain"
+                style={{
+                  filter: "drop-shadow(0 20px 30px rgba(250, 204, 21, 0.15))",
+                }}
+              />
+              <p
+                className="text-center"
+                style={{
+                  fontSize: "0.875rem",
+                  color: "#94A3B8",
+                  marginTop: "12px",
+                  fontWeight: 500,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Celio Ramos • Criador do Pix da Confiança
+              </p>
+            </figure>
           </div>
         </div>
       </section>
