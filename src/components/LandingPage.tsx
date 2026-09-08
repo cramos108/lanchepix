@@ -363,13 +363,12 @@ export function LandingPage() {
               USE GRÁTIS NO CELULAR
             </AppCta>
           </div>
-          <div className="flex justify-center md:justify-end">
+          <div className="flex justify-center bg-transparent md:justify-end">
             <img
               src="/images/celio-founder-app.jpg"
               alt="Célio, fundador do Pix da Confiança, mostrando o app no celular"
-              className="mx-auto w-full max-w-[280px] object-contain md:mx-0 md:max-w-md"
+              className="mx-auto h-auto w-full max-w-[280px] bg-transparent object-contain md:mx-0 md:max-w-md"
               style={{
-                mixBlendMode: "lighten",
                 filter: "drop-shadow(0 20px 30px rgba(250, 204, 21, 0.15))",
               }}
             />
