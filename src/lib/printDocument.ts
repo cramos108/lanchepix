@@ -12,12 +12,6 @@ export function isStandaloneDisplay(): boolean {
   );
 }
 
-function isMobileClient(): boolean {
-  if (typeof navigator === "undefined") return false;
-  if (isStandaloneDisplay()) return true;
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-}
-
 function slugFile(name: string): string {
   const slug = name
     .normalize("NFD")
@@ -29,8 +23,25 @@ function slugFile(name: string): string {
   return slug || "produto";
 }
 
-function stickerFileName(productName: string): string {
+export function stickerFileName(productName: string): string {
   return `adesivo-qr-${slugFile(productName)}.png`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeJs(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "");
 }
 
 function flattenUnsupportedColors(root: HTMLElement, view: Window | null): void {
@@ -95,7 +106,24 @@ async function captureQrCard(): Promise<string> {
   return canvas.toDataURL("image/png");
 }
 
-function imageDocumentHtml(dataUrl: string, title: string): string {
+function cloneQrCardHtml(): string | null {
+  const card = document.getElementById("qr-card-only");
+  if (!card) return null;
+  const clone = card.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("canvas, .qr-preview-only").forEach((node) => node.remove());
+  return clone.outerHTML;
+}
+
+export function openQrPrintWorkspace(): Window | null {
+  return window.open("", "_blank", "width=420,height=720");
+}
+
+export function buildQrPrintWorkspaceHtml(
+  cardHtml: string,
+  fileName: string,
+): string {
+  const title = escapeHtml(fileName);
+  const fileJs = escapeJs(fileName);
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -105,113 +133,144 @@ function imageDocumentHtml(dataUrl: string, title: string): string {
 <style>
   html, body {
     margin: 0;
-    min-height: 100%;
     background: #ffffff;
+    color: #000000;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .no-print {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     justify-content: center;
+    padding: 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #dddddd;
   }
-  img {
-    max-width: 100%;
-    height: auto;
-    display: block;
+  .no-print button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 2px solid #000000;
+    border-radius: 10px;
+    background: #ffe500;
+    color: #111111;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .no-print button.secondary {
     background: #ffffff;
   }
-  @page { margin: 12mm; }
+  #qr-card-only {
+    max-width: 320px;
+    margin: 20px auto;
+    border: 3px solid #000;
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #000000;
+  }
+  #qr-card-only p {
+    margin: 8px 0;
+    font-weight: 800;
+    color: #000000;
+  }
+  #qr-card-only canvas,
+  #qr-card-only .qr-preview-only {
+    display: none !important;
+  }
+  #qr-card-only img.printable-qr-img {
+    width: 250px;
+    height: 250px;
+    display: block;
+    margin: 12px auto;
+    background: #ffffff;
+  }
+  @media print {
+    .no-print { display: none !important; }
+    @page { margin: 10mm; }
+  }
 </style>
 </head>
 <body>
-<img src="${dataUrl}" alt="${title}"/>
+  <div class="no-print">
+    <button type="button" id="btn-print">Imprimir / Salvar PDF</button>
+    <button type="button" id="btn-download" class="secondary">Baixar Imagem</button>
+    <button type="button" id="btn-close" class="secondary">✖ Fechar</button>
+  </div>
+  ${cardHtml}
+  <script>
+    window.__stickerPng = "";
+    document.getElementById("btn-print").onclick = function () {
+      window.print();
+    };
+    document.getElementById("btn-close").onclick = function () {
+      window.close();
+    };
+    document.getElementById("btn-download").onclick = function () {
+      var url = window.__stickerPng;
+      if (!url) {
+        var img = document.querySelector("#qr-card-only img.printable-qr-img");
+        url = img ? img.src : "";
+      }
+      if (!url) return;
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = '${fileJs}';
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+  </script>
 </body>
 </html>`;
 }
 
-function downloadPng(dataUrl: string, fileName: string): boolean {
-  try {
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = fileName;
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    return true;
-  } catch {
+export function writeQrPrintWorkspace(
+  popup: Window,
+  productName: string,
+): boolean {
+  const cardHtml = cloneQrCardHtml();
+  if (!cardHtml) {
+    toast("Não foi possível encontrar o QR para impressão.", "err");
     return false;
   }
-}
-
-async function downloadPngBlob(dataUrl: string, fileName: string): Promise<boolean> {
-  try {
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const ok = downloadPng(url, fileName);
-    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
-    return ok;
-  } catch {
-    return downloadPng(dataUrl, fileName);
-  }
-}
-
-function openImageWindow(
-  dataUrl: string,
-  title: string,
-  autoPrint: boolean,
-): boolean {
-  const popup = window.open("", "_blank", "width=420,height=680");
-  if (!popup) return false;
+  const fileName = stickerFileName(productName);
   popup.document.open();
-  popup.document.write(imageDocumentHtml(dataUrl, title));
+  popup.document.write(buildQrPrintWorkspaceHtml(cardHtml, fileName));
   popup.document.close();
-  if (!autoPrint) return true;
-  const img = popup.document.querySelector("img");
-  const triggerPrint = () => {
-    window.setTimeout(() => {
+  popup.focus();
+  void captureQrCard()
+    .then((png) => {
       try {
-        popup.focus();
-        popup.print();
+        (popup as Window & { __stickerPng?: string }).__stickerPng = png;
       } catch {
-        /* popup may block print; image remains visible */
+        /* popup may already be closed */
       }
-    }, 50);
-  };
-  if (img && !img.complete) {
-    img.addEventListener("load", triggerPrint, { once: true });
-    img.addEventListener("error", triggerPrint, { once: true });
-  } else {
-    triggerPrint();
-  }
+    })
+    .catch(() => {
+      /* download still uses the QR img already in the workspace */
+    });
   return true;
 }
 
-export async function exportQrCardPng(productName: string): Promise<void> {
-  const fileName = stickerFileName(productName);
-  const dataUrl = await captureQrCard();
-  if (!dataUrl.startsWith("data:image/")) {
-    throw new Error("PNG capture failed");
-  }
-
-  if (isMobileClient()) {
-    const opened = openImageWindow(dataUrl, fileName, false);
-    if (!opened) {
-      const saved = await downloadPngBlob(dataUrl, fileName);
-      if (saved) {
-        toast("Adesivo QR salvo como imagem.");
-        return;
-      }
-      toast("Não foi possível abrir o adesivo QR.", "err");
-    }
+export function fillQrPrintWorkspace(
+  popup: Window | null,
+  productName: string,
+): void {
+  if (!popup || popup.closed) {
+    toast("Permita pop-ups para abrir o adesivo QR.", "err");
     return;
   }
-
-  const printed = openImageWindow(dataUrl, fileName, true);
-  if (!printed) {
-    const saved = await downloadPngBlob(dataUrl, fileName);
-    if (saved) {
-      toast("Adesivo QR salvo como imagem.");
-      return;
+  if (!writeQrPrintWorkspace(popup, productName)) {
+    try {
+      popup.close();
+    } catch {
+      /* ignore */
     }
-    toast("Não foi possível abrir a impressão do QR.", "err");
   }
 }

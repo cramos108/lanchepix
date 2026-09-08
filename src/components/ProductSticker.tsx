@@ -13,11 +13,14 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
 import { formatMoney } from "@/lib/money";
 import { getCurrency } from "@/lib/prefs";
-import { exportQrCardPng } from "@/lib/printDocument";
+import {
+  fillQrPrintWorkspace,
+  openQrPrintWorkspace,
+} from "@/lib/printDocument";
 import { toast } from "@/lib/toast";
 
 export type ProductStickerHandle = {
-  print: () => void;
+  print: (workspace?: Window | null) => void;
 };
 
 export const ProductSticker = forwardRef<
@@ -58,22 +61,23 @@ export const ProductSticker = forwardRef<
   }, [payload]);
 
   useImperativeHandle(ref, () => ({
-    print() {
-      void (async () => {
-        const src = rasterize();
-        if (src) {
-          flushSync(() => setImgSrc(src));
-        }
-        if (!src || !src.startsWith("data:image/")) {
-          toast("Não foi possível gerar o QR para impressão.", "err");
-          return;
-        }
+    print(workspace) {
+      const popup =
+        workspace && !workspace.closed ? workspace : openQrPrintWorkspace();
+      const src = rasterize();
+      if (src) {
+        flushSync(() => setImgSrc(src));
+      }
+      if (!src || !src.startsWith("data:image/")) {
+        toast("Não foi possível gerar o QR para impressão.", "err");
         try {
-          await exportQrCardPng(name);
+          popup?.close();
         } catch {
-          toast("Não foi possível gerar o adesivo QR.", "err");
+          /* ignore */
         }
-      })();
+        return;
+      }
+      fillQrPrintWorkspace(popup, name);
     },
   }));
 

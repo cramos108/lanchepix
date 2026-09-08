@@ -666,15 +666,18 @@ export default function ProdutosPage() {
               </p>
             )}
             <Button
-              onClick={() => stickerPrintRef.current?.print()}
+              onClick={() => {
+                const workspace = window.open("", "_blank", "width=420,height=720");
+                stickerPrintRef.current?.print(workspace);
+              }}
               disabled={!stickerPayload(sticker)}
             >
               <Printer className="h-5 w-5" />
               Imprimir / Salvar PDF
             </Button>
             <p className="text-center text-xs font-bold text-muted">
-              No celular o adesivo é salvo como imagem PNG. No computador,
-              escolha Salvar como PDF.
+              Abre o adesivo numa página limpa. No celular, use Imprimir /
+              Salvar PDF ou Baixar Imagem.
             </p>
           </div>
         ) : null}
