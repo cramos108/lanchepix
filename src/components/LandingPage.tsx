@@ -330,29 +330,50 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="recursos" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16">
-        <h2 className="text-3xl font-black">Tudo que a banca precisa, no bolso</h2>
-        <p className="mt-2 max-w-2xl font-semibold text-slate-300">
-          Do QR na hora até o relatório do MEI. Sem maquininha, sem taxa por
-          venda.
-        </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => {
-            const Icon = f.icon;
-            return (
-              <article
-                key={f.title}
-                className="rounded-3xl border border-white/10 p-5"
-                style={{ background: CARD }}
-              >
-                <Icon className="h-8 w-8 text-[#FACC15]" />
-                <h3 className="mt-3 text-lg font-black">{f.title}</h3>
-                <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-300">
-                  {f.text}
-                </p>
-              </article>
-            );
-          })}
+      <section
+        id="recursos"
+        className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16"
+      >
+        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
+          <div>
+            <h2 className="text-3xl font-black leading-tight">
+              Tudo que a banca precisa, no bolso
+            </h2>
+            <p className="mt-2 max-w-xl font-semibold text-slate-300">
+              Do QR na hora até o relatório do MEI. Sem maquininha, sem taxa por
+              venda.
+            </p>
+            <ul className="mt-6 flex flex-col gap-3">
+              {FEATURES.map((f) => {
+                const Icon = f.icon;
+                return (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[#FACC15]" />
+                    <div>
+                      <p className="font-black leading-snug">{f.title}</p>
+                      <p className="mt-0.5 text-sm font-semibold leading-snug text-slate-300">
+                        {f.text}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <AppCta className="mt-8 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950 sm:w-auto">
+              USE GRÁTIS NO CELULAR
+            </AppCta>
+          </div>
+          <div className="flex justify-center md:justify-end">
+            <img
+              src="/images/celio-founder-app.jpg"
+              alt="Célio, fundador do Pix da Confiança, mostrando o app no celular"
+              className="mx-auto w-full max-w-[280px] object-contain md:mx-0 md:max-w-md"
+              style={{
+                mixBlendMode: "lighten",
+                filter: "drop-shadow(0 20px 30px rgba(250, 204, 21, 0.15))",
+              }}
+            />
+          </div>
         </div>
       </section>
 
