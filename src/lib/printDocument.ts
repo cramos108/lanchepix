@@ -2,15 +2,6 @@
 
 import { toast } from "@/lib/toast";
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 export function isStandaloneDisplay(): boolean {
   if (typeof window === "undefined") return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
@@ -145,97 +136,52 @@ export function printHtmlDocument(html: string): void {
   });
 }
 
-export function buildQrPrintHtml(opts: {
-  qrDataUrl: string;
-  storeName?: string;
-  productName: string;
-  priceLabel: string;
-  footer: string;
-}): string {
-  const store = opts.storeName
-    ? `<p class="store">${escapeHtml(opts.storeName)}</p>`
-    : "";
+export function wrapQrCardHtml(cardHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${escapeHtml(opts.productName)}</title>
+<title>QR Code</title>
 <style>
-  @page { margin: 12mm; }
-  html, body {
-    margin: 0;
-    padding: 0;
+  body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #ffffff; }
+  #qr-card-only { width: 320px; border: 3px solid #000000; border-radius: 16px; padding: 24px; text-align: center; box-sizing: border-box; }
+  @page { size: auto; margin: 15mm; }
+  #qr-card-only {
     background: #ffffff;
     color: #000000;
     font-family: Arial, Helvetica, sans-serif;
   }
-  .sheet {
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 10% 16px 24px;
-    box-sizing: border-box;
-    background: #ffffff;
-  }
-  .card {
-    width: 80%;
-    max-width: 400px;
-    text-align: center;
-    background: #ffffff;
+  #qr-card-only p {
+    margin: 8px 0;
     color: #000000;
-    border: 3px solid #000000;
-    padding: 24px 20px;
-    box-sizing: border-box;
+    font-weight: 800;
   }
-  .store {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #000000;
+  #qr-card-only canvas,
+  #qr-card-only .qr-preview-only,
+  #qr-card-only img:not(.printable-qr-img) {
+    display: none !important;
   }
-  .name {
-    margin: 12px 0 8px;
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1.15;
-    color: #000000;
-  }
-  .price {
-    margin: 0 0 16px;
-    font-size: 32px;
-    font-weight: 900;
-    color: #000000;
-  }
-  img {
+  #qr-card-only img.printable-qr-img {
     width: 250px;
     height: 250px;
     display: block;
-    margin: 0 auto;
+    margin: 12px auto;
     background: #ffffff;
-  }
-  .foot {
-    margin: 16px 0 0;
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1.3;
-    color: #000000;
   }
 </style>
 </head>
 <body>
-  <div class="sheet">
-    <div class="card">
-      ${store}
-      <p class="name">${escapeHtml(opts.productName)}</p>
-      <p class="price">${escapeHtml(opts.priceLabel)}</p>
-      <img src="${opts.qrDataUrl}" width="250" height="250" alt="QR ${escapeHtml(opts.productName)}" />
-      <p class="foot">${escapeHtml(opts.footer)}</p>
-    </div>
-  </div>
+${cardHtml}
 </body>
 </html>`;
+}
+
+export function printQrCardOnly(): void {
+  const card = document.getElementById("qr-card-only");
+  if (!card) {
+    toast("Não foi possível encontrar o QR para impressão.", "err");
+    return;
+  }
+  printHtmlDocument(wrapQrCardHtml(card.outerHTML));
 }

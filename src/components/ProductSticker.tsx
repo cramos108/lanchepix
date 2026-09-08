@@ -13,7 +13,7 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
 import { formatMoney } from "@/lib/money";
 import { getCurrency } from "@/lib/prefs";
-import { buildQrPrintHtml, printHtmlDocument } from "@/lib/printDocument";
+import { printQrCardOnly } from "@/lib/printDocument";
 import { toast } from "@/lib/toast";
 
 export type ProductStickerHandle = {
@@ -67,29 +67,21 @@ export const ProductSticker = forwardRef<
         toast("Não foi possível gerar o QR para impressão.", "err");
         return;
       }
-      const priceLabel = suggested
-        ? `Contribuição Sugerida: ${formatMoney(priceCents, getCurrency())}`
-        : formatMoney(priceCents, getCurrency());
-      printHtmlDocument(
-        buildQrPrintHtml({
-          qrDataUrl: src,
-          storeName,
-          productName: name,
-          priceLabel,
-          footer: `${APP_NAME} • Escaneie e fale no WhatsApp para pagar no Pix!`,
-        }),
-      );
+      printQrCardOnly();
     },
   }));
 
   return (
-    <div className="printable-qr-card mx-auto w-full max-w-[320px] rounded-[28px] border-4 border-black bg-white p-5 text-center text-black">
+    <div
+      id="qr-card-only"
+      className="printable-qr-card mx-auto w-full max-w-[320px] rounded-[28px] border-4 border-black bg-white p-5 text-center text-black"
+    >
       {storeName ? (
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black">
           {storeName}
         </p>
       ) : null}
-      <div className="mx-auto mt-2 flex justify-center">
+      <div className="qr-preview-only mx-auto mt-2 flex justify-center">
         <ProductThumb
           imageData={imageData}
           category={category ?? "Outros"}
