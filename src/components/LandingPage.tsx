@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { BillingToggle } from "@/components/BillingToggle";
+import { ProductShowcase } from "@/components/ProductShowcase";
 import { APP_NAME } from "@/lib/brand";
 import {
   planAnnualSaveHint,
@@ -329,6 +330,8 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+
+      <ProductShowcase features={FEATURES} />
 
       <section
         id="recursos"
