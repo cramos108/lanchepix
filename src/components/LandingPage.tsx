@@ -228,10 +228,15 @@ export function LandingPage() {
               <Smartphone className="h-4 w-4" />
               PDV no celular · Pix · MEI
             </p>
-            <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
-              O App do Microempreendedor
+            <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
+              Transforme seu Celular em uma Maquininha de Pix e Controle Total
+              de Vendas
             </h1>
-            <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-base font-semibold leading-relaxed text-white sm:text-lg md:justify-start md:text-xl">
+            <p className="mt-4 text-base font-semibold leading-relaxed text-white sm:text-lg">
+              O PDV simples e seguro feito para vendedores ambulantes, bancas de
+              feira e MEI. Sem mensalidade obrigatória, sem taxas por venda.
+            </p>
+            <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-extrabold text-white md:justify-start">
               <span>Controle de Estoque</span>
               <span aria-hidden className="text-[#FACC15]">
                 •
@@ -242,7 +247,7 @@ export function LandingPage() {
               </span>
               <span>Cobrança Fiado no Zap</span>
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-stretch">
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row md:items-stretch">
               <AppCta className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#FACC15] px-6 text-base font-black uppercase tracking-wide text-slate-950 sm:w-auto">
                 USE GRÁTIS NO CELULAR
               </AppCta>
