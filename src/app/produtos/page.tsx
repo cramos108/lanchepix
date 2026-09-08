@@ -29,7 +29,7 @@ import { stickerWhatsAppLink } from "@/lib/whatsapp";
 import { seedNiche } from "@/lib/seed";
 import { compressProductImage } from "@/lib/productImage";
 import { canEditCatalog, canEditPrices, isStaffDevice, resolveActivePixKey } from "@/lib/account";
-import { canImportCatalog, openUpgradeModal } from "@/lib/plan";
+import { canImportCatalog, isPro, openUpgradeModal } from "@/lib/plan";
 import { useChefeProfileOnce } from "@/lib/chefePix";
 import { useMasterSettings } from "@/components/MasterSettingsProvider";
 import { toast } from "@/lib/toast";
@@ -650,6 +650,17 @@ export default function ProdutosPage() {
                 suggested={sticker.priceMode === "suggested"}
                 imageData={sticker.imageData}
                 category={sticker.category}
+                premium={isPro(settings)}
+                logoUrl={settings?.logoUrl || chefe.logoUrl}
+                instagramHandle={
+                  settings?.instagramHandle || chefe.instagramHandle
+                }
+                customFooter={settings?.customQrFooter || chefe.customQrFooter}
+                onCustomize={() =>
+                  openUpgradeModal(
+                    "Personalize o adesivo QR com sua logo e Instagram no Pro.",
+                  )
+                }
               />
             ) : isStaffDevice(settings) ? (
               <p className="text-sm font-bold text-muted">

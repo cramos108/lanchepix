@@ -26,6 +26,9 @@ const emptyProfile = (): ChefeProfile => ({
   city: "",
   chavePix: readCachedChefePix(),
   merchantName: "",
+  logoUrl: "",
+  instagramHandle: "",
+  customQrFooter: "",
 });
 
 /**

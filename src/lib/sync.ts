@@ -131,6 +131,9 @@ type RemoteSettings = {
   currency?: string | null;
   language?: string | null;
   payment_link?: string | null;
+  logo_url?: string | null;
+  instagram_handle?: string | null;
+  custom_qr_footer?: string | null;
   updated_at: string;
 };
 
@@ -326,6 +329,9 @@ function toRemoteSettings(s: Settings): Record<string, unknown> {
     currency: s.currency || "BRL",
     language: s.language || "pt",
     payment_link: s.paymentLink || "",
+    logo_url: s.logoUrl || "",
+    instagram_handle: s.instagramHandle || "",
+    custom_qr_footer: s.customQrFooter || "",
     updated_at: s.updatedAt,
   };
 }
@@ -344,6 +350,18 @@ function billingFromRemote(remote: RemoteSettings, local: Settings): Partial<Set
     language: normalizeLang(remote.language || local.language),
     paymentLink: String(remote.payment_link ?? "").trim() || local.paymentLink || "",
     allowHelperEditPrices: remote.allow_helper_edit_prices === true,
+    logoUrl:
+      remote.logo_url != null
+        ? String(remote.logo_url).trim()
+        : local.logoUrl || "",
+    instagramHandle:
+      remote.instagram_handle != null
+        ? String(remote.instagram_handle).trim()
+        : local.instagramHandle || "",
+    customQrFooter:
+      remote.custom_qr_footer != null
+        ? String(remote.custom_qr_footer).trim()
+        : local.customQrFooter || "",
   };
 }
 
@@ -477,10 +495,20 @@ export async function pushAndPull(): Promise<void> {
       const full = toRemoteSettings(settings);
       let { error } = await supabase.from("settings").upsert(full);
       if (error && isSchemaCacheError(error)) {
+        const withoutBrand = { ...full };
+        delete withoutBrand.logo_url;
+        delete withoutBrand.instagram_handle;
+        delete withoutBrand.custom_qr_footer;
+        ({ error } = await supabase.from("settings").upsert(withoutBrand));
+      }
+      if (error && isSchemaCacheError(error)) {
         const core = { ...full };
         delete core.currency;
         delete core.language;
         delete core.payment_link;
+        delete core.logo_url;
+        delete core.instagram_handle;
+        delete core.custom_qr_footer;
         ({ error } = await supabase.from("settings").upsert(core));
       }
       if (error) throw error;
@@ -923,6 +951,9 @@ export type ChefeProfile = {
   city: string;
   chavePix: string;
   merchantName: string;
+  logoUrl: string;
+  instagramHandle: string;
+  customQrFooter: string;
 };
 
 const emptyChefeProfile = (): ChefeProfile => ({
@@ -930,6 +961,9 @@ const emptyChefeProfile = (): ChefeProfile => ({
   city: "",
   chavePix: "",
   merchantName: "",
+  logoUrl: "",
+  instagramHandle: "",
+  customQrFooter: "",
 });
 
 let chefeProfileOnce: Promise<ChefeProfile> | null = null;
@@ -942,7 +976,18 @@ function profileFromRow(row: Record<string, unknown>): ChefeProfile {
     String(row.city ?? row.merchant_city ?? "").trim() || "GAINESVILLE";
   const chavePix = String(row.chave_pix ?? row.pix_key ?? "").trim();
   const merchantName = String(row.merchant_name ?? storeName).trim();
-  return { storeName, city, chavePix, merchantName };
+  const logoUrl = String(row.logo_url ?? "").trim();
+  const instagramHandle = String(row.instagram_handle ?? "").trim();
+  const customQrFooter = String(row.custom_qr_footer ?? "").trim();
+  return {
+    storeName,
+    city,
+    chavePix,
+    merchantName,
+    logoUrl,
+    instagramHandle,
+    customQrFooter,
+  };
 }
 
 async function querySettingsByColumn(

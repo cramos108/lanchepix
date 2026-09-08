@@ -153,6 +153,12 @@ export type Settings = {
   merchantName: string;
   merchantCity: string;
   whatsapp: string;
+  /** Business logo as a data URL or remote URL (Pro/Negócio QR stickers). */
+  logoUrl?: string;
+  /** Instagram handle, e.g. @minhaloja */
+  instagramHandle?: string;
+  /** Custom CTA on printable QR stickers (Pro/Negócio). */
+  customQrFooter?: string;
   currency?: AppCurrency;
   language?: AppLanguage;
   paymentLink?: string;

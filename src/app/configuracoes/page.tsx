@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { QRCodeCanvas } from "qrcode.react";
-import { Cloud, Copy, Download, Lock, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AtSign, Camera, Cloud, Copy, Download, Lock, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { HelperSessionView } from "@/components/HelperSessionView";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { db, ensureSettings } from "@/lib/db";
@@ -28,6 +28,7 @@ import {
   getDevPlanOverride,
   getDevSimulateLimit,
   isNegocio,
+  isPro,
   openUpgradeModal,
   planLabel,
   simulateFreePlanLimit,
@@ -42,6 +43,8 @@ import { digitsOnly, maskWhatsAppContactInput } from "@/lib/phone";
 import { useT } from "@/lib/i18n";
 import type { AppCurrency, AppLanguage } from "@/lib/types";
 import { setPrefs } from "@/lib/prefs";
+import { compressLogoImage } from "@/lib/productImage";
+import { normalizeInstagramHandle } from "@/lib/qrBrand";
 import { deleteAccountAndAllData, saveSettings } from "@/lib/repo";
 import { seedDemoProducts } from "@/lib/seed";
 import { getSyncState, pushAndPull, subscribeSync } from "@/lib/sync";
@@ -175,6 +178,13 @@ function SettingsForm({
   onRestored: () => void;
 }) {
   const [storeName, setStoreName] = useState(settings.storeName);
+  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || "");
+  const [instagramHandle, setInstagramHandle] = useState(
+    settings.instagramHandle || "",
+  );
+  const [customQrFooter, setCustomQrFooter] = useState(
+    settings.customQrFooter || "",
+  );
   const [pixKey, setPixKey] = useState(settings.pixKey);
   const [merchantName, setMerchantName] = useState(settings.merchantName);
   const [merchantCity, setMerchantCity] = useState(settings.merchantCity);
@@ -245,6 +255,13 @@ function SettingsForm({
       attendantName: attendantName.trim(),
       hideStoreTotals: !allowHelperTotals,
       allowHelperEditPrices,
+      ...(isPro(settings)
+        ? {
+            logoUrl,
+            instagramHandle: normalizeInstagramHandle(instagramHandle),
+            customQrFooter: customQrFooter.trim().slice(0, 120),
+          }
+        : {}),
     });
     setPrefs({ currency, language });
     toast(t("settings.saved"));
@@ -327,6 +344,105 @@ function SettingsForm({
           placeholder="Banca da Maria"
         />
       </Field>
+      <section className="rounded-3xl border-2 border-line bg-surface p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">Marca no adesivo QR</h2>
+            <p className="mt-1 text-sm font-bold text-muted">
+              Logo, Instagram e texto do rodapé nos adesivos Pro e Negócio.
+            </p>
+          </div>
+          {isPro(settings) ? null : (
+            <Lock className="mt-1 h-5 w-5 shrink-0 text-sun" />
+          )}
+        </div>
+        {isPro(settings) ? (
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border-2 border-line bg-white">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-[10px] font-black uppercase text-black">
+                    Logo
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-sun bg-sun/10 px-3 text-xs font-extrabold uppercase text-sun">
+                  <Camera className="h-4 w-4" />
+                  Enviar logo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      void compressLogoImage(file)
+                        .then((data) => setLogoUrl(data))
+                        .catch(() => toast("Não deu para ler a logo.", "err"));
+                    }}
+                  />
+                </label>
+                {logoUrl ? (
+                  <button
+                    type="button"
+                    className="text-left text-sm font-bold text-alert underline"
+                    onClick={() => setLogoUrl("")}
+                  >
+                    Remover logo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <Field label="Instagram" hint="Ex: @minhaloja">
+              <div className="relative">
+                <AtSign className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+                <input
+                  className={`${inputClass} pl-12`}
+                  value={instagramHandle}
+                  onChange={(e) => setInstagramHandle(e.target.value)}
+                  onBlur={() =>
+                    setInstagramHandle(normalizeInstagramHandle(instagramHandle))
+                  }
+                  placeholder="@minhaloja"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </div>
+            </Field>
+            <Field
+              label="Texto do adesivo"
+              hint="Aparece embaixo do QR. Deixe vazio para o texto padrão."
+            >
+              <textarea
+                className={`${inputClass} min-h-24 py-3`}
+                maxLength={120}
+                value={customQrFooter}
+                onChange={(e) => setCustomQrFooter(e.target.value)}
+                placeholder="Siga no Instagram e pague no Pix!"
+              />
+            </Field>
+          </div>
+        ) : (
+          <Button
+            className="mt-4 w-full"
+            onClick={() =>
+              openUpgradeModal(
+                "Personalize o adesivo QR com sua logo e Instagram no Pro.",
+              )
+            }
+          >
+            Personalizar com minha marca/Instagram
+          </Button>
+        )}
+      </section>
       {canEditBilling(settings) ? (
       <>
       <Field

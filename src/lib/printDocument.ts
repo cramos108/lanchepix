@@ -182,6 +182,29 @@ export function buildQrPrintWorkspaceHtml(
   #qr-card-only .qr-preview-only {
     display: none !important;
   }
+  #qr-card-only img.qr-brand-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 8px;
+    background: #ffffff;
+  }
+  #qr-card-only .qr-store-premium {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: none;
+  }
+  #qr-card-only .qr-instagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 800;
+  }
   #qr-card-only img.printable-qr-img {
     width: 250px;
     height: 250px;
