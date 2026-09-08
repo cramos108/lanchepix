@@ -1,36 +1,86 @@
 "use client";
 
-import { QRCodeSVG } from "qrcode.react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { flushSync } from "react-dom";
+import { QRCodeCanvas } from "qrcode.react";
 import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
 import { formatMoney } from "@/lib/money";
 import { getCurrency } from "@/lib/prefs";
 
-export function ProductSticker({
-  name,
-  priceCents,
-  payload,
-  storeName,
-  suggested,
-  imageData,
-  category,
-}: {
-  name: string;
-  priceCents: number;
-  payload: string;
-  storeName?: string;
-  suggested?: boolean;
-  imageData?: string;
-  category?: string;
-}) {
+export type ProductStickerHandle = {
+  print: () => void;
+};
+
+export const ProductSticker = forwardRef<
+  ProductStickerHandle,
+  {
+    name: string;
+    priceCents: number;
+    payload: string;
+    storeName?: string;
+    suggested?: boolean;
+    imageData?: string;
+    category?: string;
+  }
+>(function ProductSticker(
+  { name, priceCents, payload, storeName, suggested, imageData, category },
+  ref,
+) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [imgSrc, setImgSrc] = useState("");
+
+  function rasterize(): string {
+    const canvas = canvasRef.current;
+    if (!canvas) return imgSrc;
+    try {
+      return canvas.toDataURL("image/png");
+    } catch {
+      return imgSrc;
+    }
+  }
+
+  useEffect(() => {
+    setImgSrc("");
+    const id = window.setTimeout(() => {
+      const src = rasterize();
+      if (src) setImgSrc(src);
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [payload]);
+
+  useImperativeHandle(ref, () => ({
+    print() {
+      const src = rasterize();
+      if (src) {
+        flushSync(() => setImgSrc(src));
+      }
+      const go = () => window.print();
+      if (src) {
+        const probe = new Image();
+        probe.onload = go;
+        probe.onerror = go;
+        probe.src = src;
+        return;
+      }
+      window.setTimeout(go, 80);
+    },
+  }));
+
   return (
-    <div className="label-sticker mx-auto w-full max-w-[320px] rounded-[28px] border-4 border-black bg-white p-5 text-center text-black">
+    <div className="printable-qr-card mx-auto w-full max-w-[320px] rounded-[28px] border-4 border-black bg-white p-5 text-center text-black">
       {storeName ? (
-        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-neutral-700">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black">
           {storeName}
         </p>
       ) : null}
-      <div className="mx-auto mt-2 flex justify-center">
+      <div className="print-hidden mx-auto mt-2 flex justify-center print:hidden">
         <ProductThumb
           imageData={imageData}
           category={category ?? "Outros"}
@@ -44,21 +94,38 @@ export function ProductSticker({
           Contribuição Sugerida: {formatMoney(priceCents, getCurrency())}
         </p>
       ) : (
-        <p className="mt-1 text-3xl font-black tabular-nums">{formatMoney(priceCents, getCurrency())}</p>
+        <p className="mt-1 text-3xl font-black tabular-nums">
+          {formatMoney(priceCents, getCurrency())}
+        </p>
       )}
-      <div className="mx-auto mt-4 flex justify-center rounded-2xl bg-white p-2">
-        <QRCodeSVG
+      <div className="mx-auto mt-4 flex justify-center bg-white p-2">
+        <QRCodeCanvas
+          ref={canvasRef}
           value={payload}
-          size={240}
+          size={250}
           bgColor="#ffffff"
           fgColor="#000000"
           level="H"
-          includeMargin={false}
+          includeMargin
+          className={
+            imgSrc ? "qr-print-source hidden" : "mx-auto block h-[250px] w-[250px]"
+          }
         />
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={`QR ${name}`}
+            width={250}
+            height={250}
+            className="printable-qr-img mx-auto block h-[250px] w-[250px]"
+          />
+        ) : null}
       </div>
       <p className="mt-4 text-sm font-extrabold leading-snug">
         {APP_NAME} • Escaneie e fale no WhatsApp para pagar no Pix!
       </p>
     </div>
   );
-}
+});
+
+ProductSticker.displayName = "ProductSticker";

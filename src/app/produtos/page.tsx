@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Camera, Pencil, Plus, Printer, Trash2, Upload } from "lucide-react";
 import { CatalogImportModal } from "@/components/CatalogImportModal";
-import { ProductSticker } from "@/components/ProductSticker";
+import {
+  ProductSticker,
+  type ProductStickerHandle,
+} from "@/components/ProductSticker";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Button, EmptyState, Field, Modal, inputClass } from "@/components/ui";
 import { NICHES, defaultNiche, nicheOfCategory, type CatalogTemplate } from "@/lib/catalog";
@@ -66,6 +69,7 @@ export default function ProdutosPage() {
   const [customCategory, setCustomCategory] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sticker, setSticker] = useState<Product | null>(null);
+  const stickerPrintRef = useRef<ProductStickerHandle>(null);
   const [needPixKey, setNeedPixKey] = useState(false);
   const [filter, setFilter] = useState("Todos");
   const [productError, setProductError] = useState<string | null>(null);
@@ -636,6 +640,7 @@ export default function ProdutosPage() {
           <div className="flex flex-col gap-4">
             {stickerPayload(sticker) ? (
               <ProductSticker
+                ref={stickerPrintRef}
                 name={sticker.name}
                 priceCents={sticker.priceCents}
                 payload={stickerPayload(sticker)}
@@ -661,13 +666,14 @@ export default function ProdutosPage() {
               </p>
             )}
             <Button
-              onClick={() => window.print()}
+              className="print-hidden"
+              onClick={() => stickerPrintRef.current?.print() ?? window.print()}
               disabled={!stickerPayload(sticker)}
             >
               <Printer className="h-5 w-5" />
               Imprimir / Salvar PDF
             </Button>
-            <p className="text-center text-xs font-bold text-muted">
+            <p className="print-hidden text-center text-xs font-bold text-muted">
               Na impressão, escolha Salvar como PDF se quiser o arquivo.
             </p>
           </div>
