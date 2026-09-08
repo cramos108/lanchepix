@@ -666,14 +666,13 @@ export default function ProdutosPage() {
               </p>
             )}
             <Button
-              className="print-hidden"
-              onClick={() => stickerPrintRef.current?.print() ?? window.print()}
+              onClick={() => stickerPrintRef.current?.print()}
               disabled={!stickerPayload(sticker)}
             >
               <Printer className="h-5 w-5" />
               Imprimir / Salvar PDF
             </Button>
-            <p className="print-hidden text-center text-xs font-bold text-muted">
+            <p className="text-center text-xs font-bold text-muted">
               Na impressão, escolha Salvar como PDF se quiser o arquivo.
             </p>
           </div>

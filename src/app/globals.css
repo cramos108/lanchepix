@@ -56,54 +56,11 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @media print {
-  html,
-  body {
-    background: #fff !important;
-    color: #000 !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
   .print-hidden {
     display: none !important;
   }
   .print-only {
     display: block !important;
-  }
-  main {
-    padding: 0 !important;
-  }
-  body * {
-    visibility: hidden;
-  }
-  .printable-qr-card,
-  .printable-qr-card * {
-    visibility: visible;
-  }
-  .printable-qr-card {
-    position: absolute;
-    left: 50%;
-    top: 10%;
-    transform: translateX(-50%);
-    width: 80%;
-    max-width: 400px;
-    background: #fff !important;
-    color: #000 !important;
-    border: 3px solid #000 !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-  }
-  .printable-qr-card canvas,
-  .printable-qr-card img {
-    width: 250px;
-    height: 250px;
-    display: block;
-    margin: 0 auto;
-  }
-  .printable-qr-card canvas.qr-print-source,
-  .printable-qr-card .print-hidden,
-  .printable-qr-card .print-hidden * {
-    display: none !important;
-    visibility: hidden !important;
   }
 }
 

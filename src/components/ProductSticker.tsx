@@ -13,6 +13,8 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
 import { formatMoney } from "@/lib/money";
 import { getCurrency } from "@/lib/prefs";
+import { buildQrPrintHtml, printHtmlDocument } from "@/lib/printDocument";
+import { toast } from "@/lib/toast";
 
 export type ProductStickerHandle = {
   print: () => void;
@@ -61,15 +63,22 @@ export const ProductSticker = forwardRef<
       if (src) {
         flushSync(() => setImgSrc(src));
       }
-      const go = () => window.print();
-      if (src) {
-        const probe = new Image();
-        probe.onload = go;
-        probe.onerror = go;
-        probe.src = src;
+      if (!src || !src.startsWith("data:image/")) {
+        toast("Não foi possível gerar o QR para impressão.", "err");
         return;
       }
-      window.setTimeout(go, 80);
+      const priceLabel = suggested
+        ? `Contribuição Sugerida: ${formatMoney(priceCents, getCurrency())}`
+        : formatMoney(priceCents, getCurrency());
+      printHtmlDocument(
+        buildQrPrintHtml({
+          qrDataUrl: src,
+          storeName,
+          productName: name,
+          priceLabel,
+          footer: `${APP_NAME} • Escaneie e fale no WhatsApp para pagar no Pix!`,
+        }),
+      );
     },
   }));
 
@@ -80,7 +89,7 @@ export const ProductSticker = forwardRef<
           {storeName}
         </p>
       ) : null}
-      <div className="print-hidden mx-auto mt-2 flex justify-center print:hidden">
+      <div className="mx-auto mt-2 flex justify-center">
         <ProductThumb
           imageData={imageData}
           category={category ?? "Outros"}
