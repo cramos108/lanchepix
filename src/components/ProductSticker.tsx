@@ -13,7 +13,7 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { APP_NAME } from "@/lib/brand";
 import { formatMoney } from "@/lib/money";
 import { getCurrency } from "@/lib/prefs";
-import { printQrCardOnly } from "@/lib/printDocument";
+import { exportQrCardPng } from "@/lib/printDocument";
 import { toast } from "@/lib/toast";
 
 export type ProductStickerHandle = {
@@ -59,15 +59,21 @@ export const ProductSticker = forwardRef<
 
   useImperativeHandle(ref, () => ({
     print() {
-      const src = rasterize();
-      if (src) {
-        flushSync(() => setImgSrc(src));
-      }
-      if (!src || !src.startsWith("data:image/")) {
-        toast("Não foi possível gerar o QR para impressão.", "err");
-        return;
-      }
-      printQrCardOnly();
+      void (async () => {
+        const src = rasterize();
+        if (src) {
+          flushSync(() => setImgSrc(src));
+        }
+        if (!src || !src.startsWith("data:image/")) {
+          toast("Não foi possível gerar o QR para impressão.", "err");
+          return;
+        }
+        try {
+          await exportQrCardPng(name);
+        } catch {
+          toast("Não foi possível gerar o adesivo QR.", "err");
+        }
+      })();
     },
   }));
 

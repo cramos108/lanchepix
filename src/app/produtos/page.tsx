@@ -673,7 +673,8 @@ export default function ProdutosPage() {
               Imprimir / Salvar PDF
             </Button>
             <p className="text-center text-xs font-bold text-muted">
-              Na impressão, escolha Salvar como PDF se quiser o arquivo.
+              No celular o adesivo é salvo como imagem PNG. No computador,
+              escolha Salvar como PDF.
             </p>
           </div>
         ) : null}
