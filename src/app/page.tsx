@@ -40,6 +40,7 @@ import { uniqueById, sellableCatalogProducts } from "@/lib/unique";
 import {
   FREE_LOYALTY_LIMIT,
   canAddFiadoThisMonth,
+  canAddLoyaltyCard,
   isPro,
   openUpgradeModal,
 } from "@/lib/plan";
@@ -99,6 +100,7 @@ export default function VenderPage() {
   const [lgpdOk, setLgpdOk] = useState(false);
   const [extraCents, setExtraCents] = useState(0);
   const [paidSale, setPaidSale] = useState<Sale | null>(null);
+  const [loyaltyCapSkipped, setLoyaltyCapSkipped] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -200,6 +202,7 @@ export default function VenderPage() {
     setCustomerName("");
     setLgpdOk(false);
     setExtraCents(0);
+    setLoyaltyCapSkipped(false);
   }
 
   async function confirmDraft(withWhatsApp: boolean) {
@@ -211,9 +214,14 @@ export default function VenderPage() {
     }
     setRegistering(true);
     let customer;
+    let skippedLoyalty = false;
     try {
       if (digits) {
-        customer = await upsertCustomer({ phone: digits, name: customerName });
+        if (await canAddLoyaltyCard(digits)) {
+          customer = await upsertCustomer({ phone: digits, name: customerName });
+        } else {
+          skippedLoyalty = true;
+        }
       }
       const sale = await createSale({
         product: draft.product,
@@ -235,6 +243,7 @@ export default function VenderPage() {
             sellerName: sale.attendantName || settings?.storeName || "Chefe",
           });
         }
+        setLoyaltyCapSkipped(skippedLoyalty);
         setPaidSale(sale);
         toast("Venda paga. Estoque baixado.");
         setDraft(null);
@@ -254,6 +263,7 @@ export default function VenderPage() {
           );
           window.open(url, "_blank");
         }
+        setLoyaltyCapSkipped(skippedLoyalty);
         setPaidSale(sale);
         setDraft(null);
         setPhone("");
@@ -265,6 +275,10 @@ export default function VenderPage() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("PLAN_LIMIT_LOYALTY")) {
+        setLoyaltyCapSkipped(true);
+        return;
+      }
       if (message.startsWith("PLAN_LIMIT_")) {
         openUpgradeModal();
         return;
@@ -566,10 +580,21 @@ export default function VenderPage() {
       <Modal
         open={Boolean(paidSale)}
         title={t("pay.title")}
-        onClose={() => setPaidSale(null)}
+        onClose={() => {
+          setPaidSale(null);
+          setLoyaltyCapSkipped(false);
+        }}
       >
         {paidSale && settings ? (
-          <CheckoutPay sale={paidSale} settings={settings} onClose={() => setPaidSale(null)} />
+          <CheckoutPay
+            sale={paidSale}
+            settings={settings}
+            loyaltyCapSkipped={loyaltyCapSkipped}
+            onClose={() => {
+              setPaidSale(null);
+              setLoyaltyCapSkipped(false);
+            }}
+          />
         ) : null}
       </Modal>
     </div>

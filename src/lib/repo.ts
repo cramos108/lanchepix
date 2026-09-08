@@ -481,6 +481,8 @@ export async function awardSaleLoyaltyStamp(
   const digits = digitsOnly(phone ?? "");
   if (digits.length < 8) return undefined;
   try {
+    const { canAddLoyaltyCard } = await import("./plan");
+    if (!(await canAddLoyaltyCard(digits))) return undefined;
     const customer = await upsertCustomer({ phone: digits, name });
     return addStamp(customer.id);
   } catch (err) {

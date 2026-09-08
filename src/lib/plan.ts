@@ -356,6 +356,15 @@ export function countFiadoThisMonth(sales: Sale[]): number {
   return countConfiancaSales(sales);
 }
 
+export async function countUniqueLoyaltyPhones(): Promise<number> {
+  const { digitsOnly } = await import("./phone");
+  const all = await db.customers.toArray();
+  const phones = new Set(
+    all.map((c) => digitsOnly(c.phone)).filter((phone) => phone.length >= 8),
+  );
+  return phones.size;
+}
+
 export async function canAddLoyaltyCard(phone: string): Promise<boolean> {
   if (getDevSimulateLimit()) return false;
   const settings = await ensureSettings();
@@ -363,8 +372,11 @@ export async function canAddLoyaltyCard(phone: string): Promise<boolean> {
   const { digitsOnly } = await import("./phone");
   const needle = digitsOnly(phone);
   const all = await db.customers.toArray();
-  if (all.some((c) => digitsOnly(c.phone) === needle)) return true;
-  return all.length < FREE_LOYALTY_LIMIT;
+  const phones = new Set(
+    all.map((c) => digitsOnly(c.phone)).filter((value) => value.length >= 8),
+  );
+  if (phones.has(needle)) return true;
+  return phones.size < FREE_LOYALTY_LIMIT;
 }
 
 /** Grátis: Pix Confiança ilimitado. */

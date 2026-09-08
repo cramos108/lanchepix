@@ -19,15 +19,18 @@ import { markSalePaid } from "@/lib/repo";
 import { refetchOwnerSettings } from "@/lib/sync";
 import { toast } from "@/lib/toast";
 import { openPaidSaleWhatsApp, orderReceiptMessage, waLink } from "@/lib/whatsapp";
+import { openUpgradeModal } from "@/lib/plan";
 import { isPaidStatus, type Sale, type Settings } from "@/lib/types";
 
 export function CheckoutPay({
   sale,
   settings: settingsProp,
+  loyaltyCapSkipped,
   onClose,
 }: {
   sale: Sale;
   settings: Settings;
+  loyaltyCapSkipped?: boolean;
   onClose: () => void;
 }) {
   const t = useT();
@@ -154,6 +157,20 @@ export function CheckoutPay({
 
   return (
     <div className="flex flex-col gap-4">
+      {loyaltyCapSkipped ? (
+        <button
+          type="button"
+          className="rounded-2xl border-2 border-amber bg-surface px-3 py-2 text-left text-sm font-bold leading-snug text-amber"
+          onClick={() =>
+            openUpgradeModal(
+              "Faça o upgrade para o Pro para fidelidade ilimitada.",
+            )
+          }
+        >
+          Limite do Plano Grátis: Este cliente não acumulou selos no Cartão
+          Fidelidade. Faça o upgrade para o Pro para fidelidade ilimitada!
+        </button>
+      ) : null}
       <p className="text-center text-lg font-bold">
         {sale.productName} × {sale.quantity}
         <span className="block text-3xl font-black text-sun">
