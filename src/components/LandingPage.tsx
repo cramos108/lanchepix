@@ -331,7 +331,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <ProductShowcase features={FEATURES} />
+      <ProductShowcase />
 
       <section
         id="recursos"

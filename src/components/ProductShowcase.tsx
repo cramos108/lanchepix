@@ -1,13 +1,15 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
 import {
   CreditCard,
   Handshake,
   Package,
+  Pencil,
+  Plus,
   QrCode,
   Star,
   Store,
+  Upload,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { APP_NAME } from "@/lib/brand";
@@ -72,7 +74,7 @@ function DeviceChrome({
   );
 }
 
-function MockNav({ active }: { active: "Vender" | "Cartão" }) {
+function MockNav({ active }: { active: "Vender" | "Cartão" | "Catálogo" }) {
   return (
     <div className="mt-auto grid grid-cols-5 border-t border-[#3d3d3d] bg-[#070707] px-0.5 pb-2 pt-1">
       {NAV.map((item) => {
@@ -151,40 +153,75 @@ function DashboardScreen() {
   );
 }
 
-function FeaturesTabletScreen({
-  features,
-}: {
-  features: ReadonlyArray<{ title: string; icon: LucideIcon }>;
-}) {
+const CATALOG_ITEMS = [
+  { emoji: "🥟", name: "Coxinha", category: "Salgados", price: "R$ 8,50", stock: 12 },
+  { emoji: "🥤", name: "Refrigerante", category: "Bebidas", price: "R$ 6,00", stock: 8 },
+  { emoji: "🥟", name: "Pastel", category: "Salgados", price: "R$ 10,00", stock: 5 },
+  { emoji: "🍮", name: "Bolo no Pote", category: "Doces", price: "R$ 9,00", stock: 3 },
+] as const;
+
+function CatalogScreen() {
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#0F172A] px-3 pt-6">
-      <p className="text-[11px] font-black leading-tight">
-        Tudo que a banca precisa, no bolso
-      </p>
-      <p className="mt-1 text-[8px] font-semibold leading-snug text-slate-300">
-        Do QR na hora até o relatório do MEI. Sem maquininha, sem taxa por venda.
-      </p>
-      <ul className="mt-2 flex flex-1 flex-col gap-1.5 overflow-hidden">
-        {features.slice(0, 4).map((f) => {
-          const Icon = f.icon;
-          return (
-            <li key={f.title} className="flex items-start gap-1.5">
-              <Icon className="mt-0.5 h-3 w-3 shrink-0 text-[#FACC15]" />
-              <span className="text-[8px] font-black leading-tight">{f.title}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="mt-1 flex flex-col items-center pb-2">
-        <img
-          src="/images/celio-founder-app.jpg"
-          alt=""
-          className="h-[92px] w-auto object-contain"
-        />
-        <p className="mt-1 text-center text-[7px] font-medium tracking-wide text-slate-400">
-          Celio Ramos • Criador do Pix da Confiança
+    <div className="flex h-full flex-col bg-[#070707] pt-5">
+      <div className="flex items-center justify-between px-3">
+        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#FACC15]">
+          {APP_NAME}
         </p>
+        <span className="rounded-full border border-[#3d3d3d] px-1.5 py-0.5 text-[7px] font-black uppercase">
+          Catálogo
+        </span>
       </div>
+      <div className="mt-2 grid grid-cols-2 gap-1 px-2">
+        <span className="inline-flex items-center justify-center gap-0.5 rounded-lg bg-[#FACC15] py-1.5 text-[6px] font-black uppercase text-[#111]">
+          <Plus className="h-2.5 w-2.5" />
+          Novo produto
+        </span>
+        <span className="inline-flex items-center justify-center gap-0.5 rounded-lg border border-[#3d3d3d] bg-[#141414] py-1.5 text-[6px] font-black uppercase">
+          <Upload className="h-2.5 w-2.5" />
+          Importar
+        </span>
+      </div>
+      <div className="mt-2 flex gap-1 overflow-hidden px-2">
+        {["Todos", "Salgados", "Bebidas", "Doces"].map((chip, i) => (
+          <span
+            key={chip}
+            className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[6px] font-extrabold ${
+              i === 0
+                ? "border-[#FACC15] bg-[#FACC15] text-[#111]"
+                : "border-[#3d3d3d] bg-[#141414] text-white"
+            }`}
+          >
+            {chip}
+          </span>
+        ))}
+      </div>
+      <div className="mt-2 grid flex-1 grid-cols-2 content-start gap-1.5 overflow-hidden px-2">
+        {CATALOG_ITEMS.map((item) => (
+          <div
+            key={item.name}
+            className="flex flex-col rounded-xl border border-[#3d3d3d] bg-[#141414] p-1.5"
+          >
+            <div className="grid h-9 place-items-center rounded-lg border border-[#3d3d3d] bg-[#222] text-base">
+              {item.emoji}
+            </div>
+            <p className="mt-1 text-[8px] font-black leading-tight">{item.name}</p>
+            <p className="text-[6px] font-bold text-[#d0d0d0]">{item.category}</p>
+            <p className="text-[9px] font-black text-[#FACC15]">{item.price}</p>
+            <p
+              className={`text-[6px] font-extrabold ${
+                item.stock <= 3 ? "text-[#ffb300]" : "text-[#d0d0d0]"
+              }`}
+            >
+              Estoque: {item.stock}
+            </p>
+            <span className="mt-1 inline-flex items-center justify-center gap-0.5 rounded-md border border-[#3d3d3d] py-0.5 text-[6px] font-black uppercase">
+              <Pencil className="h-2 w-2" />
+              Editar
+            </span>
+          </div>
+        ))}
+      </div>
+      <MockNav active="Catálogo" />
     </div>
   );
 }
@@ -245,11 +282,7 @@ function LoyaltyScreen() {
   );
 }
 
-export function ProductShowcase({
-  features,
-}: {
-  features: ReadonlyArray<{ title: string; icon: LucideIcon }>;
-}) {
+export function ProductShowcase() {
   return (
     <section
       id="como-funciona"
@@ -271,8 +304,8 @@ export function ProductShowcase({
 
         <div className="no-scrollbar mt-10 flex snap-x snap-mandatory items-end gap-6 overflow-x-auto pb-4 md:relative md:h-[560px] md:overflow-visible md:justify-center">
           <div className="snap-center md:absolute md:left-[4%] md:top-8 md:-rotate-6 md:scale-[0.92]">
-            <DeviceChrome kind="ipad" label="iPad · Recursos">
-              <FeaturesTabletScreen features={features} />
+            <DeviceChrome kind="ipad" label="iPad · Catálogo de Produtos">
+              <CatalogScreen />
             </DeviceChrome>
           </div>
           <div className="snap-center md:relative md:z-20 md:-translate-y-3">
