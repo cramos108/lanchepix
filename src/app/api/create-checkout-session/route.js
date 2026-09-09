@@ -25,11 +25,23 @@ function intervalKey(value) {
   return value === "year" ? "year" : "month";
 }
 
+function planAmountCents(plan, interval) {
+  if (interval === "year") return plan === "negocio" ? 24900 : 9900;
+  return plan === "negocio" ? 2490 : 990;
+}
+
+function parseBrTaxId(raw) {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.length === 11) return { type: "br_cpf", value: digits };
+  if (digits.length === 14) return { type: "br_cnpj", value: digits };
+  return null;
+}
+
 function lineItems(plan, interval) {
   if (interval === "year") {
     const priced = plan === "negocio" ? PRICE_IDS.negocio_year : PRICE_IDS.pro_year;
     if (priced) return [{ price: priced, quantity: 1 }];
-    const amount = plan === "negocio" ? 24900 : 9900;
+    const amount = planAmountCents(plan, interval);
     const name =
       plan === "negocio"
         ? "Pix da Confiança NEGÓCIO Anual"
@@ -70,24 +82,57 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const plan = planKey(typeof body.plan === "string" ? body.plan : "pro");
     const interval = intervalKey(body.interval);
+    const vendorId =
+      typeof body.vendorId === "string" ? body.vendorId.trim() : "";
     const customerEmail =
       typeof body.customerEmail === "string" && body.customerEmail.includes("@")
         ? body.customerEmail.trim()
         : undefined;
+    const taxId = parseBrTaxId(body.taxId);
+    if (!taxId) {
+      return Response.json(
+        { error: "Informe um CPF ou CNPJ válido para pagar com Pix." },
+        { status: 400 },
+      );
+    }
 
     const stripe = new Stripe(secret);
+    const amount = planAmountCents(plan, interval);
+    const metadata = {
+      vendor_id: vendorId,
+      plan: plan === "negocio" ? "equipe" : "pro",
+      interval,
+    };
+
     const customer = await stripe.customers.create({
       ...(customerEmail ? { email: customerEmail } : {}),
       address: { country: "BR" },
+      metadata,
+      tax_id_data: [taxId],
     });
 
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded_page",
       mode: "subscription",
       locale: "pt-BR",
-      billing_address_collection: "auto",
+      currency: "brl",
+      billing_address_collection: "required",
       customer: customer.id,
+      client_reference_id: vendorId || undefined,
       line_items: lineItems(plan, interval),
+      payment_method_types: ["card", "pix"],
+      payment_method_options: {
+        pix: {
+          expires_after_seconds: 86400,
+          mandate_options: {
+            amount,
+            payment_schedule: interval === "year" ? "yearly" : "monthly",
+          },
+        },
+      },
+      tax_id_collection: { enabled: true },
+      metadata,
+      subscription_data: { metadata },
       return_url: returnUrl(request),
     });
 

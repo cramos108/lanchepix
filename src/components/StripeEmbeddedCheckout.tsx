@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
-import { Button } from "@/components/ui";
+import { Button, Field, inputClass } from "@/components/ui";
+import { db } from "@/lib/db";
 import {
   PLANS,
   STRIPE_PUBLISHABLE_KEY,
@@ -10,8 +12,14 @@ import {
   type BillingInterval,
   type PaidPlan,
 } from "@/lib/plan";
+import { digitsOnly } from "@/lib/phone";
 import { activatePlan } from "@/lib/repo";
 import { toast } from "@/lib/toast";
+
+function isValidBrTaxId(value: string): boolean {
+  const digits = digitsOnly(value);
+  return digits.length === 11 || digits.length === 14;
+}
 
 function errorLabel(message: string): string {
   const text = message.trim() || "Transação não concluída, tente novamente";
@@ -34,7 +42,10 @@ export function StripeEmbeddedCheckout({
   const priceLabel = planPriceLabel(planId === "equipe" ? "equipe" : "pro", interval);
   const checkoutRef = useRef<StripeEmbeddedCheckout | null>(null);
   const onDoneRef = useRef(onDone);
-  const [loading, setLoading] = useState(true);
+  const settings = useLiveQuery(() => db.settings.get("app"), []);
+  const [taxId, setTaxId] = useState("");
+  const [started, setStarted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
 
@@ -58,6 +69,7 @@ export function StripeEmbeddedCheckout({
   }, []);
 
   useEffect(() => {
+    if (!started) return;
     let cancelled = false;
 
     async function start() {
@@ -69,7 +81,12 @@ export function StripeEmbeddedCheckout({
         const response = await fetch("/api/create-checkout-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: publicPlan, interval }),
+          body: JSON.stringify({
+            plan: publicPlan,
+            interval,
+            vendorId: settings?.vendorId || "",
+            taxId: digitsOnly(taxId),
+          }),
         });
         const data = (await response.json().catch(() => ({}))) as {
           clientSecret?: string;
@@ -131,7 +148,7 @@ export function StripeEmbeddedCheckout({
       cancelled = true;
       destroyCheckout();
     };
-  }, [destroyCheckout, interval, planId, publicPlan, retry]);
+  }, [destroyCheckout, interval, planId, publicPlan, retry, settings?.vendorId, started, taxId]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -141,6 +158,35 @@ export function StripeEmbeddedCheckout({
           {priceLabel} · Pix ou cartão, sem sair do app
         </span>
       </p>
+
+      {!started ? (
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!isValidBrTaxId(taxId)) {
+              toast("Informe um CPF ou CNPJ válido.", "err");
+              return;
+            }
+            setStarted(true);
+          }}
+        >
+          <Field
+            label="CPF ou CNPJ"
+            hint="Obrigatório para Pix. No teste, use 000.000.000-00."
+          >
+            <input
+              className={inputClass}
+              inputMode="numeric"
+              autoComplete="off"
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              placeholder="000.000.000-00"
+            />
+          </Field>
+          <Button type="submit">Continuar para Pix ou cartão</Button>
+        </form>
+      ) : null}
 
       {error ? (
         <p className="rounded-2xl border-2 border-alert bg-alert/15 px-3 py-3 text-center text-sm font-extrabold text-alert">
@@ -157,7 +203,7 @@ export function StripeEmbeddedCheckout({
       <div
         id="checkout-container"
         className={`overflow-hidden rounded-2xl bg-white ${
-          error ? "hidden" : "min-h-[280px]"
+          error || !started ? "hidden" : "min-h-[280px]"
         }`}
       />
 
