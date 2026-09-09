@@ -118,6 +118,10 @@ export async function POST(request) {
       currency: "brl",
       billing_address_collection: "required",
       customer: customer.id,
+      customer_update: {
+        name: "auto",
+        address: "auto",
+      },
       client_reference_id: vendorId || undefined,
       line_items: lineItems(plan, interval),
       payment_method_types: ["card", "pix"],
